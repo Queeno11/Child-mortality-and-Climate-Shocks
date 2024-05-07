@@ -80,15 +80,16 @@ use "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.dta", clear
 
 gen time = chb_year - 1989
 gen time_sq = time*time
-
-global historic_means = "_m"
+gen
+global historic_means = "_12"
 global precipitation = "prec${historic_means}"
 global controls = "child_fem child_mulbirth birth_order mother_ageb* mother_eduy* rural weatlh_ind"
 
 *** MODEL 1 - all childs
 global prec_previous= "${precipitation}_q1 ${precipitation}_q2 ${precipitation}_q3"
-
-reghdfejl child_agedeath_30d  ${prec_previous} ${precipitation}_30d $controls, absorb(year_ID_cell_* month_ID_cell_*) vce(cluster ID_cell_*) gpu
+keep in 1/10000
+set processors 2
+reghdfejl child_agedeath_30d prec_6_q1, absorb(ID_cell)
 outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label replace addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
 reghdfejl child_agedeath_30d  ${prec_previous} ${precipitation}_30d $controls, absorb(year_ID_cell2_* month_ID_cell2_*) vce(cluster ID_cell2_*) gpu

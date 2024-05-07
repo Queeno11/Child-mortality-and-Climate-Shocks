@@ -22,115 +22,86 @@ drop _merge
 
 
 local historic_means = "_m"
-foreach threshold in 2.0 2.5 3.0 3.5 4.0 4.5 {
-	local threshold_str = subinstr("`threshold'",".","_",.)
-	if "`historic_means'"=="_m"{
-		local m_text = " month"
-	}
-	else {
-		local m_text = ""
+foreach months in "" "_3" "_6" "_12" {
+	foreach threshold in 2.0 2.5 3.0 3.5 4.0 4.5 {
+		local threshold_str = subinstr("`threshold'",".","_",.)
+		if ""=="_m"{
+			local m_text = " month"
+		}
+		else {
+			local m_text = ""
+		}
+
+		*############################################################*
+		*# 	 Crate dummy variables
+		*############################################################*
+		
+		
+		* Drought
+		count if prec`months'_inutero_q1<-`threshold'
+		if r(n)<2000 {
+			continue
+		}
+		gen drought`months'_`threshold_str'_q1 		 = (prec`months'_inutero_q1<-`threshold')
+		gen drought`months'_`threshold_str'_q2 	 	 = (prec`months'_inutero_q2<-`threshold')
+		gen drought`months'_`threshold_str'_q3 	 	 = (prec`months'_inutero_q3<-`threshold')
+		gen drought`months'_`threshold_str'_30d 	 = (prec`months'_born_1m<-`threshold')
+		gen drought`months'_`threshold_str'_30d3m	 = (prec`months'_born_2to3m<-`threshold')
+		gen drought`months'_`threshold_str'_3m6m	 = (prec`months'_born_3to6m<-`threshold')
+		gen drought`months'_`threshold_str'_6m12m	 = (prec`months'_born_6to12m<-`threshold')
+		
+		label var drought`months'_`threshold_str'_q1 "Affected by Drought 1stQ in Utero (rain <`threshold'std`m_text')"
+		label var drought`months'_`threshold_str'_q2 "Affected by Drought 2ndQ in Utero (rain <`threshold'std`m_text')"
+		label var drought`months'_`threshold_str'_q3 "Affected by Drought 3rdQ in Utero (rain <`threshold'std`m_text')"
+		label var drought`months'_`threshold_str'_30d "Affected by Drought 0-30 days (rain <`threshold'std`m_text')"
+		label var drought`months'_`threshold_str'_30d3m "Affected by Drought 1-3 months (rain <`threshold'std`m_text')"		
+		label var drought`months'_`threshold_str'_3m6m "Affected by Drought 3-6 months (rain <`threshold'std`m_text')"
+		label var drought`months'_`threshold_str'_6m12m "Affected by Drought 6-12 months (rain <`threshold'std`m_text')"	
+		
+		
+		* Excessive Rain
+		count if prec`months'_inutero_q1>`threshold'
+		if r(n)<2000 {
+			continue
+		}
+		gen excessiverain`months'_`threshold_str'_q1 	 = (prec`months'_inutero_q1>`threshold')
+		gen excessiverain`months'_`threshold_str'_q2 	 = (prec`months'_inutero_q2>`threshold')
+		gen excessiverain`months'_`threshold_str'_q3 	 = (prec`months'_inutero_q3>`threshold')
+		gen excessiverain`months'_`threshold_str'_30d 	 = (prec`months'_born_1m>`threshold')
+		gen excessiverain`months'_`threshold_str'_30d3m	 = (prec`months'_born_2to3m>`threshold')
+		gen excessiverain`months'_`threshold_str'_3m6m	 = (prec`months'_born_3to6m>`threshold')
+		gen excessiverain`months'_`threshold_str'_6m12m	 = (prec`months'_born_6to12m>`threshold')
+
+		label var excessiverain`months'_`threshold_str'_q1 "Affected by Ex. Rain 1stQ in Utero (rain >`threshold'std`m_text')"
+		label var excessiverain`months'_`threshold_str'_q2 "Affected by Ex. Rain 2ndQ in Utero (rain >`threshold'std`m_text')"
+		label var excessiverain`months'_`threshold_str'_q3 "Affected by Ex. Rain 3rdQ in Utero (rain >`threshold'std`m_text')"
+		label var excessiverain`months'_`threshold_str'_30d "Affected by Ex. Rain 0-30 days (rain >`threshold'std`m_text')"
+		label var excessiverain`months'_`threshold_str'_30d3m "Affected by Ex. Rain 1-3 months (rain >`threshold'std`m_text')"		
+		label var excessiverain`months'_`threshold_str'_3m6m "Affected by Ex. Rain 3-6 months (rain >`threshold'std`m_text')"
+		label var excessiverain`months'_`threshold_str'_6m12m "Affected by Ex. Rain 6-12 months (rain >`threshold'std`m_text')"		
+		
 	}
 
-	*############################################################*
-	*# 	 Crate dummy variables
-	*############################################################*
-	
-	
-	* Drought
-	count if prec_inutero_q1`historic_means'_min<-`threshold'
-	if r(n)<2000 {
-	    continue
-	}
-	gen drought`historic_means'_`threshold_str'_q1 	 = (prec_inutero_q1`historic_means'_min<-`threshold')
-	gen drought`historic_means'_`threshold_str'_q2 	 = (prec_inutero_q2`historic_means'_min<-`threshold')
-	gen drought`historic_means'_`threshold_str'_q3 	 = (prec_inutero_q3`historic_means'_min<-`threshold')
-	gen drought`historic_means'_`threshold_str'_30d 	 = (prec_born_1m`historic_means'_min<-`threshold')
-	gen drought`historic_means'_`threshold_str'_30d3m	 = (prec_born_2to3m`historic_means'_min<-`threshold')
-	gen drought`historic_means'_`threshold_str'_3m6m	 = (prec_born_3to6m`historic_means'_min<-`threshold')
-	gen drought`historic_means'_`threshold_str'_6m12m	 = (prec_born_6to9m`historic_means'_min<-`threshold') | (prec_born_9to12m_min<-`threshold')
-	
-	label var drought`historic_means'_`threshold_str'_q1 "Affected by Drought 1stQ in Utero (rain <`threshold'std`m_text')"
-	label var drought`historic_means'_`threshold_str'_q2 "Affected by Drought 2ndQ in Utero (rain <`threshold'std`m_text')"
-	label var drought`historic_means'_`threshold_str'_q3 "Affected by Drought 3rdQ in Utero (rain <`threshold'std`m_text')"
-	label var drought`historic_means'_`threshold_str'_30d "Affected by Drought 0-30 days (rain <`threshold'std`m_text')"
-	label var drought`historic_means'_`threshold_str'_30d3m "Affected by Drought 1-3 months (rain <`threshold'std`m_text')"		
-	label var drought`historic_means'_`threshold_str'_3m6m "Affected by Drought 3-6 months (rain <`threshold'std`m_text')"
-	label var drought`historic_means'_`threshold_str'_6m12m "Affected by Drought 6-12 months (rain <`threshold'std`m_text')"	
-	
-	
-	* Excessive Rain
-	count if prec_inutero_q1`historic_means'_max>`threshold'
-	if r(n)<2000 {
-	    continue
-	}
-	gen excessiverain`historic_means'_`threshold_str'_q1 	 = (prec_inutero_q1`historic_means'_max>`threshold')
-	gen excessiverain`historic_means'_`threshold_str'_q2 	 = (prec_inutero_q2`historic_means'_max>`threshold')
-	gen excessiverain`historic_means'_`threshold_str'_q3 	 = (prec_inutero_q3`historic_means'_max>`threshold')
-	gen excessiverain`historic_means'_`threshold_str'_30d 	 = (prec_born_1m`historic_means'_max>`threshold')
-	gen excessiverain`historic_means'_`threshold_str'_30d3m	 = (prec_born_2to3m`historic_means'_max>`threshold')
-	gen excessiverain`historic_means'_`threshold_str'_3m6m	 = (prec_born_3to6m`historic_means'_max>`threshold')
-	gen excessiverain`historic_means'_`threshold_str'_6m12m	 = (prec_born_6to9m`historic_means'_max>`threshold') | (prec_born_9to12m_max>`threshold')
+rename prec`months'_inutero_q1    prec`months'_q1 	
+rename prec`months'_inutero_q2    prec`months'_q2 	
+rename prec`months'_inutero_q3    prec`months'_q3 	
+rename prec`months'_born_1m       prec`months'_30d 	
+rename prec`months'_born_2to3m    prec`months'_30d3m
+rename prec`months'_born_3to6m    prec`months'_3m6m 
+rename prec`months'_born_6to12m   prec`months'_6m12m
 
-	label var excessiverain`historic_means'_`threshold_str'_q1 "Affected by Ex. Rain 1stQ in Utero (rain >`threshold'std`m_text')"
-	label var excessiverain`historic_means'_`threshold_str'_q2 "Affected by Ex. Rain 2ndQ in Utero (rain >`threshold'std`m_text')"
-	label var excessiverain`historic_means'_`threshold_str'_q3 "Affected by Ex. Rain 3rdQ in Utero (rain >`threshold'std`m_text')"
-	label var excessiverain`historic_means'_`threshold_str'_30d "Affected by Ex. Rain 0-30 days (rain >`threshold'std`m_text')"
-	label var excessiverain`historic_means'_`threshold_str'_30d3m "Affected by Ex. Rain 1-3 months (rain >`threshold'std`m_text')"		
-	label var excessiverain`historic_means'_`threshold_str'_3m6m "Affected by Ex. Rain 3-6 months (rain >`threshold'std`m_text')"
-	label var excessiverain`historic_means'_`threshold_str'_6m12m "Affected by Ex. Rain 6-12 months (rain >`threshold'std`m_text')"		
-	
+
+label var prec`months'_q1 	 "Standarized Precipitation 1stQ in Utero"
+label var prec`months'_q2 	 "Standarized Precipitation 2ndQ in Utero"
+label var prec`months'_q3 	 "Standarized Precipitation 3rdQ in Utero"
+label var prec`months'_30d 	 "Standarized Precipitation 0-30 days "
+label var prec`months'_30d3m "Standarized Precipitation 1-3 months"		
+label var prec`months'_3m6m  "Standarized Precipitation 3-6 months"
+label var prec`months'_6m12m "Standarized Precipitation 6-12 months"		
+
 }
 
-* Rain
-gen prec`historic_means'_q1 	 = (prec_inutero_q1`historic_means'_min)
-gen prec`historic_means'_q2 	 = (prec_inutero_q2`historic_means'_min)
-gen prec`historic_means'_q3 	 = (prec_inutero_q3`historic_means'_min)
-gen prec`historic_means'_30d 	 = (prec_born_1m`historic_means'_min)
-gen prec`historic_means'_30d3m	 = (prec_born_2to3m`historic_means'_min)
-gen prec`historic_means'_3m6m	 = (prec_born_3to6m`historic_means'_min)
-gen prec`historic_means'_6m12m	 = min(prec_born_6to9m`historic_means'_min, prec_born_9to12m_min)
-
-gen prec`historic_means'_neg_q1 	 =  prec`historic_means'_q1 	if prec`historic_means'_q1 		<0
-gen prec`historic_means'_neg_q2 	 =  prec`historic_means'_q2 	if prec`historic_means'_q2 		<0
-gen prec`historic_means'_neg_q3 	 =  prec`historic_means'_q3 	if prec`historic_means'_q3 		<0
-gen prec`historic_means'_neg_30d 	 =  prec`historic_means'_30d 	if prec`historic_means'_30d 	<0
-gen prec`historic_means'_neg_30d3m	 =  prec`historic_means'_30d3m	if prec`historic_means'_30d3m	<0
-gen prec`historic_means'_neg_3m6m	 =  prec`historic_means'_3m6m	if prec`historic_means'_3m6m	<0
-gen prec`historic_means'_neg_6m12m	 =  prec`historic_means'_6m12m	if prec`historic_means'_6m12m	<0
-
-gen prec`historic_means'_pos_q1 	 =  prec`historic_means'_q1 	if prec`historic_means'_q1 		>0
-gen prec`historic_means'_pos_q2 	 =  prec`historic_means'_q2 	if prec`historic_means'_q2 		>0
-gen prec`historic_means'_pos_q3 	 =  prec`historic_means'_q3 	if prec`historic_means'_q3 		>0
-gen prec`historic_means'_pos_30d 	 =  prec`historic_means'_30d 	if prec`historic_means'_30d 	>0
-gen prec`historic_means'_pos_30d3m	 =  prec`historic_means'_30d3m	if prec`historic_means'_30d3m	>0
-gen prec`historic_means'_pos_3m6m	 =  prec`historic_means'_3m6m	if prec`historic_means'_3m6m	>0
-gen prec`historic_means'_pos_6m12m	 =  prec`historic_means'_6m12m	if prec`historic_means'_6m12m	>0
-
-label var prec`historic_means'_q1 	 "Standarized Precipitation 1stQ in Utero (min)"
-label var prec`historic_means'_q2 	 "Standarized Precipitation 2ndQ in Utero (min)"
-label var prec`historic_means'_q3 	 "Standarized Precipitation 3rdQ in Utero (min)"
-label var prec`historic_means'_30d 	 "Standarized Precipitation 0-30 days (min)"
-label var prec`historic_means'_30d3m "Standarized Precipitation 1-3 months (min)"		
-label var prec`historic_means'_3m6m  "Standarized Precipitation 3-6 months (min)"
-label var prec`historic_means'_6m12m "Standarized Precipitation 6-12 months (min)"		
-
-label var prec`historic_means'_neg_q1 	 "Standarized Precipitation 1stQ in Utero (min<0)"
-label var prec`historic_means'_neg_q2 	 "Standarized Precipitation 2ndQ in Utero (min<0)"
-label var prec`historic_means'_neg_q3 	 "Standarized Precipitation 3rdQ in Utero (min<0)"
-label var prec`historic_means'_neg_30d 	 "Standarized Precipitation 0-30 days (min<0)"
-label var prec`historic_means'_neg_30d3m "Standarized Precipitation 1-3 months (min<0)"		
-label var prec`historic_means'_neg_3m6m  "Standarized Precipitation 3-6 months (min<0)"
-label var prec`historic_means'_neg_6m12m "Standarized Precipitation 6-12 months (min<0)"	
-
-label var prec`historic_means'_pos_q1 	 "Standarized Precipitation 1stQ in Utero (min>0)"
-label var prec`historic_means'_pos_q2 	 "Standarized Precipitation 2ndQ in Utero (min>0)"
-label var prec`historic_means'_pos_q3 	 "Standarized Precipitation 3rdQ in Utero (min>0)"
-label var prec`historic_means'_pos_30d 	 "Standarized Precipitation 0-30 days (min>0)"
-label var prec`historic_means'_pos_30d3m "Standarized Precipitation 1-3 months (min>0)"		
-label var prec`historic_means'_pos_3m6m  "Standarized Precipitation 3-6 months (min>0)"
-label var prec`historic_means'_pos_6m12m "Standarized Precipitation 6-12 months (min>0)"	
-
-drop prec_inutero* prec_born* index
+drop index
 
 *############################################################*
 *# 	 Create control variables for the regressions
@@ -182,15 +153,15 @@ by ID_R: gen birth_order = _n
 *############################################################*
 *# 	 Create fixed effects variables
 *############################################################*
-
-foreach cell_id in ID_cell ID_cell2 ID_cell3 ID_cell4 {
-	levelsof `cell_id', local(celdas)
-	foreach celda in `celdas' {
-		gen `cell_id'_`celda' = 0
-		replace `cell_id'_`celda' = 1 if `cell_id'==`celda'
-	}
-	tab `var', gen(`var'_)
-	break
-}
+//
+// foreach cell_id in ID_cell ID_cell2 ID_cell3 ID_cell4 {
+// 	levelsof `cell_id', local(celdas)
+// 	foreach celda in `celdas' {
+// 		gen `cell_id'_`celda' = 0
+// 		replace `cell_id'_`celda' = 1 if `cell_id'==`celda'
+// 	}
+// 	tab `var', gen(`var'_)
+// 	break
+// }
 
 save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.dta", replace

@@ -51,11 +51,11 @@ set maxvar 120000
 // restore
 //
 // preserve
-// collapse (count) ID, by(chb_month ID_cell_3)
+// collapse (count) ID, by(chb_month ID_cell3)
 // h reshape
-// reshape wide ID, i(ID_cell_3) j(chb_month)
+// reshape wide ID, i(ID_cell3) j(chb_month)
 // rename ID* month*
-// rename month_cell ID_cell_3
+// rename month_cell ID_cell3
 // export excel using "$OUTPUTS/obs_by_cell_3_and_month.xls", firstrow(variables) replace
 // restore
 //
@@ -81,41 +81,41 @@ use "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.dta", clear
 gen time = chb_year - 1989
 gen time_sq = time*time
 
-global historic_means = "_m"
+global historic_means = "_6"
 global precipitation = "prec${historic_means}"
 global controls = "child_fem child_mulbirth birth_order mother_ageb* mother_eduy* rural"
 
 *** MODEL 1 - all childs
 global prec_previous= "${precipitation}_q1 ${precipitation}_q2 ${precipitation}_q3"
 
-reghdfejl child_agedeath_30d  ${prec_previous} ${precipitation}_30d $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label replace addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+// reghdfe child_agedeath_30d  ${prec_previous} ${precipitation}_30d $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label replace addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
-reghdfe child_agedeath_30d  ${prec_previous} ${precipitation}_30d $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_30d  ${prec_previous} ${precipitation}_30d $controls, absorb(c.time#i.ID_cell_3 i.chb_month#i.ID_cell_3) vce(cluster i.ID_cell_3)
+// reghdfe child_agedeath_30d  ${prec_previous} ${precipitation}_30d $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+reghdfe child_agedeath_30d  ${prec_previous} ${precipitation}_30d $controls, absorb(c.time#i.ID_cell3 i.chb_month#i.ID_cell3) vce(cluster i.ID_cell3)
 outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 2deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
-reghdfe child_agedeath_30d  ${prec_previous} ${precipitation}_30d $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+// reghdfe child_agedeath_30d  ${prec_previous} ${precipitation}_30d $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
 
 *** MODEL 2 - all childs that survived 30days
 drop if child_agedeath_30d==1
 global prec_previous = "${prec_previous} ${precipitation}_30d"
 
-reghdfe child_agedeath_30d3m ${prec_previous} ${precipitation}_30d3m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+// reghdfe child_agedeath_30d3m ${prec_previous} ${precipitation}_30d3m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
-reghdfe child_agedeath_30d3m ${prec_previous} ${precipitation}_30d3m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_30d3m ${prec_previous} ${precipitation}_30d3m $controls, absorb(c.time#i.ID_cell_3 i.chb_month#i.ID_cell_3) vce(cluster i.ID_cell_3)
+// reghdfe child_agedeath_30d3m ${prec_previous} ${precipitation}_30d3m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+reghdfe child_agedeath_30d3m ${prec_previous} ${precipitation}_30d3m $controls, absorb(c.time#i.ID_cell3 i.chb_month#i.ID_cell3) vce(cluster i.ID_cell3)
 outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 2deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_30d3m ${prec_previous} ${precipitation}_30d3m $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+// reghdfe child_agedeath_30d3m ${prec_previous} ${precipitation}_30d3m $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
 
 
@@ -124,17 +124,17 @@ outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex exc
 drop if child_agedeath_30d3m==1
 global prec_previous = "${prec_previous} ${precipitation}_30d3m"
 
-reghdfe child_agedeath_3m6m ${prec_previous} ${precipitation}_3m6m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+// reghdfe child_agedeath_3m6m ${prec_previous} ${precipitation}_3m6m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
-reghdfe child_agedeath_3m6m ${prec_previous} ${precipitation}_3m6m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_3m6m ${prec_previous} ${precipitation}_3m6m $controls, absorb(c.time#i.ID_cell_3 i.chb_month#i.ID_cell_3) vce(cluster i.ID_cell_3)
+// reghdfe child_agedeath_3m6m ${prec_previous} ${precipitation}_3m6m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+reghdfe child_agedeath_3m6m ${prec_previous} ${precipitation}_3m6m $controls, absorb(c.time#i.ID_cell3 i.chb_month#i.ID_cell3) vce(cluster i.ID_cell3)
 outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 2deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_3m6m ${prec_previous} ${precipitation}_3m6m $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+// reghdfe child_agedeath_3m6m ${prec_previous} ${precipitation}_3m6m $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
 
 
@@ -142,17 +142,17 @@ outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex exc
 drop if child_agedeath_3m6m==1
 global prec_previous = "${prec_previous} ${precipitation}_3m6m"
 
-reghdfe child_agedeath_6m12m ${prec_previous} ${precipitation}_6m12m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_6m12m ${prec_previous} ${precipitation}_6m12m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_6m12m ${prec_previous} ${precipitation}_6m12m $controls, absorb(c.time#i.ID_cell_3 i.chb_month#i.ID_cell_3) vce(cluster i.ID_cell_3)
+// reghdfe child_agedeath_6m12m ${prec_previous} ${precipitation}_6m12m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+// reghdfe child_agedeath_6m12m ${prec_previous} ${precipitation}_6m12m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+reghdfe child_agedeath_6m12m ${prec_previous} ${precipitation}_6m12m $controls, absorb(c.time#i.ID_cell3 i.chb_month#i.ID_cell3) vce(cluster i.ID_cell3)
 outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 2deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
-reghdfe child_agedeath_6m12m ${prec_previous} ${precipitation}_6m12m $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
-outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+// reghdfe child_agedeath_6m12m ${prec_previous} ${precipitation}_6m12m $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_prec${historic_means}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
 
 reghdfe child_agedeath_30d  drought_q1 drought_q2 drought_q3 drought_30d excessiverain_q1 excessiverain_q2 excessiverain_q3 excessiverain_30d $controls, absorb(i.chb_month#i.ID_cell c.time#i.ID_cell) vce(cluster i.ID_cell)
@@ -162,14 +162,14 @@ reghdfe child_agedeath_30d3m drought_q1 drought_q2 drought_q3 drought_30d drough
    
 **# Models with thresholds
 
-foreach threshold in "2_5" {
+foreach threshold in "3_0" {
 
 use "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.dta", clear
 
 gen time = chb_year - 1989
 gen time_sq = time*time
 
-global historic_means = "_m" // "`historic_means'"
+global historic_means = "_12" // "`historic_means'"
 global threshold = "`threshold'"
 
 * DONT CHANGE THIS
@@ -193,17 +193,17 @@ global controls = "child_fem child_mulbirth birth_order mother_ageb* mother_eduy
 global drought_previous= "${drought}_q1 ${drought}_q2 ${drought}_q3"
 global excessiverain_previous = "${excessiverain}_q1 ${excessiverain}_q2 ${excessiverain}_q3"
 
-reghdfe child_agedeath_30d  ${drought_previous} ${drought}_30d ${excessiverain_previous} ${excessiverain}_30d  $controls, absorb(i.chb_month#i.ID_cell c.time#i.ID_cell) vce(cluster i.ID_cell)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label replace addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+// reghdfe child_agedeath_30d  ${drought_previous} ${drought}_30d ${excessiverain_previous} ${excessiverain}_30d  $controls, absorb(i.chb_month#i.ID_cell c.time#i.ID_cell) vce(cluster i.ID_cell)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label replace addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
-reghdfe child_agedeath_30d  ${drought_previous} ${drought}_30d ${excessiverain_previous} ${excessiverain}_30d $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_30d  ${drought_previous} ${drought}_30d ${excessiverain_previous} ${excessiverain}_30d $controls, absorb(c.time#i.ID_cell_3 i.chb_month#i.ID_cell_3) vce(cluster i.ID_cell_3)
+// reghdfe child_agedeath_30d  ${drought_previous} ${drought}_30d ${excessiverain_previous} ${excessiverain}_30d $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+reghdfe child_agedeath_30d  ${drought_previous} ${drought}_30d ${excessiverain_previous} ${excessiverain}_30d $controls, absorb(c.time#i.ID_cell3 i.chb_month#i.ID_cell3) vce(cluster i.ID_cell3)
 outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 2deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_30d  ${drought_previous} ${drought}_30d ${excessiverain_previous} ${excessiverain}_30d $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+// reghdfe child_agedeath_30d  ${drought_previous} ${drought}_30d ${excessiverain_previous} ${excessiverain}_30d $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
 
 *** MODEL 2 - all childs that survived 30days
@@ -211,17 +211,17 @@ drop if child_agedeath_30d==1
 global drought_previous = "${drought_previous} ${drought}_30d"
 global excessiverain_previous = "${excessiverain_previous} ${excessiverain}_30d"
 
-reghdfe child_agedeath_30d3m ${drought_previous} ${drought}_30d3m ${excessiverain_previous} ${excessiverain}_30d3m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+// reghdfe child_agedeath_30d3m ${drought_previous} ${drought}_30d3m ${excessiverain_previous} ${excessiverain}_30d3m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
-reghdfe child_agedeath_30d3m ${drought_previous} ${drought}_30d3m ${excessiverain_previous} ${excessiverain}_30d3m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_30d3m ${drought_previous} ${drought}_30d3m ${excessiverain_previous} ${excessiverain}_30d3m $controls, absorb(c.time#i.ID_cell_3 i.chb_month#i.ID_cell_3) vce(cluster i.ID_cell_3)
+// reghdfe child_agedeath_30d3m ${drought_previous} ${drought}_30d3m ${excessiverain_previous} ${excessiverain}_30d3m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+reghdfe child_agedeath_30d3m ${drought_previous} ${drought}_30d3m ${excessiverain_previous} ${excessiverain}_30d3m $controls, absorb(c.time#i.ID_cell3 i.chb_month#i.ID_cell3) vce(cluster i.ID_cell3)
 outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 2deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_30d3m ${drought_previous} ${drought}_30d3m ${excessiverain_previous} ${excessiverain}_30d3m $controls, absorb(c.time#i.ID_cell_3 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+// reghdfe child_agedeath_30d3m ${drought_previous} ${drought}_30d3m ${excessiverain_previous} ${excessiverain}_30d3m $controls, absorb(c.time#i.ID_cell3 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
 
 *** MODEL 3 - all childs that survived 3months
@@ -229,17 +229,17 @@ drop if child_agedeath_30d3m==1
 global drought_previous = "${drought_previous} ${drought}_30d3m"
 global excessiverain_previous = "${excessiverain_previous} ${excessiverain}_30d3m"
 
-reghdfe child_agedeath_3m6m ${drought_previous} ${drought}_3m6m ${excessiverain_previous} ${excessiverain}_3m6m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+// reghdfe child_agedeath_3m6m ${drought_previous} ${drought}_3m6m ${excessiverain_previous} ${excessiverain}_3m6m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
-reghdfe child_agedeath_3m6m ${drought_previous} ${drought}_3m6m ${excessiverain_previous} ${excessiverain}_3m6m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_3m6m ${drought_previous} ${drought}_3m6m ${excessiverain_previous} ${excessiverain}_3m6m $controls, absorb(c.time#i.ID_cell_3 i.chb_month#i.ID_cell_3) vce(cluster i.ID_cell_3)
+// reghdfe child_agedeath_3m6m ${drought_previous} ${drought}_3m6m ${excessiverain_previous} ${excessiverain}_3m6m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+reghdfe child_agedeath_3m6m ${drought_previous} ${drought}_3m6m ${excessiverain_previous} ${excessiverain}_3m6m $controls, absorb(c.time#i.ID_cell3 i.chb_month#i.ID_cell3) vce(cluster i.ID_cell3)
 outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 2deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_3m6m ${drought_previous} ${drought}_3m6m ${excessiverain_previous} ${excessiverain}_3m6m $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+// reghdfe child_agedeath_3m6m ${drought_previous} ${drought}_3m6m ${excessiverain_previous} ${excessiverain}_3m6m $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
 
 *** MODEL 4 - all childs that survived 6months
@@ -247,17 +247,17 @@ drop if child_agedeath_3m6m==1
 global drought_previous = "${drought_previous} ${drought}_3m6m"
 global excessiverain_previous = "${excessiverain_previous} ${excessiverain}_3m6m"
 
-reghdfe child_agedeath_6m12m ${drought_previous} ${drought}_6m12m ${excessiverain_previous} ${excessiverain}_6m12m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+// reghdfe child_agedeath_6m12m ${drought_previous} ${drought}_6m12m ${excessiverain_previous} ${excessiverain}_6m12m $controls, absorb(c.time#i.ID_cell i.chb_month#i.ID_cell) vce(cluster i.ID_cell)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 0.5deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
-reghdfe child_agedeath_6m12m ${drought_previous} ${drought}_6m12m ${excessiverain_previous} ${excessiverain}_6m12m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_6m12m ${drought_previous} ${drought}_6m12m ${excessiverain_previous} ${excessiverain}_6m12m $controls, absorb(c.time#i.ID_cell_3 i.chb_month#i.ID_cell_3) vce(cluster i.ID_cell_3)
+// reghdfe child_agedeath_6m12m ${drought_previous} ${drought}_6m12m ${excessiverain_previous} ${excessiverain}_6m12m $controls, absorb(c.time#i.ID_cell_2 i.chb_month#i.ID_cell_2) vce(cluster i.ID_cell_2)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 1deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+reghdfe child_agedeath_6m12m ${drought_previous} ${drought}_6m12m ${excessiverain_previous} ${excessiverain}_6m12m $controls, absorb(c.time#i.ID_cell3 i.chb_month#i.ID_cell3) vce(cluster i.ID_cell3)
 outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 2deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
-
-reghdfe child_agedeath_6m12m ${drought_previous} ${drought}_6m12m ${excessiverain_previous} ${excessiverain}_6m12m $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
-outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
+//
+// reghdfe child_agedeath_6m12m ${drought_previous} ${drought}_6m12m ${excessiverain_previous} ${excessiverain}_6m12m $controls, absorb(c.time#i.ID_cell_4 i.chb_month#i.ID_cell_4) vce(cluster i.ID_cell_4)
+// outreg2 using "$OUTPUTS/regression_outs_timetend_${historic_means}_${threshold}", tex excel label append addtext(Time trend, Yes, Cell#Month FE, Yes, Cell size, 4deg)  nonotes addnote(SE clustered by Cell, *p<.05; **p<.01; ***p<.001)
 
 }
 
