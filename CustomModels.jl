@@ -87,7 +87,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df, 
-                term(:child_agedeath_30d) ~ sum(term.(prec_previous)) + term(Symbol("prec$(months)_30d")) + Symbol("prec$(months)_30d_sq") + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
+                term(:child_agedeath_30d) ~ sum(term.(prec_previous)) + term(Symbol("prec$(months)_30d")) + term(Symbol("prec$(months)_30d_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 method=:CUDA
             )
