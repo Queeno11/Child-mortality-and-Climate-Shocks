@@ -12,14 +12,19 @@ global DATA_OUT = "${DATA}\Data_out"
 *### 	 Read data and Merge with Climate Data
 *############################################################*
 
+import excel using "Z:\Laboral\World Bank\Data-Portal-Brief-Generator\Data\Data_Raw\Country codes & metadata\country_classification.xlsx", clear first
+rename wbcode code_iso3
+save "${DATA_IN}/Income level.dta", replace
+
 use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_04172024", clear
 gen ID = _n - 1
 merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned"
-count if _merge!=3
-// assert r(N)==0
 keep if _merge==3
 drop _merge
 
+merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta"
+keep if _merge==3
+drop _merge
 
 local historic_means = "_m"
 foreach months in "" "_3" "_6" "_12" {
@@ -162,6 +167,7 @@ by ID_R: gen birth_order = _n
 // 	}
 // 	tab `var', gen(`var'_)
 // 	break
-// }
+// 
 
 save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.dta", replace
+export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.csv", replace
