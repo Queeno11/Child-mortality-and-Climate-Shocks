@@ -116,11 +116,24 @@ for i in [1, 3, 6, 9, 12]:
         da_spi.to_netcdf(spi_path)
     spis += [da_spi]
 
-climate_data = xr.combine_by_coords(spis + [precipitation["t2m"]])
+
+########################
+####  Compute WBGT  ####
+########################
+from metpy.calc import wet_bulb_temperature
+from metpy.units import units
+
+# wet_bulb_temperature(993 * units.hPa, 32 * units.degC, 15 * units.degC)
+wet_bulb_temperature = wet_bulb_temperature(
+    precipitation.sp * units.Pa,
+    precipitation.t2m * units.degK,
+    precipitation.d2m * units.degK,
+).rename(f"wbgt")
 
 ########################
 ####   Export data  ####
 ########################
 
+climate_data = xr.combine_by_coords(spis + [precipitation["t2m"], wet_bulb_temperature])
 climate_data.to_netcdf(rf"{DATA_OUT}/Climate_shocks_v3_spi.nc")
 print(f"Data ready! file saved at {DATA_OUT}/Climate_shocks_v3_spi.nc")
