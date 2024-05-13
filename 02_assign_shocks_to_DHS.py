@@ -17,7 +17,7 @@ DATA_PROC = rf"{DATA}\Data_proc"
 DATA_OUT = rf"{DATA}\Data_out"
 
 ### Load data #############
-climate_data = xr.open_dataset(rf"{DATA_OUT}/Climate_shocks_v2_previous_months.nc")
+climate_data = xr.open_dataset(rf"{DATA_OUT}/Climate_shocks_v3_previous_months.nc")
 dates = climate_data.time.values
 
 df = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_04172024.dta")
@@ -51,22 +51,22 @@ def get_climate_shock(from_date, to_date, lat, lon):
         lat,
         lon,
     ]
-    for prec in [
-        "standarized_precipitation",
-        "standarized_precipitation_3",
-        "standarized_precipitation_6",
-        "standarized_precipitation_12",
+    for spi in [
+        "spi1",
+        "spi3",
+        "spi6",
+        "spi12",
     ]:
-        # Compute min and max values for both variables
-        inutero_q1_mean = inutero_q1[prec].mean().item()
-        inutero_q2_mean = inutero_q2[prec].mean().item()
-        inutero_q3_mean = inutero_q3[prec].mean().item()
-        born_1m_mean = born_1m[prec].mean().item()
-        born_2to3m_mean = born_2to3m[prec].mean().item()
-        born_3to6m_mean = born_3to6m[prec].mean().item()
-        born_6to12m_mean = born_6to12m[prec].mean().item()
+        # Compute mean values for SPI
+        inutero_q1_mean = inutero_q1[spi].mean().item()
+        inutero_q2_mean = inutero_q2[spi].mean().item()
+        inutero_q3_mean = inutero_q3[spi].mean().item()
+        born_1m_mean = born_1m[spi].mean().item()
+        born_2to3m_mean = born_2to3m[spi].mean().item()
+        born_3to6m_mean = born_3to6m[spi].mean().item()
+        born_6to12m_mean = born_6to12m[spi].mean().item()
 
-        out_vars_this_prec = [
+        out_vars_this_spi = [
             inutero_q1_mean,
             inutero_q2_mean,
             inutero_q3_mean,
@@ -75,7 +75,27 @@ def get_climate_shock(from_date, to_date, lat, lon):
             born_3to6m_mean,
             born_6to12m_mean,
         ]
-        out_vars += out_vars_this_prec
+        out_vars += out_vars_this_spi
+
+    # Compute max values for temperature
+    inutero_q1_temp_max = inutero_q1["t2m"].max().item()
+    inutero_q2_temp_max = inutero_q2["t2m"].max().item()
+    inutero_q3_temp_max = inutero_q3["t2m"].max().item()
+    born_1m_temp_max = born_1m["t2m"].max().item()
+    born_2to3m_temp_max = born_2to3m["t2m"].max().item()
+    born_3to6m_temp_max = born_3to6m["t2m"].max().item()
+    born_6to12m_temp_max = born_6to12m["t2m"].max().item()
+
+    out_vars_temp = [
+        inutero_q1_temp_max,
+        inutero_q2_temp_max,
+        inutero_q3_temp_max,
+        born_1m_temp_max,
+        born_2to3m_temp_max,
+        born_3to6m_temp_max,
+        born_6to12m_temp_max,
+    ]
+    out_vars += out_vars_temp
 
     return out_vars
 
@@ -108,43 +128,52 @@ df = df[df["to_date"] < "2021-01-01"]
 
 ### Run process ####
 coords_cols = ["lat_climate", "lon_climate"]
-prec_cols = [
-    "prec_inutero_q1",
-    "prec_inutero_q2",
-    "prec_inutero_q3",
-    "prec_born_1m",
-    "prec_born_2to3m",
-    "prec_born_3to6m",
-    "prec_born_6to12m",
+spi1_cols = [
+    "spi1_inutero_q1",
+    "spi1_inutero_q2",
+    "spi1_inutero_q3",
+    "spi1_born_1m",
+    "spi1_born_2to3m",
+    "spi1_born_3to6m",
+    "spi1_born_6to12m",
 ]
-prec_3_cols = [
-    "prec_3_inutero_q1",
-    "prec_3_inutero_q2",
-    "prec_3_inutero_q3",
-    "prec_3_born_1m",
-    "prec_3_born_2to3m",
-    "prec_3_born_3to6m",
-    "prec_3_born_6to12m",
+spi3_cols = [
+    "spi3_inutero_q1",
+    "spi3_inutero_q2",
+    "spi3_inutero_q3",
+    "spi3_born_1m",
+    "spi3_born_2to3m",
+    "spi3_born_3to6m",
+    "spi3_born_6to12m",
 ]
-prec_6_cols = [
-    "prec_6_inutero_q1",
-    "prec_6_inutero_q2",
-    "prec_6_inutero_q3",
-    "prec_6_born_1m",
-    "prec_6_born_2to3m",
-    "prec_6_born_3to6m",
-    "prec_6_born_6to12m",
+spi6_cols = [
+    "spi6_inutero_q1",
+    "spi6_inutero_q2",
+    "spi6_inutero_q3",
+    "spi6_born_1m",
+    "spi6_born_2to3m",
+    "spi6_born_3to6m",
+    "spi6_born_6to12m",
 ]
-prec_12_cols = [
-    "prec_12_inutero_q1",
-    "prec_12_inutero_q2",
-    "prec_12_inutero_q3",
-    "prec_12_born_1m",
-    "prec_12_born_2to3m",
-    "prec_12_born_3to6m",
-    "prec_12_born_6to12m",
+spi12_cols = [
+    "spi12_inutero_q1",
+    "spi12_inutero_q2",
+    "spi12_inutero_q3",
+    "spi12_born_1m",
+    "spi12_born_2to3m",
+    "spi12_born_3to6m",
+    "spi12_born_6to12m",
 ]
-all_cols = coords_cols + prec_cols + prec_3_cols + prec_6_cols + prec_12_cols
+temp_cols = [
+    "temp_inutero_q1",
+    "temp_inutero_q2",
+    "temp_inutero_q3",
+    "temp_born_1m",
+    "temp_born_2to3m",
+    "temp_born_3to6m",
+    "temp_born_6to12m",
+]
+all_cols = coords_cols + spi1_cols + spi3_cols + spi6_cols + spi12_cols + temp_cols
 
 for n in tqdm(range(0, df.ID.max(), 10_000)):
     if os.path.exists(rf"{DATA_PROC}/births_climate_{n}.csv"):
