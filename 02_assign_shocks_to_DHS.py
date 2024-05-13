@@ -55,6 +55,7 @@ def get_climate_shock(from_date, to_date, lat, lon):
         "spi1",
         "spi3",
         "spi6",
+        "spi9",
         "spi12",
     ]:
         # Compute mean values for SPI
@@ -128,42 +129,17 @@ df = df[df["to_date"] < "2021-01-01"]
 
 ### Run process ####
 coords_cols = ["lat_climate", "lon_climate"]
-spi1_cols = [
-    "spi1_inutero_q1",
-    "spi1_inutero_q2",
-    "spi1_inutero_q3",
-    "spi1_born_1m",
-    "spi1_born_2to3m",
-    "spi1_born_3to6m",
-    "spi1_born_6to12m",
-]
-spi3_cols = [
-    "spi3_inutero_q1",
-    "spi3_inutero_q2",
-    "spi3_inutero_q3",
-    "spi3_born_1m",
-    "spi3_born_2to3m",
-    "spi3_born_3to6m",
-    "spi3_born_6to12m",
-]
-spi6_cols = [
-    "spi6_inutero_q1",
-    "spi6_inutero_q2",
-    "spi6_inutero_q3",
-    "spi6_born_1m",
-    "spi6_born_2to3m",
-    "spi6_born_3to6m",
-    "spi6_born_6to12m",
-]
-spi12_cols = [
-    "spi12_inutero_q1",
-    "spi12_inutero_q2",
-    "spi12_inutero_q3",
-    "spi12_born_1m",
-    "spi12_born_2to3m",
-    "spi12_born_3to6m",
-    "spi12_born_6to12m",
-]
+spi_cols = []
+for i in [1, 3, 6, 9, 12]:
+    spi_cols += [
+        f"spi{i}_inutero_q1",
+        f"spi{i}_inutero_q2",
+        f"spi{i}_inutero_q3",
+        f"spi{i}_born_1m",
+        f"spi{i}_born_2to3m",
+        f"spi{i}_born_3to6m",
+        f"spi{i}_born_6to12m",
+    ]
 temp_cols = [
     "temp_inutero_q1",
     "temp_inutero_q2",
@@ -173,7 +149,7 @@ temp_cols = [
     "temp_born_3to6m",
     "temp_born_6to12m",
 ]
-all_cols = coords_cols + spi1_cols + spi3_cols + spi6_cols + spi12_cols + temp_cols
+all_cols = coords_cols + spi_cols + temp_cols
 
 for n in tqdm(range(0, df.ID.max(), 10_000)):
     if os.path.exists(rf"{DATA_PROC}/births_climate_{n}.csv"):
@@ -205,4 +181,4 @@ for file in tqdm(files):
 df = pd.concat(data)
 
 df = df.drop(columns="Unnamed: 0")
-df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned.dta")
+df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v3.dta")

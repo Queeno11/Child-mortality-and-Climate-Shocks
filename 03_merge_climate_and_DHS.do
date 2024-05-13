@@ -18,7 +18,7 @@ save "${DATA_IN}/Income level.dta", replace
 
 use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_04172024", clear
 gen ID = _n - 1
-merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned"
+merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v3"
 keep if _merge==3
 drop _merge
 
@@ -26,85 +26,96 @@ merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta"
 keep if _merge==3
 drop _merge
 
-local historic_means = "_m"
-foreach months in "" "_3" "_6" "_12" {
-	foreach threshold in 2.0 2.5 3.0 3.5 4.0 4.5 {
+foreach months in "1" "3" "6" "9" "12" {
+	foreach threshold in 1.5 2.0 2.5 {
 		local threshold_str = subinstr("`threshold'",".","_",.)
-		if ""=="_m"{
-			local m_text = " month"
-		}
-		else {
-			local m_text = ""
-		}
 
 		*############################################################*
 		*# 	 Crate dummy variables
 		*############################################################*
 		
-		
 		* Drought
-		count if prec`months'_inutero_q1<-`threshold'
+		count if spi`months'_inutero_q1<-`threshold'
 		if r(n)<2000 {
+			display in red "Less than 2000 treated droughts for SPI`months'<`threshold'"
 			continue
 		}
-		gen drought`months'_`threshold_str'_q1 		 = (prec`months'_inutero_q1<-`threshold')
-		gen drought`months'_`threshold_str'_q2 	 	 = (prec`months'_inutero_q2<-`threshold')
-		gen drought`months'_`threshold_str'_q3 	 	 = (prec`months'_inutero_q3<-`threshold')
-		gen drought`months'_`threshold_str'_30d 	 = (prec`months'_born_1m<-`threshold')
-		gen drought`months'_`threshold_str'_30d3m	 = (prec`months'_born_2to3m<-`threshold')
-		gen drought`months'_`threshold_str'_3m6m	 = (prec`months'_born_3to6m<-`threshold')
-		gen drought`months'_`threshold_str'_6m12m	 = (prec`months'_born_6to12m<-`threshold')
+		gen drought`months'_`threshold_str'_q1 		 = (spi`months'_inutero_q1<-`threshold')
+		gen drought`months'_`threshold_str'_q2 	 	 = (spi`months'_inutero_q2<-`threshold')
+		gen drought`months'_`threshold_str'_q3 	 	 = (spi`months'_inutero_q3<-`threshold')
+		gen drought`months'_`threshold_str'_30d 	 = (spi`months'_born_1m<-`threshold')
+		gen drought`months'_`threshold_str'_30d3m	 = (spi`months'_born_2to3m<-`threshold')
+		gen drought`months'_`threshold_str'_3m6m	 = (spi`months'_born_3to6m<-`threshold')
+		gen drought`months'_`threshold_str'_6m12m	 = (spi`months'_born_6to12m<-`threshold')
 		
-		label var drought`months'_`threshold_str'_q1 "Affected by Drought 1stQ in Utero (rain <`threshold'std`m_text')"
-		label var drought`months'_`threshold_str'_q2 "Affected by Drought 2ndQ in Utero (rain <`threshold'std`m_text')"
-		label var drought`months'_`threshold_str'_q3 "Affected by Drought 3rdQ in Utero (rain <`threshold'std`m_text')"
-		label var drought`months'_`threshold_str'_30d "Affected by Drought 0-30 days (rain <`threshold'std`m_text')"
-		label var drought`months'_`threshold_str'_30d3m "Affected by Drought 1-3 months (rain <`threshold'std`m_text')"		
-		label var drought`months'_`threshold_str'_3m6m "Affected by Drought 3-6 months (rain <`threshold'std`m_text')"
-		label var drought`months'_`threshold_str'_6m12m "Affected by Drought 6-12 months (rain <`threshold'std`m_text')"	
+		label var drought`months'_`threshold_str'_q1 "Affected by Drought 1stQ in Utero (SPI`months' <`threshold'std)"
+		label var drought`months'_`threshold_str'_q2 "Affected by Drought 2ndQ in Utero (SPI`months' <`threshold'std)"
+		label var drought`months'_`threshold_str'_q3 "Affected by Drought 3rdQ in Utero (SPI`months' <`threshold'std)"
+		label var drought`months'_`threshold_str'_30d "Affected by Drought 0-30 days (SPI`months' <`threshold'std)"
+		label var drought`months'_`threshold_str'_30d3m "Affected by Drought 1-3 months (SPI`months' <`threshold'std)"		
+		label var drought`months'_`threshold_str'_3m6m "Affected by Drought 3-6 months (SPI`months' <`threshold'std)"
+		label var drought`months'_`threshold_str'_6m12m "Affected by Drought 6-12 months (SPI`months' <`threshold'std)"	
 		
 		
 		* Excessive Rain
-		count if prec`months'_inutero_q1>`threshold'
+		count if spi`months'_inutero_q1>`threshold'
 		if r(n)<2000 {
+			display in red "Less than 2000 treated droughts for SPI`months'>`threshold'"	
 			continue
 		}
-		gen excessiverain`months'_`threshold_str'_q1 	 = (prec`months'_inutero_q1>`threshold')
-		gen excessiverain`months'_`threshold_str'_q2 	 = (prec`months'_inutero_q2>`threshold')
-		gen excessiverain`months'_`threshold_str'_q3 	 = (prec`months'_inutero_q3>`threshold')
-		gen excessiverain`months'_`threshold_str'_30d 	 = (prec`months'_born_1m>`threshold')
-		gen excessiverain`months'_`threshold_str'_30d3m	 = (prec`months'_born_2to3m>`threshold')
-		gen excessiverain`months'_`threshold_str'_3m6m	 = (prec`months'_born_3to6m>`threshold')
-		gen excessiverain`months'_`threshold_str'_6m12m	 = (prec`months'_born_6to12m>`threshold')
+		gen excessiverain`months'_`threshold_str'_q1 	 = (spi`months'_inutero_q1>`threshold')
+		gen excessiverain`months'_`threshold_str'_q2 	 = (spi`months'_inutero_q2>`threshold')
+		gen excessiverain`months'_`threshold_str'_q3 	 = (spi`months'_inutero_q3>`threshold')
+		gen excessiverain`months'_`threshold_str'_30d 	 = (spi`months'_born_1m>`threshold')
+		gen excessiverain`months'_`threshold_str'_30d3m	 = (spi`months'_born_2to3m>`threshold')
+		gen excessiverain`months'_`threshold_str'_3m6m	 = (spi`months'_born_3to6m>`threshold')
+		gen excessiverain`months'_`threshold_str'_6m12m	 = (spi`months'_born_6to12m>`threshold')
 
-		label var excessiverain`months'_`threshold_str'_q1 "Affected by Ex. Rain 1stQ in Utero (rain >`threshold'std`m_text')"
-		label var excessiverain`months'_`threshold_str'_q2 "Affected by Ex. Rain 2ndQ in Utero (rain >`threshold'std`m_text')"
-		label var excessiverain`months'_`threshold_str'_q3 "Affected by Ex. Rain 3rdQ in Utero (rain >`threshold'std`m_text')"
-		label var excessiverain`months'_`threshold_str'_30d "Affected by Ex. Rain 0-30 days (rain >`threshold'std`m_text')"
-		label var excessiverain`months'_`threshold_str'_30d3m "Affected by Ex. Rain 1-3 months (rain >`threshold'std`m_text')"		
-		label var excessiverain`months'_`threshold_str'_3m6m "Affected by Ex. Rain 3-6 months (rain >`threshold'std`m_text')"
-		label var excessiverain`months'_`threshold_str'_6m12m "Affected by Ex. Rain 6-12 months (rain >`threshold'std`m_text')"		
+		label var excessiverain`months'_`threshold_str'_q1 "Affected by Ex. Rain 1stQ in Utero (rain >`threshold'std)"
+		label var excessiverain`months'_`threshold_str'_q2 "Affected by Ex. Rain 2ndQ in Utero (rain >`threshold'std)"
+		label var excessiverain`months'_`threshold_str'_q3 "Affected by Ex. Rain 3rdQ in Utero (rain >`threshold'std)"
+		label var excessiverain`months'_`threshold_str'_30d "Affected by Ex. Rain 0-30 days (rain >`threshold'std)"
+		label var excessiverain`months'_`threshold_str'_30d3m "Affected by Ex. Rain 1-3 months (rain >`threshold'std)"		
+		label var excessiverain`months'_`threshold_str'_3m6m "Affected by Ex. Rain 3-6 months (rain >`threshold'std)"
+		label var excessiverain`months'_`threshold_str'_6m12m "Affected by Ex. Rain 6-12 months (rain >`threshold'std)"		
 		
 	}
 
-rename prec`months'_inutero_q1    prec`months'_q1 	
-rename prec`months'_inutero_q2    prec`months'_q2 	
-rename prec`months'_inutero_q3    prec`months'_q3 	
-rename prec`months'_born_1m       prec`months'_30d 	
-rename prec`months'_born_2to3m    prec`months'_30d3m
-rename prec`months'_born_3to6m    prec`months'_3m6m 
-rename prec`months'_born_6to12m   prec`months'_6m12m
+rename spi`months'_inutero_q1    spi`months'_q1 	
+rename spi`months'_inutero_q2    spi`months'_q2 	
+rename spi`months'_inutero_q3    spi`months'_q3 	
+rename spi`months'_born_1m       spi`months'_30d 	
+rename spi`months'_born_2to3m    spi`months'_30d3m
+rename spi`months'_born_3to6m    spi`months'_3m6m 
+rename spi`months'_born_6to12m   spi`months'_6m12m
 
 
-label var prec`months'_q1 	 "Standarized Precipitation 1stQ in Utero"
-label var prec`months'_q2 	 "Standarized Precipitation 2ndQ in Utero"
-label var prec`months'_q3 	 "Standarized Precipitation 3rdQ in Utero"
-label var prec`months'_30d 	 "Standarized Precipitation 0-30 days "
-label var prec`months'_30d3m "Standarized Precipitation 1-3 months"		
-label var prec`months'_3m6m  "Standarized Precipitation 3-6 months"
-label var prec`months'_6m12m "Standarized Precipitation 6-12 months"		
+label var spi`months'_q1 	 	"Standarized Precipitation Index 1stQ in Utero"
+label var spi`months'_q2 	 	"Standarized Precipitation Index 2ndQ in Utero"
+label var spi`months'_q3 	 	"Standarized Precipitation Index 3rdQ in Utero"
+label var spi`months'_30d 	 	"Standarized Precipitation Index 0-30 days "
+label var spi`months'_30d3m 	"Standarized Precipitation Index 1-3 months"		
+label var spi`months'_3m6m  	"Standarized Precipitation Index 3-6 months"
+label var spi`months'_6m12m 	"Standarized Precipitation Index 6-12 months"		
 
 }
+
+rename temp_inutero_q1    temp_q1 	
+rename temp_inutero_q2    temp_q2 	
+rename temp_inutero_q3    temp_q3 	
+rename temp_born_1m       temp_30d 	
+rename temp_born_2to3m    temp_30d3m
+rename temp_born_3to6m    temp_3m6m 
+rename temp_born_6to12m   temp_6m12m
+
+label var temp_q1 	 	"Mean Temperature 1stQ in Utero"
+label var temp_q2 	 	"Mean Temperature 2ndQ in Utero"
+label var temp_q3 	 	"Mean Temperature 3rdQ in Utero"
+label var temp_30d 	 	"Mean Temperature 0-30 days "
+label var temp_30d3m 	"Mean Temperature 1-3 months"		
+label var temp_3m6m  	"Mean Temperature 3-6 months"
+label var temp_6m12m 	"Mean Temperature 6-12 months"		
+
 
 drop index
 
