@@ -17,11 +17,12 @@ DATA_PROC = rf"{DATA}\Data_proc"
 DATA_OUT = rf"{DATA}\Data_out"
 
 ### Load data #############
-climate_data = xr.open_dataset(rf"{DATA_OUT}/Climate_shocks_v3_previous_months.nc")
+climate_data = xr.open_dataset(rf"{DATA_OUT}/Climate_shocks_v3_spi.nc")
 dates = climate_data.time.values
 
-df = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_04172024.dta")
-df["ID"] = df.index
+full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_04172024.dta")
+full_dhs["ID"] = full_dhs.index
+df = full_dhs.copy()
 ###########################
 
 
@@ -78,23 +79,23 @@ def get_climate_shock(from_date, to_date, lat, lon):
         ]
         out_vars += out_vars_this_spi
 
-    # Compute max values for temperature
-    inutero_q1_temp_max = inutero_q1["t2m"].max().item()
-    inutero_q2_temp_max = inutero_q2["t2m"].max().item()
-    inutero_q3_temp_max = inutero_q3["t2m"].max().item()
-    born_1m_temp_max = born_1m["t2m"].max().item()
-    born_2to3m_temp_max = born_2to3m["t2m"].max().item()
-    born_3to6m_temp_max = born_3to6m["t2m"].max().item()
-    born_6to12m_temp_max = born_6to12m["t2m"].max().item()
+    # Compute mean values for temperature
+    inutero_q1_temp_mean = inutero_q1["t2m"].mean().item()
+    inutero_q2_temp_mean = inutero_q2["t2m"].mean().item()
+    inutero_q3_temp_mean = inutero_q3["t2m"].mean().item()
+    born_1m_temp_mean = born_1m["t2m"].mean().item()
+    born_2to3m_temp_mean = born_2to3m["t2m"].mean().item()
+    born_3to6m_temp_mean = born_3to6m["t2m"].mean().item()
+    born_6to12m_temp_mean = born_6to12m["t2m"].mean().item()
 
     out_vars_temp = [
-        inutero_q1_temp_max,
-        inutero_q2_temp_max,
-        inutero_q3_temp_max,
-        born_1m_temp_max,
-        born_2to3m_temp_max,
-        born_3to6m_temp_max,
-        born_6to12m_temp_max,
+        inutero_q1_temp_mean,
+        inutero_q2_temp_mean,
+        inutero_q3_temp_mean,
+        born_1m_temp_mean,
+        born_2to3m_temp_mean,
+        born_3to6m_temp_mean,
+        born_6to12m_temp_mean,
     ]
     out_vars += out_vars_temp
 
@@ -180,5 +181,55 @@ for file in tqdm(files):
     data += [df]
 df = pd.concat(data)
 
-df = df.drop(columns="Unnamed: 0")
+####### Process data:
+df = full_dhs.merge(df, on="ID", how="inner")
+print("Number of observations merged with climate data:", df.shape[0])
+df = df.dropna(subset=["v008", "chb_year", "chb_month"], how="any")
+
+# Date of interview
+df["year"] = 1900 + (df["v008"] - 1) // 12
+df["month"] = df["v008"] - 12 * (df["year"] - 1900)
+df["day"] = 1
+df["interview_date"] = pd.to_datetime(df[["year", "month", "day"]], dayfirst=False)
+df["interview_year"] = df["year"]
+df["interview_month"] = df["month"]
+df = df.drop(columns=["year", "month", "day"])
+
+# Date of birth
+df["year"] = df["chb_year"].astype(int)
+df["month"] = df["chb_month"].astype(int)
+df["day"] = 15
+df["birth_date"] = pd.to_datetime(df[["year", "month", "day"]], dayfirst=False)
+df = df.drop(columns=["year", "month", "day"])
+
+# Number of days from interview
+df["days_from_interview"] = df["interview_date"] - df["birth_date"]
+
+# excluir del análisis a aquellos niños que nacieron 12 meses alrededor de la fecha de la encuesta y no más allá de 10 y 15 años del momento de la encuesta.
+# PREGUNTA PARA PAULA: ¿ella ya hizo el filtro de 15 años y 30 dias?
+df["last_15_years"] = (df["days_from_interview"] > np.timedelta64(30, "D")) & (
+    df["days_from_interview"] < np.timedelta64(15 * 365, "D")
+)
+df["last_10_years"] = (df["days_from_interview"] > np.timedelta64(30, "D")) & (
+    df["days_from_interview"] < np.timedelta64(10 * 365, "D")
+)
+df["since_2003"] = df["interview_year"] >= 2003
+df = df[df["last_15_years"] == True]
+####### Export data:
+# df.to_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v3.parquet")
+df = df[
+    all_cols
+    + [
+        "ID",
+        "interview_year",
+        "interview_month",
+        "birth_date",
+        "last_15_years",
+        "last_10_years",
+        "since_2003",
+    ]
+]
+
+# Drop nans in spi/temp values
+df = df.dropna(subset=spi_cols + temp_cols, how="any")
 df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v3.dta")

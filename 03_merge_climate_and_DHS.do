@@ -8,6 +8,13 @@ global DATA_IN = "${DATA}\Data_in"
 global DATA_PROC = "${DATA}\Data_proc"
 global DATA_OUT = "${DATA}\Data_out"
 
+// 1. Seguro ya están siguiendo las instrucciones de la DHS, pero si no es así, vale la pena revisarlas pues recomiendan algunas transformaciones dependiendo de cómo se estén usando los pesos (aquí).
+// 2. En algún momento hablamos con Jed sobre excluir del análisis a aquellos niños que nacieron 12 meses alrededor de la fecha de la encuesta y no más allá de 10 y 15 años del momento de la encuesta. Esto para capturar algunas variaciones de la metodología y errores de medida. Para esto pueden usar las variables child_agem y child_agey, que fueron creadas usando la fecha de la entrevista (v008) y la fecha de nacimiento (b3) de cada individuo.
+// 3. No estoy segura desde qué año es la muestra final que están usando, pero valdría la pena correr los resultados solo para aquellas observaciones donde la entrevista ocurrió desde el 2003. Excluir cerca del 11% que toma lugar antes del 2003. Esto teniendo en cuenta el siguiente statement:
+// "Georeferenced surveys from 2003 onwards are displaced using the standard displacement procedure described in SAR7 (https://dhsprogram.com/pubs/pdf/SAR7/SAR7.pdf). Urban clusters are displaced up to 2km, while rural clusters are displaced up to 5km with a further 1% of rural clusters displaced up to 10km. Surveys conducted prior to 2003 were not displaced using the standard displacement procedure. Coordinates for the earliest surveys were obtained from paper maps, gazetteers of settlement names, or preexisting census data files, while GPS collection began in 1996. The method used to determine the lat/long coordinates for each cluster is listed under the SOURCE attribute in the GE datasets."
+
+
+
 *############################################################*
 *### 	 Read data and Merge with Climate Data
 *############################################################*
@@ -23,6 +30,10 @@ keep if _merge==3
 drop _merge
 
 merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta"
+keep if _merge==3
+drop _merge
+
+merge m:1 v000 v001 v002 v008 using "${DATA_IN}/DHS/weights_DHS_by_hh.dta"
 keep if _merge==3
 drop _merge
 
@@ -167,18 +178,10 @@ by ID_R: gen birth_order = _n
 
 
 *############################################################*
-*# 	 Create fixed effects variables
+*# 	 Add weights
 *############################################################*
-//
-// foreach cell_id in ID_cell ID_cell2 ID_cell3 ID_cell4 {
-// 	levelsof `cell_id', local(celdas)
-// 	foreach celda in `celdas' {
-// 		gen `cell_id'_`celda' = 0
-// 		replace `cell_id'_`celda' = 1 if `cell_id'==`celda'
-// 	}
-// 	tab `var', gen(`var'_)
-// 	break
-// 
+
+// use "$DATA_IN/DHS/DHSBirthsGlobalAnalysis_05142024.dta", replace
 
 save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.dta", replace
 export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.csv", replace

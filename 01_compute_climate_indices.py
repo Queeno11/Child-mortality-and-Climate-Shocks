@@ -51,6 +51,11 @@ precipitation["longitude"] = (
 precipitation = precipitation.sortby("longitude").sortby("latitude")  # Reorder
 precipitation = precipitation.rename({"longitude": "lon", "latitude": "lat"})  # Rename
 
+
+########################
+####  Mask values   ####
+########################
+
 ## Mask values on the sea, as we only need country data.
 # Data from countries comes from non-nan values in the precipitation_cckp dataset
 countries = xr.open_dataset(
@@ -63,9 +68,6 @@ mask = (
     .interp(lat=precipitation.lat, lon=precipitation.lon, method="nearest")
     .astype(bool)
 )
-
-# Mask data
-precipitation = precipitation.where(mask)
 
 
 ########################
@@ -84,6 +86,10 @@ print("Data Ready! Computing SPI. This will take at least a few hours...")
 ## More here: https://www.researchgate.net/profile/Sorin-Cheval/publication/264467702_Spatiotemporal_variability_of_the_meteorological_drought_in_Romania_using_the_Standardized_Precipitation_Index_SPI/links/5842d18a08ae2d21756372f8/Spatiotemporal-variability-of-the-meteorological-drought-in-Romania-using-the-Standardized-Precipitation-Index-SPI.pdf
 ## Ignore negative values, they are normal: https://confluence.ecmwf.int/display/UDOC/Why+are+there+sometimes+small+negative+precipitation+accumulations+-+ecCodes+GRIB+FAQ
 
+# Mask data
+precipitation = precipitation.where(mask)
+da_precip_groupby = precipitation["tp"].stack(point=("lat", "lon")).groupby("point")
+
 # Parameters
 distribution = indices.Distribution.gamma
 data_start_year = 1970
@@ -91,15 +97,15 @@ calibration_year_initial = 1970
 calibration_year_final = 2020
 periodicity = compute.Periodicity.monthly
 
-da_precip_groupby = precipitation["tp"].stack(point=("lat", "lon")).groupby("point")
-
 # apply SPI to each `point`
 spis = []
 for i in [1, 3, 6, 9, 12]:
     print(f"Computing SPI-{i}")
     spi_path = os.path.join(DATA_OUT, f"ERA5_monthly_1970-2021_SPI{i}.nc")
     if os.path.exists(spi_path):
-        da_spi = xr.open_dataset(spi_path)
+        da_spi = xr.open_dataset(
+            spi_path, chunks={"time": 12, "latitude": 500, "longitude": 500}
+        )
         print(f"SPI-{i} already computed. Skipping...")
     else:
         da_spi = xr.apply_ufunc(
@@ -118,22 +124,9 @@ for i in [1, 3, 6, 9, 12]:
 
 
 ########################
-####  Compute WBGT  ####
-########################
-from metpy.calc import wet_bulb_temperature
-from metpy.units import units
-
-# wet_bulb_temperature(993 * units.hPa, 32 * units.degC, 15 * units.degC)
-wet_bulb_temperature = wet_bulb_temperature(
-    precipitation.sp * units.Pa,
-    precipitation.t2m * units.degK,
-    precipitation.d2m * units.degK,
-).rename(f"wbgt")
-
-########################
 ####   Export data  ####
 ########################
 
-climate_data = xr.combine_by_coords(spis + [precipitation["t2m"], wet_bulb_temperature])
+climate_data = xr.combine_by_coords(spis + [precipitation["t2m"]])
 climate_data.to_netcdf(rf"{DATA_OUT}/Climate_shocks_v3_spi.nc")
 print(f"Data ready! file saved at {DATA_OUT}/Climate_shocks_v3_spi.nc")
