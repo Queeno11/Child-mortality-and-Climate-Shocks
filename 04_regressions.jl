@@ -28,7 +28,7 @@ controls = term.([:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_i
 #################################################################
 
 # # From 2003 and last 10 years
-# df_both = filter(row -> row.since_2003 == 1 && row.last_10_years == 1, df)
+df_both = filter(row -> row.since_2003 == 1 && row.last_10_years == 1, df)
 # CustomModels.run_models(df_both, controls, "", "from 2003 & last 10 years -")
 
 # # From 2003 
