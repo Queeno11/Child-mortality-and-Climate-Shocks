@@ -128,6 +128,17 @@ label var temp_3m6m  	"Mean Temperature 3-6 months"
 label var temp_6m12m 	"Mean Temperature 6-12 months"		
 
 
+*############################################################*
+*# 	 Crate squared variables
+*############################################################*
+foreach var in "temp" "spi12" "spi6" "spi3" "spi1" {
+	foreach time in "q1" "q2" "q3" "30d" "30d3m" "3m6m" "6m12m" {
+		replace `var'_`time' = `var'_`time' * 1000
+		gen `var'_`time'_sq = `var'_`time' * `var'_`time'
+	}
+}
+
+
 drop index
 
 *############################################################*
@@ -137,7 +148,7 @@ drop index
 * Genero ID_cell con las celdas originales
 tostring lon_climate lat_climate , generate(lon_climate_str lat_climate_str )
 gen ID_cell_str = lat_climate_str + "-" + lon_climate_str
-encode ID_cell_str, gen(ID_cell)
+encode ID_cell_str, gen(ID_cell1)
 drop ID_cell_str lon_climate_str lat_climate_str 
 
 * Celdas agrupadas de a 4
@@ -178,10 +189,22 @@ by ID_R: gen birth_order = _n
 
 
 *############################################################*
-*# 	 Add weights
+*# 	 Keep from_2003 and born in last_10_years
 *############################################################*
 
 // use "$DATA_IN/DHS/DHSBirthsGlobalAnalysis_05142024.dta", replace
+
+keep if since_2003==1 & last_10_years==1
+
+encode v000, gen(IDsurvey_country)
+
+replace child_agedeath_30d = child_agedeath_30d * 1000
+replace child_agedeath_30d3m = child_agedeath_30d3m * 1000
+replace child_agedeath_3m6m = child_agedeath_3m6m * 1000
+replace child_agedeath_6m12m = child_agedeath_6m12m * 1000
+
+gen time = chb_year - 1989
+gen time_sq = time*time
 
 save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.dta", replace
 export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.csv", replace
