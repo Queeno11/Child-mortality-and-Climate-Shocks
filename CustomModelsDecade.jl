@@ -1,7 +1,7 @@
-module CustomModels
+module CustomModelsDecade
 
 # Cosas:
-# Trend en decades en vez de año ----> CustonModelsDecade
+# ----> Trend en decades en vez de año
 # Effectos fijos por país
 # Efecto fijo por edad
 
@@ -20,7 +20,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df, 
-                term(:child_agedeath_30d) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d")) + sum(term.(temp_previous)) + term(Symbol("temp_30d")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
+                term(:child_agedeath_30d) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d")) + sum(term.(temp_previous)) + term(Symbol("temp_30d")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights = :hv005,
                 method=:CUDA
@@ -35,7 +35,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df_temp, 
-                term(:child_agedeath_30d3m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d3m")) + sum(term.(temp_previous)) + term(Symbol("temp_30d3m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
+                term(:child_agedeath_30d3m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d3m")) + sum(term.(temp_previous)) + term(Symbol("temp_30d3m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights = :hv005,
                 method=:CUDA
@@ -50,7 +50,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df_temp, 
-                term(:child_agedeath_3m6m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_3m6m")) + sum(term.(temp_previous)) + term(Symbol("temp_3m6m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
+                term(:child_agedeath_3m6m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_3m6m")) + sum(term.(temp_previous)) + term(Symbol("temp_3m6m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights = :hv005,
                 method=:CUDA
@@ -65,7 +65,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df_temp, 
-                term(:child_agedeath_6m12m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_6m12m")) + sum(term.(temp_previous)) + term(Symbol("temp_6m12m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
+                term(:child_agedeath_6m12m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_6m12m")) + sum(term.(temp_previous)) + term(Symbol("temp_6m12m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights = :hv005,
                 method=:CUDA
@@ -77,7 +77,7 @@ module CustomModels
         regtable(
             regs...; 
             render = AsciiTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 1 $months months.txt",
+            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 1 $months months - Decade.txt",
             order=[
                 "spi$(months)_q1", "spi$(months)_q2", "spi$(months)_q3", "spi$(months)_30d", "spi$(months)_30d3m", "spi$(months)_3m6m", "spi$(months)_6m12m",
                 "temp_q1", "temp_q2", "temp_q3", "temp_30d", "temp_30d3m", "temp_3m6m", "temp_6m12m",
@@ -86,7 +86,7 @@ module CustomModels
         regtable(
             regs...; 
             render = LatexTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 1 $months months.tex", 
+            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 1 $months months - Decade.tex", 
             order=[
                 "spi$(months)_q1", "spi$(months)_q2", "spi$(months)_q3", "spi$(months)_30d", "spi$(months)_30d3m", "spi$(months)_3m6m", "spi$(months)_6m12m",
                 "temp_q1", "temp_q2", "temp_q3", "temp_30d", "temp_30d3m", "temp_3m6m", "temp_6m12m",
@@ -107,7 +107,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df, 
-                term(:child_agedeath_30d) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d")) + term(Symbol("spi$(months)_30d_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_30d")) + term(Symbol("temp_30d_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
+                term(:child_agedeath_30d) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d")) + term(Symbol("spi$(months)_30d_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_30d")) + term(Symbol("temp_30d_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights = :hv005,
                 method=:CUDA
@@ -122,7 +122,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df_temp, 
-                term(:child_agedeath_30d3m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d3m")) + term(Symbol("spi$(months)_30d3m_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_30d3m")) + term(Symbol("temp_30d3m_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
+                term(:child_agedeath_30d3m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d3m")) + term(Symbol("spi$(months)_30d3m_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_30d3m")) + term(Symbol("temp_30d3m_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
                  Vcov.cluster(Symbol("ID_cell$i")), 
                  weights = :hv005,
                  method=:CUDA
@@ -137,7 +137,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df_temp, 
-                term(:child_agedeath_3m6m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_3m6m")) + term(Symbol("spi$(months)_3m6m_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_3m6m")) + term(Symbol("temp_3m6m_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
+                term(:child_agedeath_3m6m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_3m6m")) + term(Symbol("spi$(months)_3m6m_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_3m6m")) + term(Symbol("temp_3m6m_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
                 Vcov.cluster(Symbol("ID_cell$(i)")), 
                 weights=:hv005,
                 method=:CUDA
@@ -151,7 +151,7 @@ module CustomModels
         append!(temp_previous, [Symbol("temp_3m6m"), Symbol("temp_3m6m_sq")])
         for i in 1:4
             reg_model = reg(
-                df_temp, term(:child_agedeath_6m12m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_6m12m")) + term(Symbol("spi$(months)_6m12m_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_6m12m")) + term(Symbol("temp_6m12m_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
+                df_temp, term(:child_agedeath_6m12m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_6m12m")) + term(Symbol("spi$(months)_6m12m_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_6m12m")) + term(Symbol("temp_6m12m_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights=:hv005,
                 method=:CUDA
@@ -163,7 +163,7 @@ module CustomModels
         regtable(
             regs...; 
             render = AsciiTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 2 $months months.txt", 
+            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 2 $months months - Decade.txt", 
             order=[
                 "spi$(months)_q1", "spi$(months)_q1_sq", "spi$(months)_q2", "spi$(months)_q2_sq", "spi$(months)_q3", "spi$(months)_q3_sq", "spi$(months)_30d", "spi$(months)_30d_sq", "spi$(months)_30d3m", "spi$(months)_30d3m_sq", "spi$(months)_3m6m", "spi$(months)_3m6m_sq", "spi$(months)_6m12m", "spi$(months)_6m12m_sq",
                 "temp_q1", "temp_q1_sq", "temp_q2", "temp_q2_sq", "temp_q3", "temp_q3_sq", "temp_30d", "temp_30d_sq", "temp_30d3m", "temp_30d3m_sq", "temp_3m6m", "temp_3m6m_sq", "temp_6m12m", "temp_6m12m_sq"
@@ -173,7 +173,7 @@ module CustomModels
         regtable(
             regs...; 
             render = LatexTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 2 $months months.tex", 
+            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 2 $months months - Decade.tex", 
         )
 
     end
@@ -192,7 +192,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df, 
-                term(:child_agedeath_30d) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
+                term(:child_agedeath_30d) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights=:hv005,
                 method=:CUDA
@@ -207,7 +207,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df_temp, 
-                term(:child_agedeath_30d3m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d3m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d3m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
+                term(:child_agedeath_30d3m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d3m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d3m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights=:hv005,
                 method=:CUDA
@@ -222,7 +222,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df_temp, 
-                term(:child_agedeath_3m6m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_3m6m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_3m6m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
+                term(:child_agedeath_3m6m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_3m6m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_3m6m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights=:hv005,
                 method=:CUDA
@@ -237,7 +237,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df_temp, 
-                term(:child_agedeath_6m12m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_6m12m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_6m12m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
+                term(:child_agedeath_6m12m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_6m12m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_6m12m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights=:hv005,
                 method=:CUDA
@@ -249,7 +249,7 @@ module CustomModels
         regtable(
             regs...; 
             render = AsciiTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 3 drought $threshold $months months.txt", 
+            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 3 drought $threshold $months months - Decade.txt", 
             order=[
                 "$(drought)_q1", "$(drought)_q2", "$(drought)_q3", "$(drought)_30d", "$(drought)_30d3m", "$(drought)_3m6m", "$(drought)_6m12m", 
                 "$(excessiverain)_q1", "$(excessiverain)_q2", "$(excessiverain)_q3", "$(excessiverain)_30d", "$(excessiverain)_30d3m", "$(excessiverain)_3m6m", "$(excessiverain)_6m12m"
@@ -258,7 +258,7 @@ module CustomModels
         regtable(
             regs...; 
             render = LatexTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 3 drought $threshold $months months.tex", 
+            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 3 drought $threshold $months months - Decade.tex", 
             order=[
                 "$(drought)_q1", "$(drought)_q2", "$(drought)_q3", "$(drought)_30d", "$(drought)_30d3m", "$(drought)_3m6m", "$(drought)_6m12m", 
                 "$(excessiverain)_q1", "$(excessiverain)_q2", "$(excessiverain)_q3", "$(excessiverain)_30d", "$(excessiverain)_30d3m", "$(excessiverain)_3m6m", "$(excessiverain)_6m12m"
@@ -281,7 +281,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df, 
-                term(:child_agedeath_30d) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d")) + sum(term.(temp_previous)) + term(Symbol("temp_30d")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
+                term(:child_agedeath_30d) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d")) + sum(term.(temp_previous)) + term(Symbol("temp_30d")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights=:hv005,
                 method=:CUDA
@@ -297,7 +297,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df_temp, 
-                term(:child_agedeath_30d3m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d3m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d3m"))+ sum(term.(temp_previous)) + term(Symbol("temp_30d3m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
+                term(:child_agedeath_30d3m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d3m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d3m"))+ sum(term.(temp_previous)) + term(Symbol("temp_30d3m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights=:hv005,
                 method=:CUDA
@@ -313,7 +313,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df_temp, 
-                term(:child_agedeath_3m6m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_3m6m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_3m6m")) + sum(term.(temp_previous)) + term(Symbol("temp_3m6m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
+                term(:child_agedeath_3m6m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_3m6m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_3m6m")) + sum(term.(temp_previous)) + term(Symbol("temp_3m6m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights=:hv005,
                 method=:CUDA
@@ -329,7 +329,7 @@ module CustomModels
         for i in 1:4
             reg_model = reg(
                 df_temp, 
-                term(:child_agedeath_6m12m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_6m12m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_6m12m")) + sum(term.(temp_previous)) + term(Symbol("temp_6m12m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
+                term(:child_agedeath_6m12m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_6m12m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_6m12m")) + sum(term.(temp_previous)) + term(Symbol("temp_6m12m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:decade) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
                 Vcov.cluster(Symbol("ID_cell$i")), 
                 weights=:hv005,
                 method=:CUDA
@@ -341,7 +341,7 @@ module CustomModels
         regtable(
             regs...; 
             render = AsciiTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 4 drought $threshold $months months.txt", 
+            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 4 drought $threshold $months months - Decade.txt", 
             order=[
                 "$(drought)_q1", "$(drought)_q2", "$(drought)_q3", "$(drought)_30d", "$(drought)_30d3m", "$(drought)_3m6m", "$(drought)_6m12m", 
                 "$(excessiverain)_q1", "$(excessiverain)_q2", "$(excessiverain)_q3", "$(excessiverain)_30d", "$(excessiverain)_30d3m", "$(excessiverain)_3m6m", "$(excessiverain)_6m12m",
@@ -351,7 +351,7 @@ module CustomModels
         regtable(
             regs...; 
             render = LatexTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 4 drought $threshold $months months.tex", 
+            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 4 drought $threshold $months months - Decade.tex", 
             order=[
                 "$(drought)_q1", "$(drought)_q2", "$(drought)_q3", "$(drought)_30d", "$(drought)_30d3m", "$(drought)_3m6m", "$(drought)_6m12m", 
                 "$(excessiverain)_q1", "$(excessiverain)_q2", "$(excessiverain)_q3", "$(excessiverain)_30d", "$(excessiverain)_30d3m", "$(excessiverain)_3m6m", "$(excessiverain)_6m12m",
@@ -362,19 +362,19 @@ module CustomModels
 
     
     function run_models(df, controls, folder, extra)
-        print("\rRunning Standard Models for $(folder)$(extra)\r")
+        print("\rRunning Models with decade trend FE for $(folder)$(extra)\r")
         for months in ["12", "6", "3", "1"]
-            CustomModels.spi_temp_linear_regression(df, months, controls, folder, extra)
+            spi_temp_linear_regression(df, months, controls, folder, extra)
         end
 
         for months in ["12", "6", "3", "1"]
-            CustomModels.spi_temp_quadratic_regression(df, months, controls, folder, extra)
+            spi_temp_quadratic_regression(df, months, controls, folder, extra)
         end
 
         for months in ["12", "6", "3", "1"]
             for threshold in ["1_5", "2_0", "2_5"]
-                CustomModels.drought_excessiverain_regression(df, months, threshold, controls, folder, extra)
-                CustomModels.drought_excessiverain_temp_regression(df, months, threshold, controls, folder, extra)
+                drought_excessiverain_regression(df, months, threshold, controls, folder, extra)
+                drought_excessiverain_temp_regression(df, months, threshold, controls, folder, extra)
             end
         end
     end
