@@ -40,13 +40,13 @@ def get_climate_shock(from_date, to_date, lat, lon):
     lon = point_data.lon.item()
 
     # Filter by time
-    inutero_q1 = point_data.isel(time=slice(0, 3))
-    inutero_q2 = point_data.isel(time=slice(3, 6))
-    inutero_q3 = point_data.isel(time=slice(6, 9))
-    born_1m = point_data.isel(time=slice(9, 10))
+    inutero_q1 = point_data.isel(time=slice(0, 2))
+    inutero_q2 = point_data.isel(time=slice(3, 5))
+    inutero_q3 = point_data.isel(time=slice(6, 8))
+    born_1m = point_data.isel(time=9)
     born_2to3m = point_data.isel(time=slice(10, 12))
-    born_3to6m = point_data.isel(time=slice(12, 15))
-    born_6to12m = point_data.isel(time=slice(15, 21))
+    born_3to6m = point_data.isel(time=slice(13, 15))
+    born_6to12m = point_data.isel(time=slice(16, 21))
 
     out_vars = [
         lat,
