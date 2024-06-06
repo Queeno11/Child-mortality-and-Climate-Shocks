@@ -26,7 +26,7 @@ controls3 = term.([:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_
 
 # # From 2003 and last 10 years
 contr_i = 1
-for controls in [controls2, controls3]
+for controls in [controls3, controls2]
     global contr_i
     suffix = "from 2003 & last 10 years - controls$(contr_i) - "
     CustomModels.run_models(df, controls, "", suffix)
