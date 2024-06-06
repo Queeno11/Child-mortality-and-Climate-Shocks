@@ -127,13 +127,22 @@ label var temp_30d3m 	"Mean Temperature 1-3 months"
 label var temp_3m6m  	"Mean Temperature 3-6 months"
 label var temp_6m12m 	"Mean Temperature 6-12 months"		
 
+* Kevin to Celius. FIXME: standarize temperature
+replace  temp_q1 	=  temp_q1 		- 273.15	
+replace  temp_q2 	=  temp_q2 		- 273.15
+replace  temp_q3 	=  temp_q3 		- 273.15
+replace  temp_30d 	=  temp_30d 	- 273.15	
+replace  temp_30d3m	=  temp_30d3m	- 273.15
+replace  temp_3m6m 	=  temp_3m6m 	- 273.15
+replace  temp_6m12m	=  temp_6m12m	- 273.15
+
 
 *############################################################*
 *# 	 Crate squared variables
 *############################################################*
+
 foreach var in "temp" "spi12" "spi6" "spi3" "spi1" {
 	foreach time in "q1" "q2" "q3" "30d" "30d3m" "3m6m" "6m12m" {
-		replace `var'_`time' = `var'_`time' * 1000
 		gen `var'_`time'_sq = `var'_`time' * `var'_`time'
 	}
 }
