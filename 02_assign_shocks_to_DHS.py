@@ -40,13 +40,9 @@ def get_climate_shock(from_date, to_date, lat, lon):
     lon = point_data.lon.item()
 
     # Filter by time
-    inutero_q1 = point_data.isel(time=slice(0, 2))
-    inutero_q2 = point_data.isel(time=slice(3, 5))
-    inutero_q3 = point_data.isel(time=slice(6, 8))
+    inutero = point_data.isel(time=slice(0, 8))
     born_1m = point_data.isel(time=9)
-    born_2to3m = point_data.isel(time=slice(10, 12))
-    born_3to6m = point_data.isel(time=slice(13, 15))
-    born_6to12m = point_data.isel(time=slice(16, 21))
+    born_2to12m = point_data.isel(time=slice(10, 21))
 
     out_vars = [
         lat,
@@ -60,42 +56,54 @@ def get_climate_shock(from_date, to_date, lat, lon):
         "spi12",
     ]:
         # Compute mean values for SPI
-        inutero_q1_mean = inutero_q1[spi].mean().item()
-        inutero_q2_mean = inutero_q2[spi].mean().item()
-        inutero_q3_mean = inutero_q3[spi].mean().item()
+        inutero_mean = inutero[spi].mean().item()
         born_1m_mean = born_1m[spi].mean().item()
-        born_2to3m_mean = born_2to3m[spi].mean().item()
-        born_3to6m_mean = born_3to6m[spi].mean().item()
-        born_6to12m_mean = born_6to12m[spi].mean().item()
+        born_2to12m_mean = born_2to12m[spi].mean().item()
+        # Compute min values for SPI
+        inutero_min = inutero[spi].min().item()
+        born_1m_min = born_1m[spi].min().item()
+        born_2to12m_min = born_2to12m[spi].min().item()
+        # Compute max values for SPI
+        inutero_max = inutero[spi].max().item()
+        born_1m_max = born_1m[spi].max().item()
+        born_2to12m_max = born_2to12m[spi].max().item()
 
         out_vars_this_spi = [
-            inutero_q1_mean,
-            inutero_q2_mean,
-            inutero_q3_mean,
+            inutero_mean,
             born_1m_mean,
-            born_2to3m_mean,
-            born_3to6m_mean,
-            born_6to12m_mean,
+            born_2to12m_mean,
+            inutero_min,
+            born_1m_min,
+            born_2to12m_min,
+            inutero_max,
+            born_1m_max,
+            born_2to12m_max,
         ]
         out_vars += out_vars_this_spi
 
     # Compute mean values for temperature
-    inutero_q1_temp_mean = inutero_q1["t2m"].mean().item()
-    inutero_q2_temp_mean = inutero_q2["t2m"].mean().item()
-    inutero_q3_temp_mean = inutero_q3["t2m"].mean().item()
+    inutero_temp_mean = inutero["t2m"].mean().item()
     born_1m_temp_mean = born_1m["t2m"].mean().item()
-    born_2to3m_temp_mean = born_2to3m["t2m"].mean().item()
-    born_3to6m_temp_mean = born_3to6m["t2m"].mean().item()
-    born_6to12m_temp_mean = born_6to12m["t2m"].mean().item()
+    born_2to12m_temp_mean = born_2to12m["t2m"].mean().item()
+    # Compute min values for temperature
+    inutero_temp_min = inutero["t2m"].min().item()
+    born_1m_temp_min = born_1m["t2m"].min().item()
+    born_2to12m_temp_min = born_2to12m["t2m"].min().item()
+    # Compute max values for temperature
+    inutero_temp_max = inutero["t2m"].max().item()
+    born_1m_temp_max = born_1m["t2m"].max().item()
+    born_2to12m_temp_max = born_2to12m["t2m"].max().item()
 
     out_vars_temp = [
-        inutero_q1_temp_mean,
-        inutero_q2_temp_mean,
-        inutero_q3_temp_mean,
+        inutero_temp_mean,
         born_1m_temp_mean,
-        born_2to3m_temp_mean,
-        born_3to6m_temp_mean,
-        born_6to12m_temp_mean,
+        born_2to12m_temp_mean,
+        inutero_temp_min,
+        born_1m_temp_min,
+        born_2to12m_temp_min,
+        inutero_temp_max,
+        born_1m_temp_max,
+        born_2to12m_temp_max,
     ]
     out_vars += out_vars_temp
 
@@ -113,7 +121,7 @@ df["birthdate"] = pd.to_datetime(df[["year", "month", "day"]]).to_numpy()
 df["from_date"] = df["birthdate"] + pd.DateOffset(
     months=-9
 )  # From in utero (9 months before birth)
-df["to_date"] = df["birthdate"] + pd.DateOffset(years=1)  # To the first year of life
+df["to_date"] = df["birthdate"] + pd.DateOffset(months=13)  # To the first year of life
 
 # Filter children from_date greater than 1990 (we only have climate data from 1990)
 df = df[df["from_date"] > "1990-01-01"]
