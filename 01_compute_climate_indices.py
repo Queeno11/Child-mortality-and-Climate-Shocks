@@ -15,6 +15,7 @@ if __name__ == "__main__":
     DATA_PROC = rf"{DATA}\Data_proc"
     DATA_OUT = rf"{DATA}\Data_out"
     ERA5_DATA = rf"Z:\WB Data\ERA5 Reanalysis\monthly"
+    DATA_SSD = rf"E:"
 
     #######################
 
@@ -197,5 +198,5 @@ if __name__ == "__main__":
 
     climate_data = xr.combine_by_coords(spis + temps)
     with ProgressBar():
-        climate_data.to_netcdf(rf"{DATA_OUT}/Climate_shocks_v4.nc")
-        print(f"Data ready! file saved at {DATA_OUT}/Climate_shocks_v4.nc")
+        climate_data.to_netcdf(rf"{DATA_SSD}/Climate_shocks_v4.nc")
+        print(f"Data ready! file saved at {DATA_SSD}/Climate_shocks_v4.nc")

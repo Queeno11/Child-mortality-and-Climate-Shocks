@@ -18,9 +18,6 @@ if __name__ == "__main__":
 
     logging.getLogger("distributed").setLevel(logging.WARNING)
 
-    # Initialize Dask client
-    client = Client()
-
     # Set global variables
     PROJECT = r"Z:\Laboral\World Bank\Paper - Child mortality and Climate Shocks"
     OUTPUTS = rf"{PROJECT}\Outputs"
@@ -28,10 +25,11 @@ if __name__ == "__main__":
     DATA_IN = rf"{DATA}\Data_in"
     DATA_PROC = rf"{DATA}\Data_proc"
     DATA_OUT = rf"{DATA}\Data_out"
+    DATA_SSD = rf"E:"
 
     ### Load data #############
     print("Loading data...")
-    climate_data = xr.open_dataset(rf"{DATA_OUT}/Climate_shocks_v4.nc")
+    climate_data = xr.open_dataset(rf"{DATA_SSD}/Climate_shocks_v4.nc")
     dates = climate_data.time.values
 
     full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_04172024.dta")
@@ -124,6 +122,9 @@ if __name__ == "__main__":
     all_cols = coords_cols + shock_cols
 
     print("Assigning climate shocks to DHS data...")
+    # Initialize Dask client
+    client = Client()
+
     for n in tqdm(range(0, df.ID.max(), 10_000)):
         if os.path.exists(rf"{DATA_PROC}/births_climate_{n}.csv"):
             print(f"births_climate_{n}.csv exists, moving to next iteration")
