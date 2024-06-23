@@ -30,10 +30,6 @@ if __name__ == "__main__":
     else:
         ########################
         ####  Load Data    ####
-        print("Loading mask data...")
-        countries = xr.open_dataset(
-            rf"{DATA_IN}\Climate Data\timeseries-pr-monthly-mean_cru_monthly_cru-ts4.06-timeseries_mean_1901-2021.nc"
-        )
         print("Loading ERA5 raw data...")
         files = os.listdir(ERA5_DATA)
         datasets = []
@@ -44,6 +40,7 @@ if __name__ == "__main__":
             )
             datasets += [ds]
         precipitation = xr.concat(datasets, dim="time")
+        precipitation = precipitation.chunk({"time": 15})
 
         print("Raw Data Loaded! Processing...")
 
@@ -70,6 +67,10 @@ if __name__ == "__main__":
         ####  Mask values   ####
         ## Mask values on the sea, as we only need country data.
         # Data from countries comes from non-nan values in the precipitation_cckp dataset
+        print("Loading mask data...")
+        countries = xr.open_dataset(
+            rf"{DATA_IN}\Climate Data\timeseries-pr-monthly-mean_cru_monthly_cru-ts4.06-timeseries_mean_1901-2021.nc"
+        )
         mask = countries["timeseries-pr-monthly-mean"].isel(time=0).notnull()
         # Interpolate mask to ERA5 resolution
         mask = (
@@ -77,6 +78,7 @@ if __name__ == "__main__":
             .interp(lat=precipitation.lat, lon=precipitation.lon, method="nearest")
             .astype(bool)
         )
+        precipitation = precipitation.where(mask)
 
         with ProgressBar():
             precipitation.to_netcdf(era5_path)
@@ -194,5 +196,6 @@ if __name__ == "__main__":
     ########################
 
     climate_data = xr.combine_by_coords(spis + temps)
-    climate_data.to_netcdf(rf"{DATA_OUT}/Climate_shocks_v4.nc")
-    print(f"Data ready! file saved at {DATA_OUT}/Climate_shocks_v4.nc")
+    with ProgressBar():
+        climate_data.to_netcdf(rf"{DATA_OUT}/Climate_shocks_v4.nc")
+        print(f"Data ready! file saved at {DATA_OUT}/Climate_shocks_v4.nc")
