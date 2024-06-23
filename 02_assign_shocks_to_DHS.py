@@ -125,12 +125,13 @@ if __name__ == "__main__":
     # Initialize Dask client
     client = Client()
 
-    for n in tqdm(range(0, df.ID.max(), 10_000)):
+    chunk_size = 1_000_000
+    for n in tqdm(range(0, df.ID.max(), chunk_size)):
         if os.path.exists(rf"{DATA_PROC}/births_climate_{n}.csv"):
             print(f"births_climate_{n}.csv exists, moving to next iteration")
             continue
         chunk = df.loc[
-            (df.ID >= n) & (df.ID < n + 10_000),
+            (df.ID >= n) & (df.ID < n + chunk_size),
             ["ID", "from_date", "to_date", "LATNUM", "LONGNUM"],
         ].copy()
         if chunk.shape[0] == 0:
