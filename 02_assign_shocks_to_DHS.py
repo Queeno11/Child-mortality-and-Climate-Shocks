@@ -9,12 +9,13 @@ pd.options.mode.chained_assignment = None  # default='warn'
 tqdm.pandas()
 
 # Set global variables
-PROJECT = r"Z:\Laboral\World Bank\Paper - Child mortality and Climate Shocks"
+PROJECT = r"D:\World Bank\Paper - Child Mortality and Climate Shocks"
 OUTPUTS = rf"{PROJECT}\Outputs"
 DATA = rf"{PROJECT}\Data"
 DATA_IN = rf"{DATA}\Data_in"
 DATA_PROC = rf"{DATA}\Data_proc"
 DATA_OUT = rf"{DATA}\Data_out"
+ERA5_DATA = rf"D:\Datasets\ERA5 Reanalysis\monthly-single-levels"
 
 ### Load data #############
 climate_data = xr.open_dataset(rf"{DATA_OUT}/Climate_shocks_v3_spi.nc")

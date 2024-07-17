@@ -1,16 +1,20 @@
 import os
 import xarray as xr
 from tqdm import tqdm
+from dask.distributed import Client
 from climate_indices import indices, compute
 
 # Set global variables
-PROJECT = r"Z:\Laboral\World Bank\Paper - Child mortality and Climate Shocks"
+PROJECT = r"D:\World Bank\Paper - Child Mortality and Climate Shocks"
 OUTPUTS = rf"{PROJECT}\Outputs"
 DATA = rf"{PROJECT}\Data"
 DATA_IN = rf"{DATA}\Data_in"
 DATA_PROC = rf"{DATA}\Data_proc"
 DATA_OUT = rf"{DATA}\Data_out"
-ERA5_DATA = rf"Z:\WB Data\ERA5 Reanalysis\monthly"
+ERA5_DATA = rf"D:\Datasets\ERA5 Reanalysis\monthly-single-levels"
+
+client = Client(n_workers=1, threads_per_worker=4, memory_limit="7GB")
+print(client)
 
 #######################
 
@@ -103,9 +107,7 @@ for i in [1, 3, 6, 9, 12]:
     print(f"Computing SPI-{i}")
     spi_path = os.path.join(DATA_OUT, f"ERA5_monthly_1970-2021_SPI{i}.nc")
     if os.path.exists(spi_path):
-        da_spi = xr.open_dataset(
-            spi_path, chunks={"time": 12, "latitude": 500, "longitude": 500}
-        )
+        da_spi = xr.open_dataset(spi_path, chunks={"latitude": 1000, "longitude": 1000})
         print(f"SPI-{i} already computed. Skipping...")
     else:
         da_spi = xr.apply_ufunc(

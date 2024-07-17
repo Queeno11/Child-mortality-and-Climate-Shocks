@@ -1,7 +1,7 @@
 clear all
 set maxvar 120000
 
-global PROJECT = "Z:\Laboral\World Bank\Paper - Child mortality and Climate Shocks"
+global PROJECT = "D:\World Bank\Paper - Child Mortality and Climate Shocks"
 global OUTPUTS = "${PROJECT}\Outputs"
 global DATA = "${PROJECT}\Data"
 global DATA_IN = "${DATA}\Data_in"

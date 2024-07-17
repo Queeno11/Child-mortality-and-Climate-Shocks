@@ -1,14 +1,14 @@
-include("Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\CustomModels.jl")
-include("Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\CustomModelsCountry.jl")
-include("Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\CustomModelsDecade.jl")
-include("Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\CustomModelsNotrend.jl")
+include("D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\CustomModels.jl")
+include("D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\CustomModelsCountry.jl")
+include("D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\CustomModelsDecade.jl")
+include("D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\CustomModelsNotrend.jl")
 
 using .CustomModels, .CustomModelsCountry, .CustomModelsDecade, .CustomModelsNotrend
 using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, StatFiles
 
 # Load the data
 print("Cargando dataset...")
-df = CSV.read("Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks.csv", DataFrame)
+df = CSV.read("D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks.csv", DataFrame)
 
 df.decade = floor.(df.chb_year / 10) * 10
 
