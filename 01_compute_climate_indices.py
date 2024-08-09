@@ -1,6 +1,7 @@
 if __name__ == "__main__":
 
     import os
+    import warnings
     import xarray as xr
     from tqdm import tqdm
     from climate_indices import indices, compute
@@ -8,18 +9,19 @@ if __name__ == "__main__":
     from dask.distributed import Client
 
     # Set global variables
-    PROJECT = r"Z:\Laboral\World Bank\Paper - Child mortality and Climate Shocks"
+    PROJECT = r"D:\World Bank\Paper - Child mortality and Climate Shocks"
     OUTPUTS = rf"{PROJECT}\Outputs"
     DATA = rf"{PROJECT}\Data"
     DATA_IN = rf"{DATA}\Data_in"
     DATA_PROC = rf"{DATA}\Data_proc"
     DATA_OUT = rf"{DATA}\Data_out"
-    ERA5_DATA = rf"Z:\WB Data\ERA5 Reanalysis\monthly"
-    DATA_SSD = rf"E:"
+    ERA5_DATA = rf"D:\Datasets\ERA5 Reanalysis\monthly-single-levels"
 
     #######################
-
+    # Filter runtime warnings
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
     client = Client()  # start distributed scheduler locally.
+    print(client)
 
     ########################
     ####  Process data ####
@@ -37,11 +39,11 @@ if __name__ == "__main__":
         for file in files:
             ds = xr.open_dataset(
                 os.path.join(ERA5_DATA, file),
-                chunks={"time": 12},
+                chunks="auto",
             )
             datasets += [ds]
         precipitation = xr.concat(datasets, dim="time")
-        precipitation = precipitation.chunk({"time": 15})
+        # precipitation = precipitation.chunk({"time": 15})
 
         print("Raw Data Loaded! Processing...")
 
@@ -84,7 +86,9 @@ if __name__ == "__main__":
         with ProgressBar():
             precipitation.to_netcdf(era5_path)
 
-    precipitation = xr.open_dataset(era5_path, chunks={"time": 12})
+    precipitation = xr.open_dataset(
+        era5_path, chunks={"latitude": 100, "longitude": 100}
+    )
 
     ########################
     ####   Compute SPI  ####
@@ -104,6 +108,7 @@ if __name__ == "__main__":
     print("Data Ready! Computing SPI. This will take at least a few hours...")
 
     # Mask data
+    print(precipitation)
     da_precip_groupby = precipitation["tp"].stack(point=("lat", "lon")).groupby("point")
 
     # Parameters
@@ -120,7 +125,7 @@ if __name__ == "__main__":
         spi_path = os.path.join(DATA_PROC, f"ERA5_monthly_1970-2021_SPI{i}.nc")
         if os.path.exists(spi_path):
             da_spi = xr.open_dataset(
-                spi_path, chunks={"time": 12, "latitude": 500, "longitude": 500}
+                spi_path, chunks={"latitude": 100, "longitude": 100}
             )
             print(f"SPI-{i} already computed. Skipping...")
         else:
@@ -133,9 +138,11 @@ if __name__ == "__main__":
                 calibration_year_initial,
                 calibration_year_final,
                 periodicity,
+                dask="parallelized",
             )
             da_spi = da_spi.unstack("point").rename(f"spi{i}")
-            da_spi.to_netcdf(spi_path)
+            with ProgressBar():
+                da_spi.to_netcdf(spi_path)
         spis += [da_spi]
 
     #########################
@@ -198,5 +205,6 @@ if __name__ == "__main__":
 
     climate_data = xr.combine_by_coords(spis + temps)
     with ProgressBar():
-        climate_data.to_netcdf(rf"{DATA_SSD}/Climate_shocks_v4.nc")
-        print(f"Data ready! file saved at {DATA_SSD}/Climate_shocks_v4.nc")
+        out = rf"{DATA_PROC}/Climate_shocks_v4.nc"
+        climate_data.to_netcdf(out)
+        print(f"Data ready! file saved at {out}")

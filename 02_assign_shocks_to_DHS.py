@@ -19,20 +19,19 @@ if __name__ == "__main__":
     logging.getLogger("distributed").setLevel(logging.WARNING)
 
     # Set global variables
-    PROJECT = r"Z:\Laboral\World Bank\Paper - Child mortality and Climate Shocks"
+    PROJECT = r"D:\World Bank\Paper - Child Mortality and Climate Shocks"
     OUTPUTS = rf"{PROJECT}\Outputs"
     DATA = rf"{PROJECT}\Data"
     DATA_IN = rf"{DATA}\Data_in"
     DATA_PROC = rf"{DATA}\Data_proc"
     DATA_OUT = rf"{DATA}\Data_out"
-    DATA_SSD = rf"E:"
 
     ### Load data #############
     print("Loading data...")
-    climate_data = xr.open_dataset(rf"{DATA_SSD}/Climate_shocks_v4.nc")
+    climate_data = xr.open_dataset(rf"{DATA_PROC}/Climate_shocks_v4.nc")
     dates = climate_data.time.values
 
-    full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_04172024.dta")
+    full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024.dta")
     full_dhs["ID"] = full_dhs.index
     df = full_dhs.copy()
     print("Data loaded! Processing...")
@@ -64,8 +63,13 @@ if __name__ == "__main__":
         lon = point_data.lon.item()
 
         # Filter by time
-        inutero = point_data.isel(time=slice(0, 8))
-        born_1m = point_data.isel(time=slice(9, 10))  # 10th month == 1st month of life
+        ## 80% of the children are born between week 37 (~8.5 months) and 41 (~9.5 months) of gestation.
+        ## https://commons.wikimedia.org/wiki/File:Distribution_of_gestational_age_at_childbirth.jpg
+        ## Given we only have monthly data, we will consider the first 8 months of gestation as in utero (month 0 to 7)
+        ## Because ~50% of the children are born before the 15th the initial month, on average, we will ensure that
+        ## most of the kids' first month of life is included in the "1st month of life" category (month 8 to 10)
+        inutero = point_data.isel(time=slice(0, 8))  # 8 not included
+        born_1m = point_data.isel(time=slice(8, 10))
         born_2to12m = point_data.isel(time=slice(10, 21))
 
         out = [lat, lon]

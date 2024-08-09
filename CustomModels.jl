@@ -13,365 +13,281 @@ module CustomModels
         #################################################################
         ### VERSION 1: spi + temp models (linear)
         #################################################################
-        # Model 1 - all children
-        spi_previous = [Symbol("spi$(months)_q1"), Symbol("spi$(months)_q2"), Symbol("spi$(months)_q3")]
-        temp_previous = [Symbol("temp_q1"), Symbol("temp_q2"), Symbol("temp_q3")]
-        regs = []
-        for i in 1:4
-            reg_model = reg(
-                df, 
-                term(:child_agedeath_30d) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d")) + sum(term.(temp_previous)) + term(Symbol("temp_30d")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights = :hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
+        println("\rRunning Model VERSION 1: spi + temp models (linear) - SPI$(months)\r")
 
-        # Model 2 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_30d == 0, df)
-        push!(spi_previous, Symbol("spi$(months)_30d"))
-        push!(temp_previous, Symbol("temp_30d"))
-        for i in 1:4
-            reg_model = reg(
-                df_temp, 
-                term(:child_agedeath_30d3m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d3m")) + sum(term.(temp_previous)) + term(Symbol("temp_30d3m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights = :hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
+        for temp in ["t", "std_t", "stdm_t"]
+            for ind in [("min-max", "min", "max"), ("avg", "avg", "avg")]
+                nameind = ind[1]
+                spiind = ind[2]
+                tind = ind[3]
+                spi_previous = [Symbol("spi$(months)_inutero_$(spiind)")]
+                temp_previous = [Symbol("$(temp)_inutero_$(tind)")]
+                regs = []
+                for i in 1:4
+                    fixed_effects = fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month)
+                    reg_model = reg(
+                        df, 
+                        term(:child_agedeath_30d) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d_$(spiind)")) + sum(term.(temp_previous)) + term(Symbol("$(temp)_30d_$(tind)")) + sum(controls) + fixed_effects, 
+                        Vcov.cluster(Symbol("ID_cell$i")), 
+                        weights = :hv005,
+                        method=:CUDA
+                    )
+                    push!(regs, reg_model)
+                end
 
-        # Model 3 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_30d3m == 0, df_temp)
-        push!(spi_previous, Symbol("spi$(months)_30d3m"))
-        push!(temp_previous, Symbol("temp_30d3m"))
-        for i in 1:4
-            reg_model = reg(
-                df_temp, 
-                term(:child_agedeath_3m6m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_3m6m")) + sum(term.(temp_previous)) + term(Symbol("temp_3m6m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights = :hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
+                # Model 2 - only children that survived
+                df_temp = filter(row -> row.child_agedeath_30d == 0, df)
+                push!(spi_previous, Symbol("spi$(months)_30d_$(spiind)"))
+                push!(temp_previous, Symbol("$(temp)_30d_$(tind)"))
+                for i in 1:4
+                    fixed_effects = fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month)
+                    reg_model = reg(
+                        df_temp, 
+                        term(:child_agedeath_2m12m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_2m12m_$(spiind)")) + sum(term.(temp_previous)) + term(Symbol("$(temp)_2m12m_$(tind)")) + sum(controls) + fixed_effects, 
+                        Vcov.cluster(Symbol("ID_cell$i")), 
+                        weights = :hv005,
+                        method=:CUDA
+                    )
+                    push!(regs, reg_model)
+                end
 
-        # Model 4 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_3m6m == 0, df_temp)
-        push!(spi_previous, Symbol("spi$(months)_3m6m"))
-        push!(temp_previous, Symbol("temp_3m6m"))
-        for i in 1:4
-            reg_model = reg(
-                df_temp, 
-                term(:child_agedeath_6m12m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_6m12m")) + sum(term.(temp_previous)) + term(Symbol("temp_6m12m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights = :hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
+                # Generate regression table
+                regtable(
+                    regs...; 
+                    render = AsciiTable(), 
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 1 $months months $(nameind).txt",
+                    order=[
+                        "spi$(months)_inutero_$(spiind)", "spi$(months)_30d_$(spiind)", "spi$(months)_2m12m_$(spiind)",
+                        "$(temp)_inutero_$(tind)", "$(temp)_30d_$(tind)", "$(temp)_2m12m_$(tind)",
+                    ], 
+                )
+                regtable(
+                    regs...; 
+                    render = LatexTable(), 
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 1 $months months $(nameind).tex", 
+                    order=[
+                        "spi$(months)_inutero_$(spiind)", "spi$(months)_30d_$(spiind)", "spi$(months)_2m12m_$(spiind)",
+                        "$(temp)_inutero_$(tind)", "$(temp)_30d_$(tind)", "$(temp)_2m12m_$(tind)",
+                    ], 
+                )
+            end
         end
-
-        # Generate regression table
-        regtable(
-            regs...; 
-            render = AsciiTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 1 $months months.txt",
-            order=[
-                "spi$(months)_q1", "spi$(months)_q2", "spi$(months)_q3", "spi$(months)_30d", "spi$(months)_30d3m", "spi$(months)_3m6m", "spi$(months)_6m12m",
-                "temp_q1", "temp_q2", "temp_q3", "temp_30d", "temp_30d3m", "temp_3m6m", "temp_6m12m",
-            ], 
-        )
-        regtable(
-            regs...; 
-            render = LatexTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 1 $months months.tex", 
-            order=[
-                "spi$(months)_q1", "spi$(months)_q2", "spi$(months)_q3", "spi$(months)_30d", "spi$(months)_30d3m", "spi$(months)_3m6m", "spi$(months)_6m12m",
-                "temp_q1", "temp_q2", "temp_q3", "temp_30d", "temp_30d3m", "temp_3m6m", "temp_6m12m",
-            ], 
-        )
     end
-
 
     function spi_temp_quadratic_regression(df, months, controls, folder, extra)
         #################################################################
         ### VERSION 2: spi + temp models (quadratic) ###
         #################################################################
+        println("\rRunning Model VERSION 2: spi + temp models (quadratic) - SPI$(months)\r")
 
-        # Model 1 - all children
-        spi_previous = [Symbol("spi$(months)_q1"), Symbol("spi$(months)_q1_sq"), Symbol("spi$(months)_q2"), Symbol("spi$(months)_q2_sq"), Symbol("spi$(months)_q3"), Symbol("spi$(months)_q3_sq")]
-        temp_previous = [Symbol("temp_q1"), Symbol("temp_q1_sq"), Symbol("temp_q2"), Symbol("temp_q2_sq"), Symbol("temp_q3"), Symbol("temp_q3_sq")]
-        regs = []
-        for i in 1:4
-            reg_model = reg(
-                df, 
-                term(:child_agedeath_30d) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d")) + term(Symbol("spi$(months)_30d_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_30d")) + term(Symbol("temp_30d_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights = :hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
+        for temp in ["t", "std_t", "stdm_t"]
+            for ind in [("min-max", "min", "max"), ("avg", "avg", "avg")]
+                nameind = ind[1]
+                spiind = ind[2]
+                tind = ind[3]
+                # Model 1 - all children
+                spi_previous = [Symbol("spi$(months)_inutero_$(tind)"), Symbol("spi$(months)_inutero_$(tind)_sq")]
+                temp_previous = [Symbol("$(temp)_inutero_$(tind)"), Symbol("$(temp)_inutero_$(tind)_sq")]
+                regs = []
+                for i in 1:4
+                    fixed_effects = fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month)
+                    reg_model = reg(
+                        df, 
+                        term(:child_agedeath_30d) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d_$(spiind)")) + term(Symbol("spi$(months)_30d_$(spiind)_sq")) + sum(term.(temp_previous)) + term(Symbol("$(temp)_30d_$(tind)")) + term(Symbol("$(temp)_30d_$(tind)_sq")) + sum(controls) + fixed_effects, 
+                        Vcov.cluster(Symbol("ID_cell$i")), 
+                        weights = :hv005,
+                        method=:CUDA
+                    )
+                    push!(regs, reg_model)
+                end
+
+                # Model 2 - only children that survived
+                df_temp = filter(row -> row.child_agedeath_30d == 0, df)
+                append!(spi_previous, [Symbol("spi$(months)_30d_$(spiind)"), Symbol("spi$(months)_30d_$(spiind)_sq")])
+                append!(temp_previous, [Symbol("$(temp)_30d_$(tind)"), Symbol("$(temp)_30d_$(tind)_sq")])
+                for i in 1:4
+                    fixed_effects = fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month)
+                    reg_model = reg(
+                        df_temp, term(:child_agedeath_2m12m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_2m12m_$(spiind)")) + term(Symbol("spi$(months)_2m12m_$(spiind)_sq")) + sum(term.(temp_previous)) + term(Symbol("$(temp)_2m12m_$(tind)")) + term(Symbol("$(temp)_2m12m_$(tind)_sq")) + sum(controls) + fixed_effects, 
+                        Vcov.cluster(Symbol("ID_cell$i")), 
+                        weights=:hv005,
+                        method=:CUDA
+                    )
+                    push!(regs, reg_model)
+                end
+
+                # Generate regression table
+                regtable(
+                    regs...; 
+                    render = AsciiTable(), 
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 2 SPI$(months) $(temp) $(nameind).txt", 
+                    order=[
+                        "spi$(months)_inutero_$(tind)", "spi$(months)_inutero_$(tind)_sq", "spi$(months)_30d_$(spiind)", "spi$(months)_30d_$(spiind)_sq", "spi$(months)_2m12m_$(spiind)", "spi$(months)_2m12m_$(spiind)_sq",
+                        "$(temp)_inutero_$(tind)", "$(temp)_inutero_$(tind)_sq", "$(temp)_30d_$(tind)", "$(temp)_30d_$(tind)_sq", "$(temp)_2m12m_$(tind)", "$(temp)_2m12m_$(tind)_sq"
+                    ], 
+
+                )
+                regtable(
+                    regs...; 
+                    render = LatexTable(), 
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 2 SPI$(months) $(temp) $(nameind).tex", 
+                    order=[
+                        "spi$(months)_inutero_$(tind)", "spi$(months)_inutero_$(tind)_sq", "spi$(months)_30d_$(spiind)", "spi$(months)_30d_$(spiind)_sq", "spi$(months)_2m12m_$(spiind)", "spi$(months)_2m12m_$(spiind)_sq",
+                        "$(temp)_inutero_$(tind)", "$(temp)_inutero_$(tind)_sq", "$(temp)_30d_$(tind)", "$(temp)_30d_$(tind)_sq", "$(temp)_2m12m_$(tind)", "$(temp)_2m12m_$(tind)_sq"
+                    ], 
+                )
+
+            end
         end
-
-        # Model 2 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_30d == 0, df)
-        append!(spi_previous, [Symbol("spi$(months)_30d"), Symbol("spi$(months)_30d_sq")])
-        append!(temp_previous, [Symbol("temp_30d"), Symbol("temp_30d_sq")])
-        for i in 1:4
-            reg_model = reg(
-                df_temp, 
-                term(:child_agedeath_30d3m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_30d3m")) + term(Symbol("spi$(months)_30d3m_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_30d3m")) + term(Symbol("temp_30d3m_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
-                 Vcov.cluster(Symbol("ID_cell$i")), 
-                 weights = :hv005,
-                 method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
-
-        # Model 3 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_30d3m == 0, df_temp)
-        append!(spi_previous, [Symbol("spi$(months)_30d3m"), Symbol("spi$(months)_30d3m_sq")])
-        append!(temp_previous, [Symbol("temp_30d3m"), Symbol("temp_30d3m_sq")])
-        for i in 1:4
-            reg_model = reg(
-                df_temp, 
-                term(:child_agedeath_3m6m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_3m6m")) + term(Symbol("spi$(months)_3m6m_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_3m6m")) + term(Symbol("temp_3m6m_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
-                Vcov.cluster(Symbol("ID_cell$(i)")), 
-                weights=:hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
-
-        # Model 4 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_3m6m == 0, df_temp)
-        append!(spi_previous, [Symbol("spi$(months)_3m6m"), Symbol("spi$(months)_3m6m_sq")])
-        append!(temp_previous, [Symbol("temp_3m6m"), Symbol("temp_3m6m_sq")])
-        for i in 1:4
-            reg_model = reg(
-                df_temp, term(:child_agedeath_6m12m) ~ sum(term.(spi_previous)) + term(Symbol("spi$(months)_6m12m")) + term(Symbol("spi$(months)_6m12m_sq")) + sum(term.(temp_previous)) + term(Symbol("temp_6m12m")) + term(Symbol("temp_6m12m_sq")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights=:hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
-
-        # Generate regression table
-        regtable(
-            regs...; 
-            render = AsciiTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 2 $months months.txt", 
-            order=[
-                "spi$(months)_q1", "spi$(months)_q1_sq", "spi$(months)_q2", "spi$(months)_q2_sq", "spi$(months)_q3", "spi$(months)_q3_sq", "spi$(months)_30d", "spi$(months)_30d_sq", "spi$(months)_30d3m", "spi$(months)_30d3m_sq", "spi$(months)_3m6m", "spi$(months)_3m6m_sq", "spi$(months)_6m12m", "spi$(months)_6m12m_sq",
-                "temp_q1", "temp_q1_sq", "temp_q2", "temp_q2_sq", "temp_q3", "temp_q3_sq", "temp_30d", "temp_30d_sq", "temp_30d3m", "temp_30d3m_sq", "temp_3m6m", "temp_3m6m_sq", "temp_6m12m", "temp_6m12m_sq"
-            ], 
-
-        )
-        regtable(
-            regs...; 
-            render = LatexTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 2 $months months.tex", 
-        )
-
     end
-
     function drought_excessiverain_regression(df, months, threshold, controls, folder, extra)
         
         #################################################################
-        ### VERSION 4: Droughts/Excessive Rain + linear Temp          ###
+        ### VERSION 3: Droughts/Excessive Rain                        ###
         #################################################################
-        # Model 1 - all children
-        regs = []
-        drought = "drought$(months)_$(threshold)"
-        excessiverain = "excessiverain$(months)_$(threshold)"
-        drought_previous = [Symbol("$(drought)_q1"), Symbol("$(drought)_q2"), Symbol("$(drought)_q3")]
-        excessiverain_previous = [Symbol("$(excessiverain)_q1"), Symbol("$(excessiverain)_q2"), Symbol("$(excessiverain)_q3")]
-        for i in 1:4
-            reg_model = reg(
-                df, 
-                term(:child_agedeath_30d) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights=:hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
+        println("\rRunning Model VERSION 3: Droughts/Excessive Rain  - SPI$(months) $(threshold)std \r")
 
-        # Model 2 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_30d == 0, df)
-        push!(drought_previous, Symbol("$(drought)_30d"))
-        push!(excessiverain_previous, Symbol("$(excessiverain)_30d"))
-        for i in 1:4
-            reg_model = reg(
-                df_temp, 
-                term(:child_agedeath_30d3m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d3m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d3m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights=:hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
+        for ind in [("min-max", "min", "max", "max"), ("avg", "avg", "avg", "avg")]
+            nameind = ind[1]
+            drind = ind[2]
+            erind = ind[3]
+            tind = ind[4]
 
-        # Model 3 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_30d3m == 0, df_temp)
-        push!(drought_previous, Symbol("$(drought)_30d3m"))
-        push!(excessiverain_previous, Symbol("$(excessiverain)_30d3m"))
-        for i in 1:4
-            reg_model = reg(
-                df_temp, 
-                term(:child_agedeath_3m6m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_3m6m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_3m6m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights=:hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
+            regs = []
+            drought = "drought$(months)_$(threshold)"
+            excessiverain = "excessiverain$(months)_$(threshold)"
+            drought_previous = [Symbol("$(drought)_inutero_$(drind)")]
+            excessiverain_previous = [Symbol("$(excessiverain)_inutero_$(erind)")]
+            for i in 1:4
+                fixed_effects = fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month)
+                reg_model = reg(
+                    df, 
+                    term(:child_agedeath_30d) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d_$(drind)")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d_$(erind)")) + sum(controls) + fixed_effects, 
+                    Vcov.cluster(Symbol("ID_cell$i")), 
+                    weights=:hv005,
+                    method=:CUDA
+                )
+                push!(regs, reg_model)
+            end
 
-        # Model 4 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_3m6m == 0, df_temp)
-        push!(drought_previous, Symbol("$(drought)_3m6m"))
-        push!(excessiverain_previous, Symbol("$(excessiverain)_3m6m"))        
-        for i in 1:4
-            reg_model = reg(
-                df_temp, 
-                term(:child_agedeath_6m12m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_6m12m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_6m12m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights=:hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
+            # Model 2 - only children that survived
+            df_temp = filter(row -> row.child_agedeath_30d == 0, df)
+            push!(drought_previous, Symbol("$(drought)_30d_$(drind)"))
+            push!(excessiverain_previous, Symbol("$(excessiverain)_30d_$(erind)"))
+            for i in 1:4
+                fixed_effects = fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month)
+                reg_model = reg(
+                    df_temp, 
+                    term(:child_agedeath_2m12m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_2m12m_$(drind)")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_2m12m_$(erind)")) + sum(controls) + fixed_effects,
+                    Vcov.cluster(Symbol("ID_cell$i")), 
+                    weights=:hv005,
+                    method=:CUDA
+                )
+                push!(regs, reg_model)
+            end
 
-        # Generate regression table
-        regtable(
-            regs...; 
-            render = AsciiTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 3 drought $threshold $months months.txt", 
-            order=[
-                "$(drought)_q1", "$(drought)_q2", "$(drought)_q3", "$(drought)_30d", "$(drought)_30d3m", "$(drought)_3m6m", "$(drought)_6m12m", 
-                "$(excessiverain)_q1", "$(excessiverain)_q2", "$(excessiverain)_q3", "$(excessiverain)_30d", "$(excessiverain)_30d3m", "$(excessiverain)_3m6m", "$(excessiverain)_6m12m"
-            ]
-        )
-        regtable(
-            regs...; 
-            render = LatexTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 3 drought $threshold $months months.tex", 
-            order=[
-                "$(drought)_q1", "$(drought)_q2", "$(drought)_q3", "$(drought)_30d", "$(drought)_30d3m", "$(drought)_3m6m", "$(drought)_6m12m", 
-                "$(excessiverain)_q1", "$(excessiverain)_q2", "$(excessiverain)_q3", "$(excessiverain)_30d", "$(excessiverain)_30d3m", "$(excessiverain)_3m6m", "$(excessiverain)_6m12m"
-            ]
-        )
+            # Generate regression table
+            regtable(
+                regs...; 
+                render = AsciiTable(), 
+                file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 3 drought SPI$months $threshold.txt", 
+                order=[
+                    "$(drought)_inutero_$(drind)", "$(drought)_30d_$(drind)", "$(drought)_2m12m_$(drind)", 
+                    "$(excessiverain)_inutero_$(erind)", "$(excessiverain)_30d_$(erind)", "$(excessiverain)_2m12m_$(erind)"
+                ]
+            )
+            regtable(
+                regs...; 
+                render = LatexTable(), 
+                file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 3 drought SPI$months $threshold.tex", 
+                order=[
+                    "$(drought)_inutero_$(drind)", "$(drought)_30d_$(drind)", "$(drought)_2m12m_$(drind)", 
+                    "$(excessiverain)_inutero_$(erind)", "$(excessiverain)_30d_$(erind)", "$(excessiverain)_2m12m_$(erind)"
+                ]
+            )
+        end
     end
 
     function drought_excessiverain_temp_regression(df, months, threshold, controls, folder, extra)
         #################################################################
         ### VERSION 4: Droughts/Excessive Rain +  linear temp         ###
         #################################################################
-        # Model 1 - all children
-        regs = []
-        drought = "drought$(months)_$(threshold)"
-        excessiverain = "excessiverain$(months)_$(threshold)"
-        drought_previous = [Symbol("$(drought)_q1"), Symbol("$(drought)_q2"), Symbol("$(drought)_q3")]
-        excessiverain_previous = [Symbol("$(excessiverain)_q1"), Symbol("$(excessiverain)_q2"), Symbol("$(excessiverain)_q3")]
-        temp_previous = [Symbol("temp_q1"), Symbol("temp_q2"), Symbol("temp_q3")]
+        println("\rRunning Model VERSION 4: Droughts/Excessive Rain + linear Temp - SPI$(months) $(threshold)std \r")
 
-        for i in 1:4
-            reg_model = reg(
-                df, 
-                term(:child_agedeath_30d) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d")) + sum(term.(temp_previous)) + term(Symbol("temp_30d")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month), 
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights=:hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
+        for temp in ["t", "std_t", "stdm_t"]
+            for ind in [("min-max", "min", "max", "max"), ("avg", "avg", "avg", "avg")]
+                nameind = ind[1]
+                drind = ind[2]
+                erind = ind[3]
+                tind = ind[4]
+    
+                regs = []
+                drought = "drought$(months)_$(threshold)"
+                excessiverain = "excessiverain$(months)_$(threshold)"
+                drought_previous = [Symbol("$(drought)_inutero_$(drind)")]
+                excessiverain_previous = [Symbol("$(excessiverain)_inutero_$(erind)")]
+                temp_previous = [Symbol("$(temp)_inutero_$(tind)")]
+
+                for i in 1:4
+                    fixed_effects = fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month)
+                    reg_model = reg(
+                        df, 
+                        term(:child_agedeath_30d) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d_$(drind)")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d_$(erind)")) + sum(term.(temp_previous)) + term(Symbol("$(temp)_30d_$(tind)")) + sum(controls) + fixed_effects, 
+                        Vcov.cluster(Symbol("ID_cell$i")), 
+                        weights=:hv005,
+                        method=:CUDA
+                    )
+                    push!(regs, reg_model)
+                end
+
+                # Model 2 - only children that survived
+                df_temp = filter(row -> row.child_agedeath_30d == 0, df)
+                push!(drought_previous, Symbol("$(drought)_30d_$(drind)"))
+                push!(excessiverain_previous, Symbol("$(excessiverain)_30d_$(erind)"))
+                push!(temp_previous, Symbol("$(temp)_30d_$(tind)"))
+                for i in 1:4
+                    fixed_effects = fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month)
+                    reg_model = reg(
+                        df_temp, 
+                        term(:child_agedeath_2m12m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_2m12m_$(drind)")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_2m12m_$(erind)")) + sum(term.(temp_previous)) + term(Symbol("$(temp)_2m12m_$(tind)")) + sum(controls) + fixed_effects,
+                        Vcov.cluster(Symbol("ID_cell$i")), 
+                        weights=:hv005,
+                        method=:CUDA
+                    )
+                    push!(regs, reg_model)
+                end
+
+                # Generate regression table
+                regtable(
+                    regs...; 
+                    render = AsciiTable(), 
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 4 drought SPI$(months) $(threshold) $(temp) $(nameind).txt", 
+                    order=[
+                        "$(drought)_inutero_$(drind)", "$(drought)_30d_$(drind)", "$(drought)_2m12m_$(drind)", 
+                        "$(excessiverain)_inutero_$(erind)", "$(excessiverain)_30d_$(erind)", "$(excessiverain)_2m12m_$(erind)",
+                        "$(temp)_inutero_$(tind)", "$(temp)_30d_$(tind)", "$(temp)_2m12m_$(tind)",
+                    ]
+                )
+                regtable(
+                    regs...; 
+                    render = LatexTable(), 
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 4 drought SPI$(months) $(threshold) $(temp) $(nameind).tex", 
+                    order=[
+                        "$(drought)_inutero_$(drind)", "$(drought)_30d_$(drind)", "$(drought)_2m12m_$(drind)", 
+                        "$(excessiverain)_inutero_$(erind)", "$(excessiverain)_30d_$(erind)", "$(excessiverain)_2m12m_$(erind)",
+                        "$(temp)_inutero_$(tind)", "$(temp)_30d_$(tind)", "$(temp)_2m12m_$(tind)",   
+                    ]
+                )
+            end
         end
-
-        # Model 2 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_30d == 0, df)
-        push!(drought_previous, Symbol("$(drought)_30d"))
-        push!(excessiverain_previous, Symbol("$(excessiverain)_30d"))
-        push!(temp_previous, Symbol("temp_30d"))
-        for i in 1:4
-            reg_model = reg(
-                df_temp, 
-                term(:child_agedeath_30d3m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_30d3m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_30d3m"))+ sum(term.(temp_previous)) + term(Symbol("temp_30d3m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights=:hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
-
-        # Model 3 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_30d3m == 0, df_temp)
-        push!(drought_previous, Symbol("$(drought)_30d3m"))
-        push!(excessiverain_previous, Symbol("$(excessiverain)_30d3m"))
-        push!(temp_previous, Symbol("temp_30d3m"))
-        for i in 1:4
-            reg_model = reg(
-                df_temp, 
-                term(:child_agedeath_3m6m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_3m6m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_3m6m")) + sum(term.(temp_previous)) + term(Symbol("temp_3m6m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights=:hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
-
-        # Model 4 - only children that survived
-        df_temp = filter(row -> row.child_agedeath_3m6m == 0, df_temp)
-        push!(drought_previous, Symbol("$(drought)_3m6m"))
-        push!(excessiverain_previous, Symbol("$(excessiverain)_3m6m"))    
-        push!(temp_previous, Symbol("temp_3m6m"))    
-        for i in 1:4
-            reg_model = reg(
-                df_temp, 
-                term(:child_agedeath_6m12m) ~ sum(term.(drought_previous)) + term(Symbol("$(drought)_6m12m")) + sum(term.(excessiverain_previous)) + term(Symbol("$(excessiverain)_6m12m")) + sum(term.(temp_previous)) + term(Symbol("temp_6m12m")) + sum(controls) + fe(Symbol("ID_cell$i"))&term(:chb_year) + fe(Symbol("ID_cell$i"))&fe(:chb_month),
-                Vcov.cluster(Symbol("ID_cell$i")), 
-                weights=:hv005,
-                method=:CUDA
-            )
-            push!(regs, reg_model)
-        end
-
-        # Generate regression table
-        regtable(
-            regs...; 
-            render = AsciiTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 4 drought $threshold $months months.txt", 
-            order=[
-                "$(drought)_q1", "$(drought)_q2", "$(drought)_q3", "$(drought)_30d", "$(drought)_30d3m", "$(drought)_3m6m", "$(drought)_6m12m", 
-                "$(excessiverain)_q1", "$(excessiverain)_q2", "$(excessiverain)_q3", "$(excessiverain)_30d", "$(excessiverain)_30d3m", "$(excessiverain)_3m6m", "$(excessiverain)_6m12m",
-                "temp_q1", "temp_q2", "temp_q3", "temp_30d", "temp_30d3m", "temp_3m6m", "temp_6m12m",
-            ]
-        )
-        regtable(
-            regs...; 
-            render = LatexTable(), 
-            file="Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 4 drought $threshold $months months.tex", 
-            order=[
-                "$(drought)_q1", "$(drought)_q2", "$(drought)_q3", "$(drought)_30d", "$(drought)_30d3m", "$(drought)_3m6m", "$(drought)_6m12m", 
-                "$(excessiverain)_q1", "$(excessiverain)_q2", "$(excessiverain)_q3", "$(excessiverain)_30d", "$(excessiverain)_30d3m", "$(excessiverain)_3m6m", "$(excessiverain)_6m12m",
-                "temp_q1", "temp_q2", "temp_q3", "temp_30d", "temp_30d3m", "temp_3m6m", "temp_6m12m",   
-            ]
-        )
     end
 
     
     function run_models(df, controls, folder, extra)
-        print("\rRunning Standard Models for $(folder)$(extra)\r")
-        for months in ["12", "6", "3", "1"]
+        println("\rRunning Standard Models for $(folder)$(extra)\r")
+        for months in ["12", "9", "6", "3", "1"]
             CustomModels.spi_temp_linear_regression(df, months, controls, folder, extra)
-        end
-
-        for months in ["12", "6", "3", "1"]
             CustomModels.spi_temp_quadratic_regression(df, months, controls, folder, extra)
-        end
-
-        for months in ["12", "6", "3", "1"]
             for threshold in ["1_5", "2_0", "2_5"]
                 CustomModels.drought_excessiverain_regression(df, months, threshold, controls, folder, extra)
                 CustomModels.drought_excessiverain_temp_regression(df, months, threshold, controls, folder, extra)
