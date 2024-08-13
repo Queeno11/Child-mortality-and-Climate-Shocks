@@ -20,7 +20,7 @@ module CustomModels
                 nameind = ind[1]
                 spiind = ind[2]
                 tind = ind[3]
-                spi_previous = [Symbol("spi$(months)_inutero_$(spiind)")]
+                spi_previous = [Symbol("spi$(months)_inutero_$(spiind)")] # FIXME: Revisar que no me esté cruzando min y max!!
                 temp_previous = [Symbol("$(temp)_inutero_$(tind)")]
                 regs = []
                 for i in 1:4
@@ -55,7 +55,7 @@ module CustomModels
                 regtable(
                     regs...; 
                     render = AsciiTable(), 
-                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 1 $months months $(nameind).txt",
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)version 1 SPI$months $(nameind) $(temp) $(extra).txt",
                     order=[
                         "spi$(months)_inutero_$(spiind)", "spi$(months)_30d_$(spiind)", "spi$(months)_2m12m_$(spiind)",
                         "$(temp)_inutero_$(tind)", "$(temp)_30d_$(tind)", "$(temp)_2m12m_$(tind)",
@@ -64,7 +64,7 @@ module CustomModels
                 regtable(
                     regs...; 
                     render = LatexTable(), 
-                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 1 $months months $(nameind).tex", 
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)version 1 SPI$months $(nameind) $(temp) $(extra).tex", 
                     order=[
                         "spi$(months)_inutero_$(spiind)", "spi$(months)_30d_$(spiind)", "spi$(months)_2m12m_$(spiind)",
                         "$(temp)_inutero_$(tind)", "$(temp)_30d_$(tind)", "$(temp)_2m12m_$(tind)",
@@ -120,7 +120,7 @@ module CustomModels
                 regtable(
                     regs...; 
                     render = AsciiTable(), 
-                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 2 SPI$(months) $(temp) $(nameind).txt", 
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)version 2 SPI$(months) $(nameind) $(temp) $(extra).txt", 
                     order=[
                         "spi$(months)_inutero_$(tind)", "spi$(months)_inutero_$(tind)_sq", "spi$(months)_30d_$(spiind)", "spi$(months)_30d_$(spiind)_sq", "spi$(months)_2m12m_$(spiind)", "spi$(months)_2m12m_$(spiind)_sq",
                         "$(temp)_inutero_$(tind)", "$(temp)_inutero_$(tind)_sq", "$(temp)_30d_$(tind)", "$(temp)_30d_$(tind)_sq", "$(temp)_2m12m_$(tind)", "$(temp)_2m12m_$(tind)_sq"
@@ -130,7 +130,7 @@ module CustomModels
                 regtable(
                     regs...; 
                     render = LatexTable(), 
-                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 2 SPI$(months) $(temp) $(nameind).tex", 
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)version 2 SPI$(months) $(nameind) $(temp) $(extra).tex", 
                     order=[
                         "spi$(months)_inutero_$(tind)", "spi$(months)_inutero_$(tind)_sq", "spi$(months)_30d_$(spiind)", "spi$(months)_30d_$(spiind)_sq", "spi$(months)_2m12m_$(spiind)", "spi$(months)_2m12m_$(spiind)_sq",
                         "$(temp)_inutero_$(tind)", "$(temp)_inutero_$(tind)_sq", "$(temp)_30d_$(tind)", "$(temp)_30d_$(tind)_sq", "$(temp)_2m12m_$(tind)", "$(temp)_2m12m_$(tind)_sq"
@@ -190,7 +190,7 @@ module CustomModels
             regtable(
                 regs...; 
                 render = AsciiTable(), 
-                file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 3 drought SPI$months $threshold.txt", 
+                file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)version 3 drought SPI$(months) $(threshold) $(nameind) $(extra).txt", 
                 order=[
                     "$(drought)_inutero_$(drind)", "$(drought)_30d_$(drind)", "$(drought)_2m12m_$(drind)", 
                     "$(excessiverain)_inutero_$(erind)", "$(excessiverain)_30d_$(erind)", "$(excessiverain)_2m12m_$(erind)"
@@ -199,7 +199,7 @@ module CustomModels
             regtable(
                 regs...; 
                 render = LatexTable(), 
-                file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 3 drought SPI$months $threshold.tex", 
+                file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)version 3 drought SPI$(months) $(threshold) $(nameind) $(extra).tex", 
                 order=[
                     "$(drought)_inutero_$(drind)", "$(drought)_30d_$(drind)", "$(drought)_2m12m_$(drind)", 
                     "$(excessiverain)_inutero_$(erind)", "$(excessiverain)_30d_$(erind)", "$(excessiverain)_2m12m_$(erind)"
@@ -261,7 +261,7 @@ module CustomModels
                 regtable(
                     regs...; 
                     render = AsciiTable(), 
-                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 4 drought SPI$(months) $(threshold) $(temp) $(nameind).txt", 
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)version 4 drought SPI$(months) $(threshold) $(nameind) $(temp) $(extra).txt", 
                     order=[
                         "$(drought)_inutero_$(drind)", "$(drought)_30d_$(drind)", "$(drought)_2m12m_$(drind)", 
                         "$(excessiverain)_inutero_$(erind)", "$(excessiverain)_30d_$(erind)", "$(excessiverain)_2m12m_$(erind)",
@@ -271,7 +271,7 @@ module CustomModels
                 regtable(
                     regs...; 
                     render = LatexTable(), 
-                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)$(extra)version 4 drought SPI$(months) $(threshold) $(temp) $(nameind).tex", 
+                    file="D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)version 4 drought SPI$(months) $(threshold) $(nameind) $(temp) $(extra).tex", 
                     order=[
                         "$(drought)_inutero_$(drind)", "$(drought)_30d_$(drind)", "$(drought)_2m12m_$(drind)", 
                         "$(excessiverain)_inutero_$(erind)", "$(excessiverain)_30d_$(erind)", "$(excessiverain)_2m12m_$(erind)",
@@ -284,8 +284,8 @@ module CustomModels
 
     
     function run_models(df, controls, folder, extra)
-        println("\rRunning Standard Models for $(folder)$(extra)\r")
-        for months in ["12", "9", "6", "3", "1"]
+        println("\rRunning Standard Models for $(folder)\r")
+        for months in ["12", "6", "3", "1"]
             CustomModels.spi_temp_linear_regression(df, months, controls, folder, extra)
             CustomModels.spi_temp_quadratic_regression(df, months, controls, folder, extra)
             for threshold in ["1_5", "2_0", "2_5"]

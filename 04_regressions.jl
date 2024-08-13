@@ -1,10 +1,8 @@
 include("D:\\World Bank\\Paper - Child mortality and Climate Shocks\\CustomModels.jl")
-include("D:\\World Bank\\Paper - Child mortality and Climate Shocks\\CustomModelsCountry.jl")
-include("D:\\World Bank\\Paper - Child mortality and Climate Shocks\\CustomModelsDecade.jl")
-include("D:\\World Bank\\Paper - Child mortality and Climate Shocks\\CustomModelsNotrend.jl")
 
-using .CustomModels, .CustomModelsCountry, .CustomModelsDecade, .CustomModelsNotrend
+using .CustomModels
 using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, StatFiles
+@assert CUDA.functional()
 
 # Load the data
 print("Cargando dataset...") # Only load 20000 rows
@@ -24,38 +22,37 @@ controls3 = term.([:child_fem, :child_mulbirth, :birth_order, :rural, :mother_ag
 ###  Pooled all countries into regression
 #################################################################
 
-# # From 2003 and last 10 years
-contr_i = 1
-for controls in [controls1, controls2, controls3]
-    global contr_i
-    suffix = "from 2003 & last 10 years - controls$(contr_i) - "
-    CustomModels.run_models(df, controls, "", suffix)
-    # CustomModelsCountry.run_models(df, controls, "", suffix)
-    # CustomModelsNotrend.run_models(df, controls, "", suffix)
-    # CustomModelsDecade.run_models(df, controls, "", suffix)
-    contr_i += 1
-end
+# # # From 2003 and last 10 years
+# contr_i = 1
+# for controls in [controls1, controls2, controls3]
+#     global contr_i
+#     suffix = " - controls$(contr_i)"
+#     CustomModels.run_models(df, controls, "", suffix)
+#     contr_i += 1
+# end
 
 #################################################################
 ###  All by income
 #################################################################
 
-# incomegroup = unique(df.wbincomegroup)
+incomegroup = unique(df.wbincomegroup)
 
-# # Create a progress bar
-# prog = Progress(length(incomegroup), 1)
+# Create a progress bar
+prog = Progress(length(incomegroup), 1)
 
-# # Loop over unique values
-# for incomegroup in incomegroup
-#     next!(prog) # Update progress bar
-#     try
-#         df_incomegroup = filter(row -> row.wbincomegroup == incomegroup, df)
-#         CustomModels.run_models(df_incomegroup, controls, "incomegroups//", "$(incomegroup) - ")
-#     catch
-#         printlnln("Error en ", incomegroup)
-#     end
-# end
+# Loop over unique values
+for incomegroup in incomegroup
+    next!(prog) # Update progress bar
+    for controls in [controls1, controls2, controls3]
+        try
+            df_incomegroup = filter(row -> row.wbincomegroup == incomegroup, df)
+            CustomModels.run_models(df_incomegroup, controls, "incomegroups\\", " - $(incomegroup)")
+        catch
+            printlnln("Error en ", incomegroup)
+        end
 
+    end
+end
 # #################################################################
 # ###  All by countries
 # #################################################################
