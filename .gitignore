@@ -16,6 +16,7 @@
 *.nc
 *.xml
 *.png
+*.parquet
 *.txt
 *.rar
 *.zip
