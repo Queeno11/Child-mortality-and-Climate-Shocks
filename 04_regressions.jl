@@ -16,77 +16,43 @@ print("Dataset cargado!")
 controls1 = term.([:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_ind_2, :d_weatlh_ind_3, :d_weatlh_ind_4, :d_weatlh_ind_5, :mother_age, :mother_eduy])
 controls2 = term.([:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_ind_2, :d_weatlh_ind_3, :d_weatlh_ind_4, :d_weatlh_ind_5, :mother_age, :mother_ageb_squ, :mother_ageb_cub, :mother_eduy, :mother_eduy_squ, :mother_eduy_cub])
 controls3 = term.([:child_fem, :child_mulbirth, :birth_order, :rural, :mother_age, :mother_eduy])
-all_controls = [controls1, controls2]
+
 
 #################################################################
 ###  Pooled all countries into regression
 #################################################################
 
-# # From 2003 and last 10 years
-contr_i = 1
-for controls in all_controls
-    global contr_i
-    suffix = " - controls$(contr_i)"
-    CustomModels.run_models(df, controls, "", suffix)
-    contr_i += 1
-end
-
-
-
-### Por rural y urbano
-urban_rural = unique(df.rural)
-prog = Progress(length(urban_rural), 1)
-# Loop over unique values
-for ru_or_urb in urban_rural
-    next!(prog) # Update progress bar
-    for controls in all_controls
-        try
-            df_urban = filter(row -> row.URBAN_RURA == ru_or_urb, df)
-            CustomModels.run_models(df_urban, controls, "urban_rural\\", " - $(ru_or_urb)")
-        catch
-            println("Error en ", ru_or_urb)
-        end
-    end
-end
-
-### Por Agua
-piped_water = unique(df.pipedw)
-prog = Progress(length(piped_water), 1)
-# Loop over unique values
-for piped_or_not in piped_water
-    next!(prog) # Update progress bar
-    for controls in all_controls
-        print(controls)
-        df_urban = filter(row -> row.pipedw == piped_or_not, df)
-        CustomModels.run_models(df_urban, controls, "piped_water\\", " - $(piped_or_not)")
-        end
-
-    end
-end
-
+# # # From 2003 and last 10 years
+# contr_i = 1
+# for controls in [controls1, controls2, controls3]
+#     global contr_i
+#     suffix = " - controls$(contr_i)"
+#     CustomModels.run_models(df, controls, "", suffix)
+#     contr_i += 1
+# end
 
 #################################################################
 ###  All by income
 #################################################################
 
-# incomegroup = unique(df.wbincomegroup)
+incomegroup = unique(df.wbincomegroup)
 
-# # Create a progress bar
-# prog = Progress(length(incomegroup), 1)
+# Create a progress bar
+prog = Progress(length(incomegroup), 1)
 
-# # Loop over unique values
-# for incomegroup in incomegroup
-#     next!(prog) # Update progress bar
-#     for controls in [controls1, controls2, controls3]
-#         try
-#             df_incomegroup = filter(row -> row.wbincomegroup == incomegroup, df)
-#             CustomModels.run_models(df_incomegroup, controls, "incomegroups\\", " - $(incomegroup)")
-#         catch
-#             println("Error en ", incomegroup)
-#         end
+# Loop over unique values
+for incomegroup in incomegroup
+    next!(prog) # Update progress bar
+    for controls in [controls1, controls2, controls3]
+        try
+            df_incomegroup = filter(row -> row.wbincomegroup == incomegroup, df)
+            CustomModels.run_models(df_incomegroup, controls, "incomegroups\\", " - $(incomegroup)")
+        catch
+            printlnln("Error en ", incomegroup)
+        end
 
-#     end
-# end
+    end
+end
 # #################################################################
 # ###  All by countries
 # #################################################################

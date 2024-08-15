@@ -5,15 +5,14 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm  # for notebooks
-
-tqdm.pandas()
-
+from dask.distributed import Client
+import swifter
 
 if __name__ == "__main__":
 
-    # swifter.set_defaults(
-    #     force_parallel=True,
-    # )
+    swifter.set_defaults(
+        force_parallel=True,
+    )
 
     pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -69,26 +68,16 @@ if __name__ == "__main__":
         ## Given we only have monthly data, we will consider the first 8 months of gestation as in utero (month 0 to 7)
         ## Because ~50% of the children are born before the 15th the initial month, on average, we will ensure that
         ## most of the kids' first month of life is included in the "1st month of life" category (month 8 to 10)
-        # inutero = point_data.isel(time=slice(0, 8))  # 8 not included
+        inutero = point_data.isel(time=slice(0, 8))  # 8 not included
         born_1m = point_data.isel(time=slice(8, 10))
         born_2to12m = point_data.isel(time=slice(10, 21))
-        # born_1to3m = point_data.isel(time=slice(8, 12))
-        # born_4to12m = point_data.isel(time=slice(12, 21))
-        # born_1to12m = point_data.isel(time=slice(8, 21))
 
         out = [lat, lon]
-        for ds_time in [
-            # inutero,
-            born_1m,
-            born_2to12m,
-            # born_1to3m,
-            # born_4to12m,
-            # born_1to12m,
-        ]:
+        for ds_time in [inutero, born_1m, born_2to12m]:
             time_avg = ds_time.mean(dim="time").to_array().values
-            # time_min = ds_time.min(dim="time").to_array().values
-            # time_max = ds_time.max(dim="time").to_array().values
-            out = np.concatenate([out, time_avg])  # , time_min, time_max])
+            time_min = ds_time.min(dim="time").to_array().values
+            time_max = ds_time.max(dim="time").to_array().values
+            out = np.concatenate([out, time_avg, time_min, time_max])
 
         return out.tolist()
 
@@ -119,6 +108,62 @@ if __name__ == "__main__":
     # Filter children to_date smalle than 2021 (we only have climate data to 2020)
     df = df[df["to_date"] < "2021-01-01"]
 
+    ### Run process ####
+    coords_cols = ["lat_climate", "lon_climate"]
+    shock_cols = []
+    for name in climate_variables:
+        shock_cols += [
+            f"{name}_inutero_avg",
+            f"{name}_inutero_min",
+            f"{name}_inutero_max",
+            f"{name}_30d_mean",
+            f"{name}_30d_min",
+            f"{name}_30d_max",
+            f"{name}_2m12m_mean",
+            f"{name}_2m12m_min",
+            f"{name}_2m12m_max",
+        ]
+    all_cols = coords_cols + shock_cols
+
+    print("Assigning climate shocks to DHS data...")
+    # Initialize Dask client
+    client = Client()
+
+    chunk_size = 1_000_000
+    for n in tqdm(range(0, df.ID.max(), chunk_size)):
+        if os.path.exists(rf"{DATA_PROC}/births_climate_{n}.csv"):
+            print(f"births_climate_{n}.csv exists, moving to next iteration")
+            continue
+        chunk = df.loc[
+            (df.ID >= n) & (df.ID < n + chunk_size),
+            ["ID", "from_date", "to_date", "LATNUM", "LONGNUM"],
+        ].copy()
+        if chunk.shape[0] == 0:
+            continue
+        climate_results = chunk.swifter.apply(
+            lambda s: get_climate_shock(
+                s["from_date"], s["to_date"], s["LATNUM"], s["LONGNUM"]
+            ),
+            axis=1,
+        )
+        climate_results = climate_results.apply(pd.Series)
+        climate_results.columns = all_cols
+        climate_results["ID"] = chunk["ID"]
+        climate_results.to_csv(rf"{DATA_PROC}/births_climate_{n}.csv", index=False)
+
+    files = os.listdir(rf"{DATA_PROC}")
+    files = [f for f in files if f.startswith("births_climate_")]
+    data = []
+    for file in tqdm(files):
+        df = pd.read_csv(rf"{DATA_PROC}/{file}")
+        data += [df]
+    df = pd.concat(data)
+
+    ####### Process data:
+    df = full_dhs.merge(df, on="ID", how="inner")
+    print("Number of observations merged with climate data:", df.shape[0])
+    df = df.dropna(subset=["v008", "chb_year", "chb_month"], how="any")
+
     # Date of interview
     df["year"] = 1900 + (df["v008"] - 1) // 12
     df["month"] = df["v008"] - 12 * (df["year"] - 1900)
@@ -139,6 +184,7 @@ if __name__ == "__main__":
     df["days_from_interview"] = df["interview_date"] - df["birth_date"]
 
     # excluir del análisis a aquellos niños que nacieron 12 meses alrededor de la fecha de la encuesta y no más allá de 10 y 15 años del momento de la encuesta.
+    # PREGUNTA PARA PAULA: ¿ella ya hizo el filtro de 15 años y 30 dias?
     df["last_15_years"] = (df["days_from_interview"] > np.timedelta64(30, "D")) & (
         df["days_from_interview"] < np.timedelta64(15 * 365, "D")
     )
@@ -146,74 +192,23 @@ if __name__ == "__main__":
         df["days_from_interview"] < np.timedelta64(10 * 365, "D")
     )
     df["since_2003"] = df["interview_year"] >= 2003
-    df = df[(df["last_10_years"] == True) & (df["since_2003"] == True)]
-
-    ### Run process ####
-    coords_cols = ["lat_climate", "lon_climate"]
-    shock_cols = []
-    for name in climate_variables:
-        shock_cols += [
-            # f"{name}_inutero_avg",
-            # f"{name}_inutero_min",
-            # f"{name}_inutero_max",
-            f"{name}_30d_mean",
-            # f"{name}_30d_min",
-            # f"{name}_30d_max",
-            f"{name}_2m12m_mean",
-            # f"{name}_2m12m_min",
-            # f"{name}_2m12m_max",
-            # f"{name}_1to3m_mean",
-            # f"{name}_1to3m_min",
-            # f"{name}_1to3m_max",
-            # f"{name}_4to12m_mean",
-            # f"{name}_4to12m_min",
-            # f"{name}_4to12m_max",
-            # f"{name}_1to12m_mean",
-        ]
-    all_cols = coords_cols + shock_cols
-
-    print("Assigning climate shocks to DHS data...")
-    chunk_size = 100_000
-    for n in tqdm(reversed(range(0, df.ID.max(), chunk_size))):
-        file = rf"{DATA_PROC}/births_climate_{n}.parquet"
-        if os.path.exists(file):
-            print(f"{file} exists, moving to next iteration")
-            continue
-        chunk = df.loc[
-            (df.ID >= n) & (df.ID < n + chunk_size),
-            ["ID", "from_date", "to_date", "LATNUM", "LONGNUM"],
-        ].copy()
-        if chunk.shape[0] == 0:
-            continue
-        climate_results = chunk.progress_apply(
-            lambda s: get_climate_shock(
-                s["from_date"], s["to_date"], s["LATNUM"], s["LONGNUM"]
-            ),
-            axis=1,
-        )
-        climate_results = climate_results.apply(pd.Series)
-        climate_results.columns = all_cols
-        climate_results["ID"] = chunk["ID"]
-        climate_results.to_parquet(file, index=False)
-
-    files = os.listdir(rf"{DATA_PROC}")
-    files = [f for f in files if f.startswith("births_climate_")]
-    data = []
-    for file in tqdm(files):
-        df = pd.read_parquet(rf"{DATA_PROC}/{file}")
-        data += [df]
-    df = pd.concat(data)
-
-    ####### Process data:
-    df = full_dhs.merge(df, on="ID", how="inner")
-    print("Number of observations merged with climate data:", df.shape[0])
-    df = df.dropna(subset=["v008", "chb_year", "chb_month"], how="any")
-
+    df = df[df["last_15_years"] == True]
     ####### Export data:
     # df.to_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v3.parquet")
-    df = df[all_cols + ["ID"]]
+    df = df[
+        all_cols
+        + [
+            "ID",
+            "interview_year",
+            "interview_month",
+            "birth_date",
+            "last_15_years",
+            "last_10_years",
+            "since_2003",
+        ]
+    ]
 
     # Drop nans in spi/temp values
-    # df = df.dropna(subset=shock_cols, how="any")
-    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v4_p2.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v4_p2.dta")
+    df = df.dropna(subset=shock_cols, how="any")
+    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v4.dta")
+    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v4.dta")

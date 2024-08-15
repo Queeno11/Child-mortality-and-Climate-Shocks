@@ -13,6 +13,8 @@ global DATA_OUT = "${DATA}\Data_out"
 // 3. No estoy segura desde qué año es la muestra final que están usando, pero valdría la pena correr los resultados solo para aquellas observaciones donde la entrevista ocurrió desde el 2003. Excluir cerca del 11% que toma lugar antes del 2003. Esto teniendo en cuenta el siguiente statement:
 // "Georeferenced surveys from 2003 onwards are displaced using the standard displacement procedure described in SAR7 (https://dhsprogram.com/pubs/pdf/SAR7/SAR7.pdf). Urban clusters are displaced up to 2km, while rural clusters are displaced up to 5km with a further 1% of rural clusters displaced up to 10km. Surveys conducted prior to 2003 were not displaced using the standard displacement procedure. Coordinates for the earliest surveys were obtained from paper maps, gazetteers of settlement names, or preexisting census data files, while GPS collection began in 1996. The method used to determine the lat/long coordinates for each cluster is listed under the SOURCE attribute in the GE datasets."
 
+
+
 *############################################################*
 *### 	 Read data and Merge with Climate Data
 *############################################################*
@@ -27,10 +29,6 @@ merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v4"
 keep if _merge==3
 drop _merge
 
-merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v4_p2"
-keep if _merge==3
-drop _merge
-
 merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta"
 keep if _merge==3
 drop _merge
@@ -40,58 +38,129 @@ drop _merge
 // drop _merge
 
 foreach months in "1" "3" "6" "9" "12" {
-	rename spi`months'_30d_mean     spi`months'_30d_avg
-	rename spi`months'_2m12m_mean   spi`months'_2m12m_avg
-	rename spi`months'_1to3m_mean	spi`months'_1m3m_avg     
-	rename spi`months'_4to12m_mean	spi`months'_4m12m_avg  	 
-	rename spi`months'_1to12m_mean	spi`months'_1m12m_avg    
+	foreach threshold in 1.5 2.0 2.5 {
+		local threshold_str = subinstr("`threshold'",".","_",.)
 
-	label var spi`months'_inutero_avg	 	"Avg. Standarized Precipitation Index in Utero"
-	label var spi`months'_30d_avg       	"Avg. Standarized Precipitation Index 0-30 days"
-	label var spi`months'_2m12m_avg   		"Avg. Standarized Precipitation Index 2-12 months"
-	label var spi`months'_1m3m_avg   		"Avg. Standarized Precipitation Index in first q of life"
-	label var spi`months'_4m12m_avg   		"Avg. Standarized Precipitation Index 4-12 months"
-	label var spi`months'_1m12m_avg   		"Avg. Standarized Precipitation Index in first year of life"
+		*############################################################*
+		*# 	 Crate dummy variables
+		*############################################################*
+		
+		* Drought
+		count if spi`months'_inutero_min<-`threshold'
+		if r(n)<2000 {
+			display in red "Less than 2000 treated droughts for SPI`months'<`threshold'"
+			continue
+		}
+		gen drought`months'_`threshold_str'_inutero_avg	= (spi`months'_inutero_avg<-`threshold')
+		gen drought`months'_`threshold_str'_inutero_min = (spi`months'_inutero_min<-`threshold')
+		gen drought`months'_`threshold_str'_inutero_max = (spi`months'_inutero_max<-`threshold')
+		gen drought`months'_`threshold_str'_30d_avg	   	= (spi`months'_30d_mean<-`threshold')
+		gen drought`months'_`threshold_str'_30d_min	   	= (spi`months'_30d_min<-`threshold')
+		gen drought`months'_`threshold_str'_30d_max	   	= (spi`months'_30d_max<-`threshold')
+		gen drought`months'_`threshold_str'_2m12m_avg  	= (spi`months'_2m12m_mean<-`threshold')
+		gen drought`months'_`threshold_str'_2m12m_min  	= (spi`months'_2m12m_min <-`threshold')
+		gen drought`months'_`threshold_str'_2m12m_max  	= (spi`months'_2m12m_max <-`threshold')
+			
+		label var drought`months'_`threshold_str'_inutero_avg	"Affected by Drought in Utero (avg. SPI`months'<-`threshold'std)"
+		label var drought`months'_`threshold_str'_inutero_min 	"Affected by Drought in Utero (min. SPI`months'<-`threshold'std)"
+		label var drought`months'_`threshold_str'_inutero_max 	"Affected by Drought in Utero (max. SPI`months'<-`threshold'std)"
+		label var drought`months'_`threshold_str'_30d_avg		"Affected by Drought 0-30 days (avg. SPI`months'<-`threshold'std)"   
+		label var drought`months'_`threshold_str'_30d_min		"Affected by Drought 0-30 days (min. SPI`months'<-`threshold'std)"   
+		label var drought`months'_`threshold_str'_30d_max		"Affected by Drought 0-30 days (max. SPI`months'<-`threshold'std)"   
+		label var drought`months'_`threshold_str'_2m12m_avg 	"Affected by Drought 6-12 months (avg. SPI`months'<-`threshold'std)" 
+		label var drought`months'_`threshold_str'_2m12m_min 	"Affected by Drought 6-12 months (min. SPI`months'<-`threshold'std)" 
+		label var drought`months'_`threshold_str'_2m12m_max 	"Affected by Drought 6-12 months (max. SPI`months'<-`threshold'std)" 
+		
+		* Excessive Rain
+		count if spi`months'_inutero_avg>`threshold'
+		if r(n)<2000 {
+			display in red "Less than 2000 treated droughts for SPI`months'>`threshold'"	
+			continue
+		}
+		gen excessiverain`months'_`threshold_str'_inutero_avg	= (spi`months'_inutero_avg>`threshold')
+		gen excessiverain`months'_`threshold_str'_inutero_min 	= (spi`months'_inutero_min>`threshold')
+		gen excessiverain`months'_`threshold_str'_inutero_max 	= (spi`months'_inutero_max>`threshold')
+		gen excessiverain`months'_`threshold_str'_30d_avg		= (spi`months'_30d_mean>`threshold')
+		gen excessiverain`months'_`threshold_str'_30d_min		= (spi`months'_30d_min>`threshold')
+		gen excessiverain`months'_`threshold_str'_30d_max		= (spi`months'_30d_max>`threshold')
+		gen excessiverain`months'_`threshold_str'_2m12m_avg 	= (spi`months'_2m12m_mean>`threshold')
+		gen excessiverain`months'_`threshold_str'_2m12m_min 	= (spi`months'_2m12m_min >`threshold')
+		gen excessiverain`months'_`threshold_str'_2m12m_max 	= (spi`months'_2m12m_max >`threshold')
+			
+		label var excessiverain`months'_`threshold_str'_inutero_avg		"Affected by Ex. Rain in Utero (avg. SPI`months'>`threshold'std)"
+		label var excessiverain`months'_`threshold_str'_inutero_min     "Affected by Ex. Rain in Utero (min. SPI`months'>`threshold'std)"
+		label var excessiverain`months'_`threshold_str'_inutero_max     "Affected by Ex. Rain in Utero (max. SPI`months'>`threshold'std)"
+		label var excessiverain`months'_`threshold_str'_30d_avg			"Affected by Ex. Rain 0-30 days (avg. SPI`months'>`threshold'std)"   
+		label var excessiverain`months'_`threshold_str'_30d_min			"Affected by Ex. Rain 0-30 days (min. SPI`months'>`threshold'std)"   
+		label var excessiverain`months'_`threshold_str'_30d_max			"Affected by Ex. Rain 0-30 days (max. SPI`months'>`threshold'std)"   
+		label var excessiverain`months'_`threshold_str'_2m12m_avg 		"Affected by Ex. Rain 6-12 months (avg. SPI`months'>`threshold'std)" 
+		label var excessiverain`months'_`threshold_str'_2m12m_min 		"Affected by Ex. Rain 6-12 months (min. SPI`months'>`threshold'std)" 
+		label var excessiverain`months'_`threshold_str'_2m12m_max 		"Affected by Ex. Rain 6-12 months (max. SPI`months'>`threshold'std)" 	
+		
+	}
+
+rename spi`months'_30d_mean     spi`months'_30d_avg
+rename spi`months'_2m12m_mean  spi`months'_2m12m_avg
+
+
+label var spi`months'_inutero_avg	 	"Avg. Standarized Precipitation Index in Utero"
+label var spi`months'_inutero_min	 	"Min. Standarized Precipitation Index in Utero"
+label var spi`months'_inutero_max	 	"Max. Standarized Precipitation Index in Utero"
+label var spi`months'_30d_avg       	"Avg. Standarized Precipitation Index 0-30 days"
+label var spi`months'_30d_min       	"Min. Standarized Precipitation Index 0-30 days"
+label var spi`months'_30d_max       	"Max. Standarized Precipitation Index 0-30 days"
+label var spi`months'_2m12m_avg   		"Avg. Standarized Precipitation Index 2-12 months"
+label var spi`months'_2m12m_min   		"Min. Standarized Precipitation Index 2-12 months"
+label var spi`months'_2m12m_max   		"Max. Standarized Precipitation Index 2-12 months"
+
 }
 
-foreach temp in "t" "std_t" "stdm_t" {
-	rename `temp'_30d_mean   		`temp'_30d_avg 	
-	rename `temp'_2m12m_mean   		`temp'_2m12m_avg 	
-	rename `temp'_1to3m_mean   		`temp'_1m3m_avg 	
-	rename `temp'_4to12m_mean   	`temp'_4m12m_avg 	
-	rename `temp'_1to12m_mean   	`temp'_1m12m_avg 	
+rename t_30d_mean   	t_30d_avg 	
+rename t_2m12m_mean   	t_2m12m_avg 	
 
-}
 label var t_inutero_avg		"Avg. Temperature in Utero"	
-label var t_1m3m_avg 		"Avg. Temperature in first q of life"	
-label var t_4m12m_avg 		"Avg. Temperature 4-12 months"	
-label var t_1m12m_avg 		"Avg. Temperature in first year of life"	
+label var t_inutero_min		"Min. Temperature in Utero"	
+label var t_inutero_max		"Max. Temperature in Utero"	
+label var t_30d_avg 		"Avg. Temperature 0-30 days"	
+label var t_30d_min 	 	"Min. Temperature 0-30 days"	
+label var t_30d_max 		"Max. Temperature 0-30 days"	
+label var t_2m12m_avg 		"Avg. Temperature 2-12 months"	
+label var t_2m12m_min  		"Min. Temperature 6-12 months"	
+label var t_2m12m_max  		"Max. Temperature 6-12 months"	
 
-label var std_t_inutero_avg		"Avg. Std. Temperature in Utero"	
-label var std_t_1m3m_avg 		"Avg. Std. Temperature in first q of life"	
-label var std_t_4m12m_avg 		"Avg. Std. Temperature 4-12 months"	
-label var std_t_1m12m_avg 		"Avg. Std. Temperature in first year of life"	
+rename std_t_30d_mean   	 	std_t_30d_avg 		
+rename std_t_2m12m_mean   		std_t_2m12m_avg
 
-label var stdm_t_inutero_avg	"Avg. Std. (m) Temperature in Utero"	
-label var stdm_t_1m3m_avg 		"Avg. Std. (m) Temperature in first q of life"	
-label var stdm_t_4m12m_avg 		"Avg. Std. (m) Temperature 4-12 months"	
-label var stdm_t_1m12m_avg 		"Avg. Std. (m) Temperature in first year of life"	
+label var std_t_inutero_avg		"Avg. Standardized Temperature in Utero"	
+label var std_t_inutero_min		"Min. Standardized Temperature in Utero"	
+label var std_t_inutero_max		"Max. Standardized Temperature in Utero"	
+label var std_t_30d_avg 		"Avg. Standardized Temperature 0-30 days"	
+label var std_t_30d_min 	 	"Min. Standardized Temperature 0-30 days"	
+label var std_t_30d_max 		"Max. Standardized Temperature 0-30 days"	
+label var std_t_2m12m_avg 		"Avg. Standardized Temperature 2-12 months"	
+label var std_t_2m12m_min  		"Min. Standardized Temperature 6-12 months"	
+label var std_t_2m12m_max  		"Max. Standardized Temperature 6-12 months"	
+
+rename stdm_t_30d_mean   	 	stdm_t_30d_avg 		
+rename stdm_t_2m12m_mean   		stdm_t_2m12m_avg
+
+label var std_t_inutero_avg		"Avg. Standardized Temperature in Utero"	
+label var std_t_inutero_min		"Min. Standardized Temperature in Utero"	
+label var std_t_inutero_max		"Max. Standardized Temperature in Utero"	
+label var std_t_30d_avg 		"Avg. Standardized Temperature 0-30 days"	
+label var std_t_30d_min 	 	"Min. Standardized Temperature 0-30 days"	
+label var std_t_30d_max 		"Max. Standardized Temperature 0-30 days"	
+label var std_t_2m12m_avg 		"Avg. Standardized Temperature 2-12 months"	
+label var std_t_2m12m_min  		"Min. Standardized Temperature 6-12 months"	
+label var stdm_t_2m12m_max  		"Max. Standardized Temperature 6-12 months"	
 
 *############################################################*
 *# 	 Crate squared variables
 *############################################################*
 
-foreach var in "t" "std_t" "stdm_t" "spi12" "spi9" "spi6" "spi3" "spi1" {
-	foreach time in "inutero" "30d" "2m12m" "1m3m" "4m12m" "1m12m" {
-		foreach stat in "avg" {
-			gen `var'_`time'_`stat'_sq = `var'_`time'_`stat' * `var'_`time'_`stat'
-			gen `var'_`time'_`stat'_pos = (`var'_`time'_`stat'>=0)
-			gen `var'_`time'_`stat'_neg = (`var'_`time'_`stat'<=0)
-			assert `var'_`time'_`stat'_pos + `var'_`time'_`stat'_neg==1
-			
-			gen `var'_`time'_`stat'_sq_pos = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_pos
-			gen `var'_`time'_`stat'_sq_neg = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_neg
-		}
+foreach var in "t" "std_t" "stdm_t" "spi12" "spi6" "spi3" "spi1" {
+	foreach time in "inutero_avg" "inutero_min" "inutero_max" "30d_avg" "30d_min" "30d_max" "2m12m_avg" "2m12m_min" "2m12m_max" {
+		gen `var'_`time'_sq = `var'_`time' * `var'_`time'
 	}
 }
 
@@ -101,14 +170,10 @@ drop index
 *############################################################*
 *# 	 Create child agedeath variables
 *############################################################*
-egen child_agedeath_1m3m = rowmax(child_agedeath_30d child_agedeath_30d3m)
-egen child_agedeath_4m12m = rowmax(child_agedeath_3m6m child_agedeath_6m12m)
-egen child_agedeath_2m12m = rowmax(child_agedeath_30d3m child_agedeath_3m6m child_agedeath_6m12m)
-egen child_agedeath_1m12m = rowmax(child_agedeath_30d child_agedeath_30d3m child_agedeath_3m6m child_agedeath_6m12m)
 
-foreach time in "30d" "2m12m" "1m3m" "4m12m" "1m12m" {
-	replace child_agedeath_`time' = child_agedeath_`time' * 1000
-}
+egen child_agedeath_2m12m = rowmax(child_agedeath_30d3m child_agedeath_3m6m child_agedeath_6m12m)
+replace child_agedeath_30d = child_agedeath_30d * 1000
+replace child_agedeath_2m12m = child_agedeath_2m12m * 1000
 
 *############################################################*
 *# 	 Create control variables for the regressions
@@ -163,6 +228,8 @@ by ID_R: gen birth_order = _n
 
 // use "$DATA_IN/DHS/DHSBirthsGlobalAnalysis_05142024.dta", replace
 
+keep if since_2003==1 & last_10_years==1
+
 encode v000, gen(IDsurvey_country)
 
 gen time = chb_year - 1989
@@ -172,4 +239,4 @@ save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.dta", replace
 export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.csv", replace
 
 * Verificamos que esté todo ok
-sum t_* std_t_* stdm_t_* spi12_* spi6_* spi3_* spi1_*
+sum t_* std_t_* stdm_t_* spi12_* spi6_* spi3_* spi1_* drought* excessiverain*
