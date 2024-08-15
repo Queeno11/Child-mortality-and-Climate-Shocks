@@ -11,6 +11,7 @@
 *.shf
 *.dbf
 *.db
+*.parquet
 *.json
 *.html
 *.nc
