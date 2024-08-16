@@ -5,14 +5,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm  # for notebooks
-from dask.distributed import Client
-import swifter
 
 if __name__ == "__main__":
-
-    swifter.set_defaults(
-        force_parallel=True,
-    )
+    tqdm.pandas()
 
     pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -39,13 +34,13 @@ if __name__ == "__main__":
 
     climate_variables = [
         "spi1",
-        "spi3",
-        "spi6",
-        "spi9",
-        "spi12",
-        "t",
+        # "spi3",
+        # "spi6",
+        # "spi9",
+        # "spi12",
+        # "t",
         "std_t",
-        "stdm_t",
+        # "stdm_t",
     ]
 
     def get_climate_shock(from_date, to_date, lat, lon):
@@ -75,9 +70,9 @@ if __name__ == "__main__":
         out = [lat, lon]
         for ds_time in [inutero, born_1m, born_2to12m]:
             time_avg = ds_time.mean(dim="time").to_array().values
-            time_min = ds_time.min(dim="time").to_array().values
-            time_max = ds_time.max(dim="time").to_array().values
-            out = np.concatenate([out, time_avg, time_min, time_max])
+            # time_min = ds_time.min(dim="time").to_array().values
+            # time_max = ds_time.max(dim="time").to_array().values
+            out = np.concatenate([out, time_avg])  # , time_min, time_max])
 
         return out.tolist()
 
@@ -114,25 +109,23 @@ if __name__ == "__main__":
     for name in climate_variables:
         shock_cols += [
             f"{name}_inutero_avg",
-            f"{name}_inutero_min",
-            f"{name}_inutero_max",
+            # f"{name}_inutero_min",
+            # f"{name}_inutero_max",
             f"{name}_30d_mean",
-            f"{name}_30d_min",
-            f"{name}_30d_max",
+            # f"{name}_30d_min",
+            # f"{name}_30d_max",
             f"{name}_2m12m_mean",
-            f"{name}_2m12m_min",
-            f"{name}_2m12m_max",
+            # f"{name}_2m12m_min",
+            # f"{name}_2m12m_max",
         ]
     all_cols = coords_cols + shock_cols
 
     print("Assigning climate shocks to DHS data...")
-    # Initialize Dask client
-    client = Client()
-
-    chunk_size = 1_000_000
+    chunk_size = 100_000
     for n in tqdm(range(0, df.ID.max(), chunk_size)):
-        if os.path.exists(rf"{DATA_PROC}/births_climate_{n}.csv"):
-            print(f"births_climate_{n}.csv exists, moving to next iteration")
+        file = rf"{DATA_PROC}/births_climate_{n}.parquet"
+        if os.path.exists(file):
+            print(f"{file} exists, moving to next iteration")
             continue
         chunk = df.loc[
             (df.ID >= n) & (df.ID < n + chunk_size),
@@ -140,7 +133,7 @@ if __name__ == "__main__":
         ].copy()
         if chunk.shape[0] == 0:
             continue
-        climate_results = chunk.swifter.apply(
+        climate_results = chunk.progress_apply(
             lambda s: get_climate_shock(
                 s["from_date"], s["to_date"], s["LATNUM"], s["LONGNUM"]
             ),
@@ -149,13 +142,13 @@ if __name__ == "__main__":
         climate_results = climate_results.apply(pd.Series)
         climate_results.columns = all_cols
         climate_results["ID"] = chunk["ID"]
-        climate_results.to_csv(rf"{DATA_PROC}/births_climate_{n}.csv", index=False)
+        climate_results.to_parquet(file, index=False)
 
     files = os.listdir(rf"{DATA_PROC}")
     files = [f for f in files if f.startswith("births_climate_")]
     data = []
     for file in tqdm(files):
-        df = pd.read_csv(rf"{DATA_PROC}/{file}")
+        df = pd.read_parquet(rf"{DATA_PROC}/{file}")
         data += [df]
     df = pd.concat(data)
 

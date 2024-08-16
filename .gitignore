@@ -8,6 +8,7 @@
 *.csv
 *.tsv
 *.shp
+*.parquet
 *.shf
 *.dbf
 *.db

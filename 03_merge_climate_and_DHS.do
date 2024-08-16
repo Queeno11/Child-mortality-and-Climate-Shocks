@@ -37,130 +37,103 @@ drop _merge
 // keep if _merge==3
 // drop _merge
 
-foreach months in "1" "3" "6" "9" "12" {
-	foreach threshold in 1.5 2.0 2.5 {
-		local threshold_str = subinstr("`threshold'",".","_",.)
-
-		*############################################################*
-		*# 	 Crate dummy variables
-		*############################################################*
-		
-		* Drought
-		count if spi`months'_inutero_min<-`threshold'
-		if r(n)<2000 {
-			display in red "Less than 2000 treated droughts for SPI`months'<`threshold'"
-			continue
-		}
-		gen drought`months'_`threshold_str'_inutero_avg	= (spi`months'_inutero_avg<-`threshold')
-		gen drought`months'_`threshold_str'_inutero_min = (spi`months'_inutero_min<-`threshold')
-		gen drought`months'_`threshold_str'_inutero_max = (spi`months'_inutero_max<-`threshold')
-		gen drought`months'_`threshold_str'_30d_avg	   	= (spi`months'_30d_mean<-`threshold')
-		gen drought`months'_`threshold_str'_30d_min	   	= (spi`months'_30d_min<-`threshold')
-		gen drought`months'_`threshold_str'_30d_max	   	= (spi`months'_30d_max<-`threshold')
-		gen drought`months'_`threshold_str'_2m12m_avg  	= (spi`months'_2m12m_mean<-`threshold')
-		gen drought`months'_`threshold_str'_2m12m_min  	= (spi`months'_2m12m_min <-`threshold')
-		gen drought`months'_`threshold_str'_2m12m_max  	= (spi`months'_2m12m_max <-`threshold')
-			
-		label var drought`months'_`threshold_str'_inutero_avg	"Affected by Drought in Utero (avg. SPI`months'<-`threshold'std)"
-		label var drought`months'_`threshold_str'_inutero_min 	"Affected by Drought in Utero (min. SPI`months'<-`threshold'std)"
-		label var drought`months'_`threshold_str'_inutero_max 	"Affected by Drought in Utero (max. SPI`months'<-`threshold'std)"
-		label var drought`months'_`threshold_str'_30d_avg		"Affected by Drought 0-30 days (avg. SPI`months'<-`threshold'std)"   
-		label var drought`months'_`threshold_str'_30d_min		"Affected by Drought 0-30 days (min. SPI`months'<-`threshold'std)"   
-		label var drought`months'_`threshold_str'_30d_max		"Affected by Drought 0-30 days (max. SPI`months'<-`threshold'std)"   
-		label var drought`months'_`threshold_str'_2m12m_avg 	"Affected by Drought 6-12 months (avg. SPI`months'<-`threshold'std)" 
-		label var drought`months'_`threshold_str'_2m12m_min 	"Affected by Drought 6-12 months (min. SPI`months'<-`threshold'std)" 
-		label var drought`months'_`threshold_str'_2m12m_max 	"Affected by Drought 6-12 months (max. SPI`months'<-`threshold'std)" 
-		
-		* Excessive Rain
-		count if spi`months'_inutero_avg>`threshold'
-		if r(n)<2000 {
-			display in red "Less than 2000 treated droughts for SPI`months'>`threshold'"	
-			continue
-		}
-		gen excessiverain`months'_`threshold_str'_inutero_avg	= (spi`months'_inutero_avg>`threshold')
-		gen excessiverain`months'_`threshold_str'_inutero_min 	= (spi`months'_inutero_min>`threshold')
-		gen excessiverain`months'_`threshold_str'_inutero_max 	= (spi`months'_inutero_max>`threshold')
-		gen excessiverain`months'_`threshold_str'_30d_avg		= (spi`months'_30d_mean>`threshold')
-		gen excessiverain`months'_`threshold_str'_30d_min		= (spi`months'_30d_min>`threshold')
-		gen excessiverain`months'_`threshold_str'_30d_max		= (spi`months'_30d_max>`threshold')
-		gen excessiverain`months'_`threshold_str'_2m12m_avg 	= (spi`months'_2m12m_mean>`threshold')
-		gen excessiverain`months'_`threshold_str'_2m12m_min 	= (spi`months'_2m12m_min >`threshold')
-		gen excessiverain`months'_`threshold_str'_2m12m_max 	= (spi`months'_2m12m_max >`threshold')
-			
-		label var excessiverain`months'_`threshold_str'_inutero_avg		"Affected by Ex. Rain in Utero (avg. SPI`months'>`threshold'std)"
-		label var excessiverain`months'_`threshold_str'_inutero_min     "Affected by Ex. Rain in Utero (min. SPI`months'>`threshold'std)"
-		label var excessiverain`months'_`threshold_str'_inutero_max     "Affected by Ex. Rain in Utero (max. SPI`months'>`threshold'std)"
-		label var excessiverain`months'_`threshold_str'_30d_avg			"Affected by Ex. Rain 0-30 days (avg. SPI`months'>`threshold'std)"   
-		label var excessiverain`months'_`threshold_str'_30d_min			"Affected by Ex. Rain 0-30 days (min. SPI`months'>`threshold'std)"   
-		label var excessiverain`months'_`threshold_str'_30d_max			"Affected by Ex. Rain 0-30 days (max. SPI`months'>`threshold'std)"   
-		label var excessiverain`months'_`threshold_str'_2m12m_avg 		"Affected by Ex. Rain 6-12 months (avg. SPI`months'>`threshold'std)" 
-		label var excessiverain`months'_`threshold_str'_2m12m_min 		"Affected by Ex. Rain 6-12 months (min. SPI`months'>`threshold'std)" 
-		label var excessiverain`months'_`threshold_str'_2m12m_max 		"Affected by Ex. Rain 6-12 months (max. SPI`months'>`threshold'std)" 	
-		
-	}
+foreach months in "1" { // "3" "6" "9" "12" {
+// 	foreach threshold in 1.5 2.0 2.5 {
+// 		local threshold_str = subinstr("`threshold'",".","_",.)
+//
+// 		*############################################################*
+// 		*# 	 Crate dummy variables
+// 		*############################################################*
+//		
+// 		* Drought
+// 		count if spi`months'_inutero_min<-`threshold'
+// 		if r(n)<2000 {
+// 			display in red "Less than 2000 treated droughts for SPI`months'<`threshold'"
+// 			continue
+// 		}
+// 		gen drought`months'_`threshold_str'_inutero_avg	= (spi`months'_inutero_avg<-`threshold')
+// 		gen drought`months'_`threshold_str'_inutero_min = (spi`months'_inutero_min<-`threshold')
+// 		gen drought`months'_`threshold_str'_inutero_max = (spi`months'_inutero_max<-`threshold')
+// 		gen drought`months'_`threshold_str'_30d_avg	   	= (spi`months'_30d_mean<-`threshold')
+// 		gen drought`months'_`threshold_str'_30d_min	   	= (spi`months'_30d_min<-`threshold')
+// 		gen drought`months'_`threshold_str'_30d_max	   	= (spi`months'_30d_max<-`threshold')
+// 		gen drought`months'_`threshold_str'_2m12m_avg  	= (spi`months'_2m12m_mean<-`threshold')
+// 		gen drought`months'_`threshold_str'_2m12m_min  	= (spi`months'_2m12m_min <-`threshold')
+// 		gen drought`months'_`threshold_str'_2m12m_max  	= (spi`months'_2m12m_max <-`threshold')
+//			
+// 		label var drought`months'_`threshold_str'_inutero_avg	"Affected by Drought in Utero (avg. SPI`months'<-`threshold'std)"
+// 		label var drought`months'_`threshold_str'_inutero_min 	"Affected by Drought in Utero (min. SPI`months'<-`threshold'std)"
+// 		label var drought`months'_`threshold_str'_inutero_max 	"Affected by Drought in Utero (max. SPI`months'<-`threshold'std)"
+// 		label var drought`months'_`threshold_str'_30d_avg		"Affected by Drought 0-30 days (avg. SPI`months'<-`threshold'std)"   
+// 		label var drought`months'_`threshold_str'_30d_min		"Affected by Drought 0-30 days (min. SPI`months'<-`threshold'std)"   
+// 		label var drought`months'_`threshold_str'_30d_max		"Affected by Drought 0-30 days (max. SPI`months'<-`threshold'std)"   
+// 		label var drought`months'_`threshold_str'_2m12m_avg 	"Affected by Drought 6-12 months (avg. SPI`months'<-`threshold'std)" 
+// 		label var drought`months'_`threshold_str'_2m12m_min 	"Affected by Drought 6-12 months (min. SPI`months'<-`threshold'std)" 
+// 		label var drought`months'_`threshold_str'_2m12m_max 	"Affected by Drought 6-12 months (max. SPI`months'<-`threshold'std)" 
+//		
+// 		* Excessive Rain
+// 		count if spi`months'_inutero_avg>`threshold'
+// 		if r(n)<2000 {
+// 			display in red "Less than 2000 treated droughts for SPI`months'>`threshold'"	
+// 			continue
+// 		}
+// 		gen excessiverain`months'_`threshold_str'_inutero_avg	= (spi`months'_inutero_avg>`threshold')
+// 		gen excessiverain`months'_`threshold_str'_inutero_min 	= (spi`months'_inutero_min>`threshold')
+// 		gen excessiverain`months'_`threshold_str'_inutero_max 	= (spi`months'_inutero_max>`threshold')
+// 		gen excessiverain`months'_`threshold_str'_30d_avg		= (spi`months'_30d_mean>`threshold')
+// 		gen excessiverain`months'_`threshold_str'_30d_min		= (spi`months'_30d_min>`threshold')
+// 		gen excessiverain`months'_`threshold_str'_30d_max		= (spi`months'_30d_max>`threshold')
+// 		gen excessiverain`months'_`threshold_str'_2m12m_avg 	= (spi`months'_2m12m_mean>`threshold')
+// 		gen excessiverain`months'_`threshold_str'_2m12m_min 	= (spi`months'_2m12m_min >`threshold')
+// 		gen excessiverain`months'_`threshold_str'_2m12m_max 	= (spi`months'_2m12m_max >`threshold')
+//			
+// 		label var excessiverain`months'_`threshold_str'_inutero_avg		"Affected by Ex. Rain in Utero (avg. SPI`months'>`threshold'std)"
+// 		label var excessiverain`months'_`threshold_str'_inutero_min     "Affected by Ex. Rain in Utero (min. SPI`months'>`threshold'std)"
+// 		label var excessiverain`months'_`threshold_str'_inutero_max     "Affected by Ex. Rain in Utero (max. SPI`months'>`threshold'std)"
+// 		label var excessiverain`months'_`threshold_str'_30d_avg			"Affected by Ex. Rain 0-30 days (avg. SPI`months'>`threshold'std)"   
+// 		label var excessiverain`months'_`threshold_str'_30d_min			"Affected by Ex. Rain 0-30 days (min. SPI`months'>`threshold'std)"   
+// 		label var excessiverain`months'_`threshold_str'_30d_max			"Affected by Ex. Rain 0-30 days (max. SPI`months'>`threshold'std)"   
+// 		label var excessiverain`months'_`threshold_str'_2m12m_avg 		"Affected by Ex. Rain 6-12 months (avg. SPI`months'>`threshold'std)" 
+// 		label var excessiverain`months'_`threshold_str'_2m12m_min 		"Affected by Ex. Rain 6-12 months (min. SPI`months'>`threshold'std)" 
+// 		label var excessiverain`months'_`threshold_str'_2m12m_max 		"Affected by Ex. Rain 6-12 months (max. SPI`months'>`threshold'std)" 	
+//		
+// 	}
 
 rename spi`months'_30d_mean     spi`months'_30d_avg
 rename spi`months'_2m12m_mean  spi`months'_2m12m_avg
 
 
 label var spi`months'_inutero_avg	 	"Avg. Standarized Precipitation Index in Utero"
-label var spi`months'_inutero_min	 	"Min. Standarized Precipitation Index in Utero"
-label var spi`months'_inutero_max	 	"Max. Standarized Precipitation Index in Utero"
 label var spi`months'_30d_avg       	"Avg. Standarized Precipitation Index 0-30 days"
-label var spi`months'_30d_min       	"Min. Standarized Precipitation Index 0-30 days"
-label var spi`months'_30d_max       	"Max. Standarized Precipitation Index 0-30 days"
 label var spi`months'_2m12m_avg   		"Avg. Standarized Precipitation Index 2-12 months"
-label var spi`months'_2m12m_min   		"Min. Standarized Precipitation Index 2-12 months"
-label var spi`months'_2m12m_max   		"Max. Standarized Precipitation Index 2-12 months"
 
 }
-
-rename t_30d_mean   	t_30d_avg 	
-rename t_2m12m_mean   	t_2m12m_avg 	
-
-label var t_inutero_avg		"Avg. Temperature in Utero"	
-label var t_inutero_min		"Min. Temperature in Utero"	
-label var t_inutero_max		"Max. Temperature in Utero"	
-label var t_30d_avg 		"Avg. Temperature 0-30 days"	
-label var t_30d_min 	 	"Min. Temperature 0-30 days"	
-label var t_30d_max 		"Max. Temperature 0-30 days"	
-label var t_2m12m_avg 		"Avg. Temperature 2-12 months"	
-label var t_2m12m_min  		"Min. Temperature 6-12 months"	
-label var t_2m12m_max  		"Max. Temperature 6-12 months"	
 
 rename std_t_30d_mean   	 	std_t_30d_avg 		
 rename std_t_2m12m_mean   		std_t_2m12m_avg
 
 label var std_t_inutero_avg		"Avg. Standardized Temperature in Utero"	
-label var std_t_inutero_min		"Min. Standardized Temperature in Utero"	
-label var std_t_inutero_max		"Max. Standardized Temperature in Utero"	
 label var std_t_30d_avg 		"Avg. Standardized Temperature 0-30 days"	
-label var std_t_30d_min 	 	"Min. Standardized Temperature 0-30 days"	
-label var std_t_30d_max 		"Max. Standardized Temperature 0-30 days"	
 label var std_t_2m12m_avg 		"Avg. Standardized Temperature 2-12 months"	
-label var std_t_2m12m_min  		"Min. Standardized Temperature 6-12 months"	
-label var std_t_2m12m_max  		"Max. Standardized Temperature 6-12 months"	
-
-rename stdm_t_30d_mean   	 	stdm_t_30d_avg 		
-rename stdm_t_2m12m_mean   		stdm_t_2m12m_avg
-
-label var std_t_inutero_avg		"Avg. Standardized Temperature in Utero"	
-label var std_t_inutero_min		"Min. Standardized Temperature in Utero"	
-label var std_t_inutero_max		"Max. Standardized Temperature in Utero"	
-label var std_t_30d_avg 		"Avg. Standardized Temperature 0-30 days"	
-label var std_t_30d_min 	 	"Min. Standardized Temperature 0-30 days"	
-label var std_t_30d_max 		"Max. Standardized Temperature 0-30 days"	
-label var std_t_2m12m_avg 		"Avg. Standardized Temperature 2-12 months"	
-label var std_t_2m12m_min  		"Min. Standardized Temperature 6-12 months"	
-label var stdm_t_2m12m_max  		"Max. Standardized Temperature 6-12 months"	
 
 *############################################################*
 *# 	 Crate squared variables
 *############################################################*
 
-foreach var in "t" "std_t" "stdm_t" "spi12" "spi6" "spi3" "spi1" {
-	foreach time in "inutero_avg" "inutero_min" "inutero_max" "30d_avg" "30d_min" "30d_max" "2m12m_avg" "2m12m_min" "2m12m_max" {
-		gen `var'_`time'_sq = `var'_`time' * `var'_`time'
+foreach var in "std_t" "spi1" {
+	foreach time in "inutero" "30d" "2m12m" {
+		foreach stat in "avg" {
+			gen `var'_`time'_`stat'_sq = `var'_`time'_`stat' * `var'_`time'_`stat'
+			gen `var'_`time'_`stat'_dpos = (`var'_`time'_`stat'>=0)
+			gen `var'_`time'_`stat'_dneg = (`var'_`time'_`stat'<=0)
+			assert `var'_`time'_`stat'_dpos + `var'_`time'_`stat'_dneg>=1
+			
+			gen `var'_`time'_`stat'_pos = `var'_`time'_`stat' * `var'_`time'_`stat'_dpos
+			gen `var'_`time'_`stat'_neg = `var'_`time'_`stat' * `var'_`time'_`stat'_dneg
+
+			gen `var'_`time'_`stat'_sq_pos = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_dpos
+			gen `var'_`time'_`stat'_sq_neg = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_dneg
+		}
 	}
 }
 
@@ -239,4 +212,4 @@ save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.dta", replace
 export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.csv", replace
 
 * Verificamos que esté todo ok
-sum t_* std_t_* stdm_t_* spi12_* spi6_* spi3_* spi1_* drought* excessiverain*
+// sum t_* std_t_* stdm_t_* spi12_* spi6_* spi3_* spi1_* drought* excessiverain*
