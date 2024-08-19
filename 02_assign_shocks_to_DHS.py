@@ -34,14 +34,21 @@ if __name__ == "__main__":
 
     climate_variables = [
         "spi1",
-        # "spi3",
-        # "spi6",
-        # "spi9",
-        # "spi12",
-        # "t",
+        "spi3",
+        "spi6",
+        "spi9",
+        "spi12",
+        "t",
         "std_t",
-        # "stdm_t",
     ]
+
+    def compute_stats(data):
+        # Compute stats using numpy for efficiency
+        return (
+            np.mean(data, axis=0),
+            0,
+            0,
+        )  # , np.min(data, axis=0), np.max(data, axis=0)
 
     def get_climate_shock(from_date, to_date, lat, lon):
         if pd.isna(from_date):
@@ -50,7 +57,7 @@ if __name__ == "__main__":
         # Filter point
         climate_data_vars = climate_data[climate_variables]
         point_data = climate_data_vars.sel(time=slice(from_date, to_date)).sel(
-            lat=lat, lon=lon, method="nearest"
+            lat=lat, lon=lon
         )
 
         # Get position of original data
@@ -63,17 +70,26 @@ if __name__ == "__main__":
         ## Given we only have monthly data, we will consider the first 8 months of gestation as in utero (month 0 to 7)
         ## Because ~50% of the children are born before the 15th the initial month, on average, we will ensure that
         ## most of the kids' first month of life is included in the "1st month of life" category (month 8 to 10)
+        # inutero_to_1st_year = point_data.isel(time=slice(0, 21))
         inutero = point_data.isel(time=slice(0, 8))  # 8 not included
         born_1m = point_data.isel(time=slice(8, 10))
         born_2to12m = point_data.isel(time=slice(10, 21))
 
         out = [lat, lon]
         for ds_time in [inutero, born_1m, born_2to12m]:
-            time_avg = ds_time.mean(dim="time").to_array().values
-            # time_min = ds_time.min(dim="time").to_array().values
-            # time_max = ds_time.max(dim="time").to_array().values
-            out = np.concatenate([out, time_avg])  # , time_min, time_max])
 
+            results = xr.apply_ufunc(
+                compute_stats,
+                ds_time,
+                input_core_dims=[["time"]],
+                output_core_dims=[[], [], []],
+                vectorize=False,
+                output_dtypes=[np.float16, np.float16, np.float16],
+            )
+            results = np.concatenate([r.to_array().values for r in results])
+            out = np.concatenate([out, results])
+
+        # Agregar columnas acá...
         return out.tolist()
 
     ### Process dataframe ####
@@ -94,51 +110,52 @@ if __name__ == "__main__":
     # Filter children from_date greater than 1990 (we only have climate data from 1990)
     df = df[df["from_date"] > "1990-01-01"]
 
-    # # Construct deathdate variable
-    # df["deathdate"] = df[df["child_agedeath"]<=12].progress_apply(lambda x: x["birthdate"] + pd.DateOffset(months=x["child_agedeath"]), axis=1)
-
-    # # Replace to_date with deathdate if the child died
-    # df["to_date"] = np.where((df["child_agedeath"]<=12) & (df["deathdate"]<df["to_date"]), df["deathdate"], df["to_date"])
-
     # Filter children to_date smalle than 2021 (we only have climate data to 2020)
     df = df[df["to_date"] < "2021-01-01"]
+
+    df["lat_round"] = (df["LATNUM"] * 4).round() / 4
+    df["lon_round"] = (df["LONGNUM"] * 4).round() / 4
+    df = df.reset_index(drop=True)
 
     ### Run process ####
     coords_cols = ["lat_climate", "lon_climate"]
     shock_cols = []
-    for name in climate_variables:
-        shock_cols += [
-            f"{name}_inutero_avg",
-            # f"{name}_inutero_min",
-            # f"{name}_inutero_max",
-            f"{name}_30d_mean",
-            # f"{name}_30d_min",
-            # f"{name}_30d_max",
-            f"{name}_2m12m_mean",
-            # f"{name}_2m12m_min",
-            # f"{name}_2m12m_max",
-        ]
+
+    for stat in ["avg", "min", "max"]:
+        for name in climate_variables:
+            shock_cols += [
+                f"{name}_inutero_{stat}",
+                f"{name}_30d_{stat}",
+                f"{name}_2m12m_{stat}",
+            ]
+    print(shock_cols)
     all_cols = coords_cols + shock_cols
 
     print("Assigning climate shocks to DHS data...")
     chunk_size = 100_000
-    for n in tqdm(range(0, df.ID.max(), chunk_size)):
+    for n in tqdm(range(0, df.index.max(), chunk_size)):
+
         file = rf"{DATA_PROC}/births_climate_{n}.parquet"
         if os.path.exists(file):
             print(f"{file} exists, moving to next iteration")
             continue
+
         chunk = df.loc[
-            (df.ID >= n) & (df.ID < n + chunk_size),
-            ["ID", "from_date", "to_date", "LATNUM", "LONGNUM"],
+            (df.index >= n) & (df.index < n + chunk_size),
+            ["ID", "from_date", "to_date", "lat_round", "lon_round"],
         ].copy()
-        if chunk.shape[0] == 0:
-            continue
+
         climate_results = chunk.progress_apply(
             lambda s: get_climate_shock(
-                s["from_date"], s["to_date"], s["LATNUM"], s["LONGNUM"]
+                s["from_date"],
+                s["to_date"],
+                s["lat_round"],
+                s["lon_round"],
             ),
             axis=1,
         )
+
+        # Save results into a df
         climate_results = climate_results.apply(pd.Series)
         climate_results.columns = all_cols
         climate_results["ID"] = chunk["ID"]
@@ -203,5 +220,5 @@ if __name__ == "__main__":
 
     # Drop nans in spi/temp values
     df = df.dropna(subset=shock_cols, how="any")
-    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v4.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v4.dta")
+    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v5.dta")
+    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v5.dta")
