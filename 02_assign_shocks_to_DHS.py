@@ -42,55 +42,53 @@ if __name__ == "__main__":
         "std_t",
     ]
 
-    def compute_stats(data):
+    def compute_stats(ds):
+
+        arr = ds.to_array().values
+        inutero = arr[:, :9]
+        born_1m = arr[:, 9:11]
+        born_2to12m = arr[:, 11:22]
+
+        assert inutero.shape[1] == 9  # 9 months in utero
+        assert born_1m.shape[1] == 2
+        # 1 month after birth (a little bit more because we dont have climate data for the exact day of birth. On average is one month)
+        assert born_2to12m.shape[1] == 11  # next 11 months after birth
+
         # Compute stats using numpy for efficiency
-        return (
-            np.mean(data, axis=0),
-            0,
-            0,
-        )  # , np.min(data, axis=0), np.max(data, axis=0)
+        inutero = {
+            f"{var}_inutero_mean": value
+            for var, value in zip(ds.data_vars, inutero.mean(axis=1))
+        }
+        born_1m = {
+            f"{var}_born_1m_mean": value
+            for var, value in zip(ds.data_vars, born_1m.mean(axis=1))
+        }
+        born_2to12m = {
+            f"{var}_born_2to12m_mean": value
+            for var, value in zip(ds.data_vars, born_2to12m.mean(axis=1))
+        }
+
+        results = {**inutero, **born_1m, **born_2to12m}
+        results = pd.Series(results)
+        return results
 
     def get_climate_shock(from_date, to_date, lat, lon):
         if pd.isna(from_date):
             return np.nan
 
         # Filter point
-        climate_data_vars = climate_data[climate_variables]
-        point_data = climate_data_vars.sel(time=slice(from_date, to_date)).sel(
-            lat=lat, lon=lon
-        )
+        # climate_data_vars = climate_data[climate_variables]
+        point_data = ds.sel(time=slice(from_date, to_date)).sel(lat=lat, lon=lon)
 
         # Get position of original data
         lat = point_data.lat.item()
         lon = point_data.lon.item()
 
         # Filter by time
-        ## 80% of the children are born between week 37 (~8.5 months) and 41 (~9.5 months) of gestation.
-        ## https://commons.wikimedia.org/wiki/File:Distribution_of_gestational_age_at_childbirth.jpg
-        ## Given we only have monthly data, we will consider the first 8 months of gestation as in utero (month 0 to 7)
-        ## Because ~50% of the children are born before the 15th the initial month, on average, we will ensure that
-        ## most of the kids' first month of life is included in the "1st month of life" category (month 8 to 10)
-        # inutero_to_1st_year = point_data.isel(time=slice(0, 21))
-        inutero = point_data.isel(time=slice(0, 8))  # 8 not included
-        born_1m = point_data.isel(time=slice(8, 10))
-        born_2to12m = point_data.isel(time=slice(10, 21))
-
-        out = [lat, lon]
-        for ds_time in [inutero, born_1m, born_2to12m]:
-
-            results = xr.apply_ufunc(
-                compute_stats,
-                ds_time,
-                input_core_dims=[["time"]],
-                output_core_dims=[[], [], []],
-                vectorize=False,
-                output_dtypes=[np.float16, np.float16, np.float16],
-            )
-            results = np.concatenate([r.to_array().values for r in results])
-            out = np.concatenate([out, results])
-
+        inutero_to_1st_year = point_data.isel(time=slice(0, 22))
+        out = compute_stats(inutero_to_1st_year)
         # Agregar columnas acá...
-        return out.tolist()
+        return out
 
     ### Process dataframe ####
     # Create datetime object from year and month
@@ -121,16 +119,6 @@ if __name__ == "__main__":
     coords_cols = ["lat_climate", "lon_climate"]
     shock_cols = []
 
-    for stat in ["avg", "min", "max"]:
-        for name in climate_variables:
-            shock_cols += [
-                f"{name}_inutero_{stat}",
-                f"{name}_30d_{stat}",
-                f"{name}_2m12m_{stat}",
-            ]
-    print(shock_cols)
-    all_cols = coords_cols + shock_cols
-
     print("Assigning climate shocks to DHS data...")
     chunk_size = 100_000
     for n in tqdm(range(0, df.index.max(), chunk_size)):
@@ -157,8 +145,9 @@ if __name__ == "__main__":
 
         # Save results into a df
         climate_results = climate_results.apply(pd.Series)
-        climate_results.columns = all_cols
         climate_results["ID"] = chunk["ID"]
+        climate_results["lat"] = chunk["lat_round"]
+        climate_results["lon"] = chunk["lon_round"]
         climate_results.to_parquet(file, index=False)
 
     files = os.listdir(rf"{DATA_PROC}")
