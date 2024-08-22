@@ -20,13 +20,13 @@ controls_all = [controls1, controls2, controls3]
 ###  Pooled all countries into regression
 #################################################################
 
-# contr_i = 1
-# for controls in controls_all
-#     global contr_i
-#     suffix = " - controls$(contr_i)"
-#     CustomModels.run_models(df, controls, "", suffix)
-#     contr_i += 1
-# end
+contr_i = 1
+for controls in controls_all
+    global contr_i
+    suffix = " - controls$(contr_i)"
+    CustomModels.run_models(df, controls, "", suffix)
+    contr_i += 1
+end
 
 #################################################################
 ###  Heterogeneity

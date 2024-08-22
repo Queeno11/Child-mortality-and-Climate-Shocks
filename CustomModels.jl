@@ -27,10 +27,21 @@ module CustomModels
 
         for temp in ["std_t"]
             for ind in [("avg", "avg", "avg")]
+
                 nameind = ind[1]
                 spiind = ind[2]
                 tind = ind[3]
 
+                outpath = "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
+                mkpath(outpath)
+                outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_SPI$(months)_$(nameind)_$(temp) $(extra).txt" 
+                outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_SPI$(months)_$(nameind)_$(temp) $(extra).tex"
+
+                if isfile(outtxt) && isfile(outtex)
+                    println("File exists, moving to next iteration.")
+                    continue
+                end
+                
                 spi_previous = [] 
                 temp_previous = []
                 order_spi = []
@@ -71,25 +82,21 @@ module CustomModels
                     append!(order_spi, spi_actual)
                     append!(order_temp, temp_actual)
                 end
-                println(regs)
 
                 # Generate regression table
                 order = vcat(order_spi, order_temp)
                 order = [string(sym) for sym in order]
 
-                outpath = "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
-                mkpath(outpath)
-
                 regtable(
                     regs...; 
                     render = AsciiTable(), 
-                    file="$(outpath)\\$(model_type)_dummies_$(with_dummies)_SPI$(months)_$(nameind)_$(temp) $(extra).txt",
+                    file=outtxt,
                     order=order,
                 )
                 regtable(
                     regs...; 
                     render = LatexTable(), 
-                    file="$(outpath)\\$(model_type)_dummies_$(with_dummies)_SPI$(months)_$(nameind)_$(temp) $(extra).tex",
+                    file=outtex,
                     order=order,
                 )
             end
@@ -153,12 +160,12 @@ module CustomModels
         """
         
         println("\rRunning Standard Models for $(folder)\r")
-        for months in ["1"] #, "3", "6", "9", "12"]
+        for months in ["1", "3", "6", "9", "12"]
             i = 1
             extra_original = extra
             for times in (["inutero", "30d", "2m12m"], )#, ["inutero", "1m3m", "4m12m"], ["inutero", "1m12m"])
                 extra_with_time = extra_original * " - times$(i)"
-                # stepped_regression(df, months, controls, times, folder, extra_with_time, model_type="linear")
+                stepped_regression(df, months, controls, times, folder, extra_with_time, model_type="linear")
                 stepped_regression(df, months, controls, times, folder, extra_with_time, model_type="quadratic")
                 stepped_regression(df, months, controls, times, folder, extra_with_time, model_type="linear", with_dummies=true)
                 stepped_regression(df, months, controls, times, folder, extra_with_time, model_type="quadratic", with_dummies=true)

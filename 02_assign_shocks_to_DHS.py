@@ -56,16 +56,16 @@ if __name__ == "__main__":
 
         # Compute stats using numpy for efficiency
         inutero = {
-            f"{var}_inutero_mean": value
-            for var, value in zip(ds.data_vars, inutero.mean(axis=1))
+            f"{var}_inutero_avg": value
+            for var, value in zip(ds.data_vars, np.nanmean(inutero, axis=1))
         }
         born_1m = {
-            f"{var}_born_1m_mean": value
-            for var, value in zip(ds.data_vars, born_1m.mean(axis=1))
+            f"{var}_30d_avg": value
+            for var, value in zip(ds.data_vars, np.nanmean(born_1m, axis=1))
         }
         born_2to12m = {
-            f"{var}_born_2to12m_mean": value
-            for var, value in zip(ds.data_vars, born_2to12m.mean(axis=1))
+            f"{var}_2m12m_avg": value
+            for var, value in zip(ds.data_vars, np.nanmean(born_2to12m, axis=1))
         }
 
         results = {**inutero, **born_1m, **born_2to12m}
@@ -78,7 +78,9 @@ if __name__ == "__main__":
 
         # Filter point
         # climate_data_vars = climate_data[climate_variables]
-        point_data = ds.sel(time=slice(from_date, to_date)).sel(lat=lat, lon=lon)
+        point_data = climate_data.sel(time=slice(from_date, to_date)).sel(
+            lat=lat, lon=lon
+        )
 
         # Get position of original data
         lat = point_data.lat.item()
@@ -157,6 +159,7 @@ if __name__ == "__main__":
         df = pd.read_parquet(rf"{DATA_PROC}/{file}")
         data += [df]
     df = pd.concat(data)
+    climate_cols = df.columns
 
     ####### Process data:
     df = full_dhs.merge(df, on="ID", how="inner")
@@ -192,12 +195,12 @@ if __name__ == "__main__":
     )
     df["since_2003"] = df["interview_year"] >= 2003
     df = df[df["last_15_years"] == True]
+
     ####### Export data:
     # df.to_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v3.parquet")
     df = df[
-        all_cols
+        climate_cols.to_list()
         + [
-            "ID",
             "interview_year",
             "interview_month",
             "birth_date",
