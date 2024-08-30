@@ -2,7 +2,8 @@ import os
 import cdsapi
 from tqdm import tqdm
 
-downloaded = os.listdir("/mnt/z/WB Data/ERA5 Reanalysis")
+folder = "/mnt/d/Datasets/ERA5 Reanalysis/monthly-single-levels"
+downloaded = os.listdir(folder)
 try:
     downloaded = [int(x.split("_")[1].split(".")[0]) for x in downloaded]
     last_year = max(downloaded) if downloaded else (2020 - 51)
@@ -40,6 +41,6 @@ for year in tqdm(range(last_year + 1, 2021)):
             ],
             "time": "00:00",
         },
-        f"/mnt/z/WB Data/ERA5 Reanalysis/data_{year}.zip",
+        f"{folder}/data_{year}.zip",
     )
     print(f"Se descargó data_{year}.zip")

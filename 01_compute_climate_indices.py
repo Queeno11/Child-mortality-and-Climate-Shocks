@@ -149,6 +149,7 @@ if __name__ == "__main__":
     stdtemp_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1970-2021_stdtemp.nc")
     if os.path.exists(stdtemp_path):
         print("Standardized temperature already computed. Skipping...")
+        
     else:
         temperature = xr.open_dataset(era5_path, chunks={"time": 12})
         climatology_mean = temperature["t2m"].mean(dim="time")

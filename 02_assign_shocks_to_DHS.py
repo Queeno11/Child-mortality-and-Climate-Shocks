@@ -10,7 +10,6 @@ if __name__ == "__main__":
     tqdm.pandas()
 
     pd.options.mode.chained_assignment = None  # default='warn'
-
     logging.getLogger("distributed").setLevel(logging.WARNING)
 
     # Set global variables
