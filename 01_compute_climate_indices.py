@@ -15,7 +15,7 @@ if __name__ == "__main__":
     DATA_IN = rf"{DATA}\Data_in"
     DATA_PROC = rf"{DATA}\Data_proc"
     DATA_OUT = rf"{DATA}\Data_out"
-    ERA5_DATA = rf"D:\Datasets\ERA5 Reanalysis\monthly-single-levels"
+    ERA5_DATA = rf"D:\Datasets\ERA5 Reanalysis\monthly-land"
 
     #######################
     # Filter runtime warnings
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     ####  Process data ####
     ########################
 
-    era5_path = os.path.join(DATA_PROC, "ERA5_monthly_1970-2021.nc")
+    era5_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1970-2021.nc")
     if os.path.exists(era5_path):
         print("ERA5 already processed. Loading...")
     else:
@@ -66,25 +66,14 @@ if __name__ == "__main__":
         ## Temperature is in Kelvin, we need it in Celsius
         precipitation["t2m"] = precipitation["t2m"] - 273.15
 
-        ########################
-        ####  Mask values   ####
-        ## Mask values on the sea, as we only need country data.
-        # Data from countries comes from non-nan values in the precipitation_cckp dataset
-        print("Loading mask data...")
-        countries = xr.open_dataset(
-            rf"{DATA_IN}\Climate Data\timeseries-pr-monthly-mean_cru_monthly_cru-ts4.06-timeseries_mean_1901-2021.nc"
-        )
-        mask = countries["timeseries-pr-monthly-mean"].isel(time=0).notnull()
-        # Interpolate mask to ERA5 resolution
-        mask = (
-            mask.astype(int)
-            .interp(lat=precipitation.lat, lon=precipitation.lon, method="nearest")
-            .astype(bool)
-        )
-        precipitation = precipitation.where(mask)
-
         with ProgressBar():
-            precipitation.to_netcdf(era5_path)
+            encoding = {
+                var: {"zlib": True, "complevel": 5} for var in precipitation.data_vars
+            }
+            precipitation.to_netcdf(
+                era5_path,
+                encoding=encoding,
+            )
 
     precipitation = xr.open_dataset(
         era5_path, chunks={"latitude": 100, "longitude": 100}
@@ -122,7 +111,7 @@ if __name__ == "__main__":
     spis = []
     for i in [1, 3, 6, 9, 12]:
         print(f"Computing SPI-{i}")
-        spi_path = os.path.join(DATA_PROC, f"ERA5_monthly_1970-2021_SPI{i}.nc")
+        spi_path = os.path.join(DATA_PROC, f"ERA5-Land_monthly_1970-2021_SPI{i}.nc")
         if os.path.exists(spi_path):
             da_spi = xr.open_dataset(
                 spi_path, chunks={"latitude": 100, "longitude": 100}
@@ -142,7 +131,13 @@ if __name__ == "__main__":
             )
             da_spi = da_spi.unstack("point").rename(f"spi{i}")
             with ProgressBar():
-                da_spi.to_netcdf(spi_path)
+                encoding = {
+                    var: {"zlib": True, "complevel": 5} for var in da_spi.data_vars
+                }
+                da_spi.to_netcdf(
+                    spi_path,
+                    encoding=encoding,
+                )
         spis += [da_spi]
 
     #########################
@@ -151,7 +146,7 @@ if __name__ == "__main__":
 
     # Standardize temperature over 30-year average
 
-    stdtemp_path = os.path.join(DATA_PROC, "ERA5_monthly_1970-2021_stdtemp.nc")
+    stdtemp_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1970-2021_stdtemp.nc")
     if os.path.exists(stdtemp_path):
         print("Standardized temperature already computed. Skipping...")
     else:
@@ -167,13 +162,18 @@ if __name__ == "__main__":
         )
 
         with ProgressBar():
-            stand_temp.to_netcdf(stdtemp_path)
-
+            encoding = {
+                var: {"zlib": True, "complevel": 5} for var in stand_temp.data_vars
+            }
+            stand_temp.to_netcdf(
+                stdtemp_path,
+                encoding=encoding,
+            )
     stand_temp = xr.open_dataset(stdtemp_path, chunks={"time": 12})
     stand_temp = stand_temp.rename({"t2m": "std_t"})
 
     # Standardize temperature over 30-year monthly average
-    stdmtemp_path = os.path.join(DATA_PROC, "ERA5_monthly_1970-2021_stdmtemp.nc")
+    stdmtemp_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1970-2021_stdmtemp.nc")
     if os.path.exists(stdmtemp_path):
         print("Standardized temperature monthly already computed. Skipping...")
     else:
@@ -188,7 +188,13 @@ if __name__ == "__main__":
             dask="parallelized",
         )
         with ProgressBar():
-            stand_anomalies.to_netcdf(stdmtemp_path)
+            encoding = {
+                var: {"zlib": True, "complevel": 5} for var in stand_anomalies.data_vars
+            }
+            stand_anomalies.to_netcdf(
+                stdmtemp_path,
+                encoding=encoding,
+            )
 
     stand_mtemp = xr.open_dataset(stdmtemp_path, chunks={"time": 12})
     print(stand_mtemp)
@@ -205,6 +211,12 @@ if __name__ == "__main__":
 
     climate_data = xr.combine_by_coords(spis + temps)
     with ProgressBar():
-        out = rf"{DATA_PROC}/Climate_shocks_v4.nc"
-        climate_data.to_netcdf(out)
+        out = rf"{DATA_PROC}/Climate_shocks_v6.nc"
         print(f"Data ready! file saved at {out}")
+        encoding = {
+            var: {"zlib": True, "complevel": 5} for var in climate_data.data_vars
+        }
+        climate_data.to_netcdf(
+            out,
+            encoding=encoding,
+        )
