@@ -1,4 +1,4 @@
-
+*.xml
 *.xls
 *.xlsx
 *.dta
@@ -8,6 +8,7 @@
 *.csv
 *.tsv
 *.shp
+*.parquet
 *.shf
 *.dbf
 *.db

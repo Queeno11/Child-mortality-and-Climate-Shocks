@@ -1,7 +1,7 @@
 clear all
 set maxvar 120000
 
-global PROJECT = "D:\World Bank\Paper - Child Mortality and Climate Shocks"
+global PROJECT = "D:\World Bank\Paper - Child mortality and Climate Shocks"
 global OUTPUTS = "${PROJECT}\Outputs"
 global DATA = "${PROJECT}\Data"
 global DATA_IN = "${DATA}\Data_in"
@@ -19,13 +19,13 @@ global DATA_OUT = "${DATA}\Data_out"
 *### 	 Read data and Merge with Climate Data
 *############################################################*
 
-import excel using "Z:\Laboral\World Bank\Data-Portal-Brief-Generator\Data\Data_Raw\Country codes & metadata\country_classification.xlsx", clear first
+import excel using "D:\World Bank\Data-Portal-Brief-Generator\Data\Data_Raw\Country codes & metadata\country_classification.xlsx", clear first
 rename wbcode code_iso3
 save "${DATA_IN}/Income level.dta", replace
 
-use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_04172024", clear
+use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024", clear
 gen ID = _n - 1
-merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v3"
+merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v5"
 keep if _merge==3
 drop _merge
 
@@ -33,117 +33,32 @@ merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta"
 keep if _merge==3
 drop _merge
 
-merge m:1 v000 v001 v002 v008 using "${DATA_IN}/DHS/weights_DHS_by_hh.dta"
-keep if _merge==3
-drop _merge
+// merge m:1 v000 v001 v002 v008 using "${DATA_IN}/DHS/weights_DHS_by_hh.dta"
+// keep if _merge==3
+// drop _merge
 
-foreach months in "1" "3" "6" "9" "12" {
-	foreach threshold in 1.5 2.0 2.5 {
-		local threshold_str = subinstr("`threshold'",".","_",.)
-
-		*############################################################*
-		*# 	 Crate dummy variables
-		*############################################################*
-		
-		* Drought
-		count if spi`months'_inutero_q1<-`threshold'
-		if r(n)<2000 {
-			display in red "Less than 2000 treated droughts for SPI`months'<`threshold'"
-			continue
-		}
-		gen drought`months'_`threshold_str'_q1 		 = (spi`months'_inutero_q1<-`threshold')
-		gen drought`months'_`threshold_str'_q2 	 	 = (spi`months'_inutero_q2<-`threshold')
-		gen drought`months'_`threshold_str'_q3 	 	 = (spi`months'_inutero_q3<-`threshold')
-		gen drought`months'_`threshold_str'_30d 	 = (spi`months'_born_1m<-`threshold')
-		gen drought`months'_`threshold_str'_30d3m	 = (spi`months'_born_2to3m<-`threshold')
-		gen drought`months'_`threshold_str'_3m6m	 = (spi`months'_born_3to6m<-`threshold')
-		gen drought`months'_`threshold_str'_6m12m	 = (spi`months'_born_6to12m<-`threshold')
-		
-		label var drought`months'_`threshold_str'_q1 "Affected by Drought 1stQ in Utero (SPI`months' <`threshold'std)"
-		label var drought`months'_`threshold_str'_q2 "Affected by Drought 2ndQ in Utero (SPI`months' <`threshold'std)"
-		label var drought`months'_`threshold_str'_q3 "Affected by Drought 3rdQ in Utero (SPI`months' <`threshold'std)"
-		label var drought`months'_`threshold_str'_30d "Affected by Drought 0-30 days (SPI`months' <`threshold'std)"
-		label var drought`months'_`threshold_str'_30d3m "Affected by Drought 1-3 months (SPI`months' <`threshold'std)"		
-		label var drought`months'_`threshold_str'_3m6m "Affected by Drought 3-6 months (SPI`months' <`threshold'std)"
-		label var drought`months'_`threshold_str'_6m12m "Affected by Drought 6-12 months (SPI`months' <`threshold'std)"	
-		
-		
-		* Excessive Rain
-		count if spi`months'_inutero_q1>`threshold'
-		if r(n)<2000 {
-			display in red "Less than 2000 treated droughts for SPI`months'>`threshold'"	
-			continue
-		}
-		gen excessiverain`months'_`threshold_str'_q1 	 = (spi`months'_inutero_q1>`threshold')
-		gen excessiverain`months'_`threshold_str'_q2 	 = (spi`months'_inutero_q2>`threshold')
-		gen excessiverain`months'_`threshold_str'_q3 	 = (spi`months'_inutero_q3>`threshold')
-		gen excessiverain`months'_`threshold_str'_30d 	 = (spi`months'_born_1m>`threshold')
-		gen excessiverain`months'_`threshold_str'_30d3m	 = (spi`months'_born_2to3m>`threshold')
-		gen excessiverain`months'_`threshold_str'_3m6m	 = (spi`months'_born_3to6m>`threshold')
-		gen excessiverain`months'_`threshold_str'_6m12m	 = (spi`months'_born_6to12m>`threshold')
-
-		label var excessiverain`months'_`threshold_str'_q1 "Affected by Ex. Rain 1stQ in Utero (rain >`threshold'std)"
-		label var excessiverain`months'_`threshold_str'_q2 "Affected by Ex. Rain 2ndQ in Utero (rain >`threshold'std)"
-		label var excessiverain`months'_`threshold_str'_q3 "Affected by Ex. Rain 3rdQ in Utero (rain >`threshold'std)"
-		label var excessiverain`months'_`threshold_str'_30d "Affected by Ex. Rain 0-30 days (rain >`threshold'std)"
-		label var excessiverain`months'_`threshold_str'_30d3m "Affected by Ex. Rain 1-3 months (rain >`threshold'std)"		
-		label var excessiverain`months'_`threshold_str'_3m6m "Affected by Ex. Rain 3-6 months (rain >`threshold'std)"
-		label var excessiverain`months'_`threshold_str'_6m12m "Affected by Ex. Rain 6-12 months (rain >`threshold'std)"		
-		
-	}
-
-rename spi`months'_inutero_q1    spi`months'_q1 	
-rename spi`months'_inutero_q2    spi`months'_q2 	
-rename spi`months'_inutero_q3    spi`months'_q3 	
-rename spi`months'_born_1m       spi`months'_30d 	
-rename spi`months'_born_2to3m    spi`months'_30d3m
-rename spi`months'_born_3to6m    spi`months'_3m6m 
-rename spi`months'_born_6to12m   spi`months'_6m12m
-
-
-label var spi`months'_q1 	 	"Standarized Precipitation Index 1stQ in Utero"
-label var spi`months'_q2 	 	"Standarized Precipitation Index 2ndQ in Utero"
-label var spi`months'_q3 	 	"Standarized Precipitation Index 3rdQ in Utero"
-label var spi`months'_30d 	 	"Standarized Precipitation Index 0-30 days "
-label var spi`months'_30d3m 	"Standarized Precipitation Index 1-3 months"		
-label var spi`months'_3m6m  	"Standarized Precipitation Index 3-6 months"
-label var spi`months'_6m12m 	"Standarized Precipitation Index 6-12 months"		
-
-}
-
-rename temp_inutero_q1    temp_q1 	
-rename temp_inutero_q2    temp_q2 	
-rename temp_inutero_q3    temp_q3 	
-rename temp_born_1m       temp_30d 	
-rename temp_born_2to3m    temp_30d3m
-rename temp_born_3to6m    temp_3m6m 
-rename temp_born_6to12m   temp_6m12m
-
-label var temp_q1 	 	"Mean Temperature 1stQ in Utero"
-label var temp_q2 	 	"Mean Temperature 2ndQ in Utero"
-label var temp_q3 	 	"Mean Temperature 3rdQ in Utero"
-label var temp_30d 	 	"Mean Temperature 0-30 days "
-label var temp_30d3m 	"Mean Temperature 1-3 months"		
-label var temp_3m6m  	"Mean Temperature 3-6 months"
-label var temp_6m12m 	"Mean Temperature 6-12 months"		
-
-* Kevin to Celius. FIXME: standarize temperature
-replace  temp_q1 	=  temp_q1 		- 273.15	
-replace  temp_q2 	=  temp_q2 		- 273.15
-replace  temp_q3 	=  temp_q3 		- 273.15
-replace  temp_30d 	=  temp_30d 	- 273.15	
-replace  temp_30d3m	=  temp_30d3m	- 273.15
-replace  temp_3m6m 	=  temp_3m6m 	- 273.15
-replace  temp_6m12m	=  temp_6m12m	- 273.15
-
+rename *_mean *_avg
+rename *_born_1m_* *_30d_*
+rename *_born_2to12m_* *_2m12m_*
 
 *############################################################*
-*# 	 Crate squared variables
+*# 	 Crate climate variables
 *############################################################*
 
-foreach var in "temp" "spi12" "spi6" "spi3" "spi1" {
-	foreach time in "q1" "q2" "q3" "30d" "30d3m" "3m6m" "6m12m" {
-		gen `var'_`time'_sq = `var'_`time' * `var'_`time'
+foreach var in "t" "std_t" "spi1" "spi3" "spi6" "spi9" "spi12" {
+	foreach time in "inutero" "30d" "2m12m" {
+		foreach stat in "avg" {
+			gen `var'_`time'_`stat'_sq = `var'_`time'_`stat' * `var'_`time'_`stat'
+			gen `var'_`time'_`stat'_dpos = (`var'_`time'_`stat'>=0)
+			gen `var'_`time'_`stat'_dneg = (`var'_`time'_`stat'<=0)
+			assert `var'_`time'_`stat'_dpos + `var'_`time'_`stat'_dneg>=1
+			
+			gen `var'_`time'_`stat'_pos = `var'_`time'_`stat' * `var'_`time'_`stat'_dpos
+			gen `var'_`time'_`stat'_neg = `var'_`time'_`stat' * `var'_`time'_`stat'_dneg
+
+			gen `var'_`time'_`stat'_sq_pos = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_dpos
+			gen `var'_`time'_`stat'_sq_neg = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_dneg
+		}
 	}
 }
 
@@ -151,10 +66,19 @@ foreach var in "temp" "spi12" "spi6" "spi3" "spi1" {
 drop index
 
 *############################################################*
+*# 	 Create child agedeath variables
+*############################################################*
+
+egen child_agedeath_2m12m = rowmax(child_agedeath_30d3m child_agedeath_3m6m child_agedeath_6m12m)
+replace child_agedeath_30d = child_agedeath_30d * 1000
+replace child_agedeath_2m12m = child_agedeath_2m12m * 1000
+
+*############################################################*
 *# 	 Create control variables for the regressions
 *############################################################*
 
 * Genero ID_cell con las celdas originales
+rename (lat lon) (lat_climate lon_climate)
 tostring lon_climate lat_climate , generate(lon_climate_str lat_climate_str )
 gen ID_cell_str = lat_climate_str + "-" + lon_climate_str
 encode ID_cell_str, gen(ID_cell1)
@@ -207,13 +131,11 @@ keep if since_2003==1 & last_10_years==1
 
 encode v000, gen(IDsurvey_country)
 
-replace child_agedeath_30d = child_agedeath_30d * 1000
-replace child_agedeath_30d3m = child_agedeath_30d3m * 1000
-replace child_agedeath_3m6m = child_agedeath_3m6m * 1000
-replace child_agedeath_6m12m = child_agedeath_6m12m * 1000
-
 gen time = chb_year - 1989
 gen time_sq = time*time
 
 save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.dta", replace
 export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.csv", replace
+
+* Verificamos que esté todo ok
+sum t_* std_t_* spi12_* spi6_* spi3_* spi1_*
