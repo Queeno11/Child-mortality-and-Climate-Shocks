@@ -2,6 +2,7 @@ if __name__ == "__main__":
 
     import os
     import warnings
+    import numpy as np
     import xarray as xr
     from tqdm import tqdm
     from climate_indices import indices, compute
@@ -23,10 +24,19 @@ if __name__ == "__main__":
     client = Client()  # start distributed scheduler locally.
     print(client)
 
+    def drop_duplicate_dims(ds):
+        dims = list(ds.dims)
+        for dim in dims:
+            _, unique_indices = np.unique(ds[dim], return_index=True)
+
+            # Select only the unique values along the x dimension
+            ds = ds.isel({dim:unique_indices})
+        return ds
+
     ########################
     ####  Process data ####
     ########################
-
+    print("Warning: Running this scripts takes about a few days and requires ~600GB to store all the required data. Ensure you have such space available...")
     era5_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1970-2021.nc")
     if os.path.exists(era5_path):
         print("ERA5 already processed. Loading...")
@@ -94,51 +104,93 @@ if __name__ == "__main__":
     ## More here: https://www.researchgate.net/profile/Sorin-Cheval/publication/264467702_Spatiotemporal_variability_of_the_meteorological_drought_in_Romania_using_the_Standardized_Precipitation_Index_SPI/links/5842d18a08ae2d21756372f8/Spatiotemporal-variability-of-the-meteorological-drought-in-Romania-using-the-Standardized-Precipitation-Index-SPI.pdf
     ## Ignore negative values, they are normal: https://confluence.ecmwf.int/display/UDOC/Why+are+there+sometimes+small+negative+precipitation+accumulations+-+ecCodes+GRIB+FAQ
 
-    print("Data Ready! Computing SPI. This will take at least a few hours...")
+    print("Data Ready!")
+    spi_out = rf"{DATA_PROC}\ERA5-Land_monthly_1970-2021_spi.nc"
+    if os.path.exists(spi_out):
+        print("SPI already computed!")
+    else:
+        print("Computing SPI. This will take at least a few hours...")
+        # Mask data
+        da_precip_groupby = precipitation["tp"].stack(point=("lat", "lon")).groupby("point")
 
-    # Mask data
-    print(precipitation)
-    da_precip_groupby = precipitation["tp"].stack(point=("lat", "lon")).groupby("point")
+        # Parameters
+        distribution = indices.Distribution.gamma
+        data_start_year = 1970
+        calibration_year_initial = 1970
+        calibration_year_final = 2020
+        periodicity = compute.Periodicity.monthly
 
-    # Parameters
-    distribution = indices.Distribution.gamma
-    data_start_year = 1970
-    calibration_year_initial = 1970
-    calibration_year_final = 2020
-    periodicity = compute.Periodicity.monthly
+        # apply SPI to each `point`
+        dss = []
+        for i in [1, 3, 6, 9, 12]:
 
-    # apply SPI to each `point`
-    spis = []
-    for i in [1, 3, 6, 9, 12]:
-        print(f"Computing SPI-{i}")
-        spi_path = os.path.join(DATA_PROC, f"ERA5-Land_monthly_1970-2021_SPI{i}.nc")
-        if os.path.exists(spi_path):
-            da_spi = xr.open_dataset(
-                spi_path, chunks={"latitude": 100, "longitude": 100}
-            )
-            print(f"SPI-{i} already computed. Skipping...")
-        else:
-            da_spi = xr.apply_ufunc(
-                indices.spi,
-                da_precip_groupby,
-                i,
-                distribution,
-                data_start_year,
-                calibration_year_initial,
-                calibration_year_final,
-                periodicity,
-                dask="parallelized",
-            )
-            da_spi = da_spi.unstack("point").rename(f"spi{i}")
-            with ProgressBar():
-                encoding = {
-                    var: {"zlib": True, "complevel": 5} for var in da_spi.data_vars
-                }
-                da_spi.to_netcdf(
-                    spi_path,
-                    encoding=encoding,
+            spi_path = os.path.join(DATA_PROC, f"ERA5-Land_monthly_1970-2021_SPI{i}.nc")
+
+            if os.path.exists(spi_path):
+                da_spi = xr.open_dataset(
+                    spi_path, chunks={"latitude": 100, "longitude": 100}
                 )
-        spis += [da_spi]
+                print(f"SPI-{i} already computed. Skipping...")
+
+            else:
+                # Define the range of values for lat and longitude
+                x = 0
+                for x_min in tqdm(range(-180, 180, 90)):
+                    y = 0
+                    for y_min in tqdm(range(-90, 90, 45), leave=False):
+
+                        prec_slice = precipitation.sel(
+                            lon=slice(x_min, x_min + 90), lat=slice(y_min, y_min + 45)
+                        ).load()
+
+                        # Filter between 1970 and 1990 to reduce size
+                        da_precip_groupby = (
+                            prec_slice["tp"]
+                            .stack(point=("lat", "lon"))
+                            .groupby(group="point")
+                        )
+
+                        distribution = indices.Distribution.gamma
+                        data_start_year = 1970
+                        calibration_year_initial = 1970
+                        calibration_year_final = 2020
+                        periodicity = compute.Periodicity.monthly
+
+                        da_spi = xr.apply_ufunc(
+                            indices.spi,
+                            da_precip_groupby,
+                            i,
+                            distribution,
+                            data_start_year,
+                            calibration_year_initial,
+                            calibration_year_final,
+                            periodicity,
+                        )
+                        da_spi = da_spi.unstack("point").rename(f"spi{i}")
+
+                        encoding = {f"spi{i}": {"zlib": True, "complevel": 6}}
+                        da_spi.to_netcdf(
+                            rf"{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_{x}_{y}.nc",
+                            encoding=encoding,
+                        )
+                        y += 1
+                    x += 1
+
+            combine_order = [
+                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_0_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_0_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_0_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_0_3.nc'],
+                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_1_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_1_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_1_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_1_3.nc'],
+                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_2_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_2_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_2_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_2_3.nc'],
+                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_3_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_3_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_3_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_3_3.nc'],
+            ]
+
+            dss += [xr.open_mfdataset(combine_order, combine="nested", concat_dim=["lon", "lat"])]
+
+        ds = xr.merge(dss)
+
+        ds.to_netcdf(spi_out)
+
+    # drop_duplicate_dims to clean up a few duplicated values...
+    spis = drop_duplicate_dims(xr.open_dataset(spi_out, chunks={}))
 
     #########################
     ####   Compute Temp  ####
@@ -149,8 +201,9 @@ if __name__ == "__main__":
     stdtemp_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1970-2021_stdtemp.nc")
     if os.path.exists(stdtemp_path):
         print("Standardized temperature already computed. Skipping...")
-        
+
     else:
+        print("Computing standardized temperature...")
         temperature = xr.open_dataset(era5_path, chunks={"time": 12})
         climatology_mean = temperature["t2m"].mean(dim="time")
         climatology_std = temperature["t2m"].std(dim="time")
@@ -162,23 +215,20 @@ if __name__ == "__main__":
             dask="parallelized",
         )
 
-        with ProgressBar():
-            encoding = {
-                var: {"zlib": True, "complevel": 5} for var in stand_temp.data_vars
-            }
-            stand_temp.to_netcdf(
-                stdtemp_path,
-                encoding=encoding,
-            )
-    stand_temp = xr.open_dataset(stdtemp_path, chunks={"time": 12})
-    stand_temp = stand_temp.rename({"t2m": "std_t"})
+        encoding = {stand_temp.name: {"zlib": True, "complevel": 5}}
+        stand_temp.to_netcdf(
+            stdtemp_path,
+            encoding=encoding,
+        )
+            
 
     # Standardize temperature over 30-year monthly average
     stdmtemp_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1970-2021_stdmtemp.nc")
     if os.path.exists(stdmtemp_path):
         print("Standardized temperature monthly already computed. Skipping...")
     else:
-        temperature = xr.open_dataset(era5_path, chunks={"time": 12})
+        print("Computing temperature anomalies...")
+        temperature = xr.open_dataset(era5_path, chunks={})
         climatology_mean_m = temperature["t2m"].groupby("time.month").mean("time")
         climatology_std_m = temperature["t2m"].groupby("time.month").std("time")
         stand_anomalies = xr.apply_ufunc(
@@ -188,36 +238,36 @@ if __name__ == "__main__":
             climatology_std_m,
             dask="parallelized",
         )
-        with ProgressBar():
-            encoding = {
-                var: {"zlib": True, "complevel": 5} for var in stand_anomalies.data_vars
-            }
-            stand_anomalies.to_netcdf(
-                stdmtemp_path,
-                encoding=encoding,
-            )
+        encoding = {stand_anomalies.name: {"zlib": True, "complevel": 9}}
+        stand_anomalies.to_netcdf(
+            stdmtemp_path,
+            encoding=encoding,
+        )
 
-    stand_mtemp = xr.open_dataset(stdmtemp_path, chunks={"time": 12})
-    print(stand_mtemp)
+    stand_temp = xr.open_dataset(stdtemp_path, chunks={})
+    stand_temp = stand_temp.rename({"t2m": "std_t"})
+
+    stand_mtemp = xr.open_dataset(stdmtemp_path, chunks={})
     stand_mtemp = stand_mtemp.rename({"t2m": "stdm_t"})
 
-    # List of temperature variables
-    temperature = xr.open_dataset(era5_path, chunks={"time": 12})
+    temperature = xr.open_dataset(era5_path, chunks={})
     temperature = temperature.rename({"t2m": "t"})
+
     temps = [temperature["t"], stand_temp["std_t"], stand_mtemp["stdm_t"]]
+    temps = drop_duplicate_dims(xr.combine_by_coords(temps))
 
     ########################
     ####   Export data  ####
     ########################
 
-    climate_data = xr.combine_by_coords(spis + temps)
-    with ProgressBar():
-        out = rf"{DATA_PROC}/Climate_shocks_v6.nc"
-        print(f"Data ready! file saved at {out}")
-        encoding = {
-            var: {"zlib": True, "complevel": 5} for var in climate_data.data_vars
-        }
-        climate_data.to_netcdf(
-            out,
-            encoding=encoding,
-        )
+    climate_data = xr.combine_by_coords([spis, temps])
+
+    out = rf"{DATA_PROC}/Climate_shocks_v6.nc"
+    encoding = {
+        var: {"zlib": True, "complevel": 9} for var in climate_data.data_vars
+    }
+    climate_data.to_netcdf(
+        out,
+        encoding=encoding,
+    )
+    print(f"Data ready! file saved at {out}")

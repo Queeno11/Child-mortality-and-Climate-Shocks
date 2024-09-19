@@ -22,13 +22,19 @@ if __name__ == "__main__":
 
     ### Load data #############
     print("Loading data...")
-    climate_data = xr.open_dataset(rf"{DATA_PROC}/Climate_shocks_v4.nc")
+
+    ### CLIMATE DATA
+    climate_data = xr.open_dataset(rf"{DATA_PROC}/Climate_shocks_v6.nc", engine="h5netcdf")
+    print(climate_data)
+
     dates = climate_data.time.values
 
+    ### DHS DATA
     full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024.dta")
     full_dhs["ID"] = full_dhs.index
     df = full_dhs.copy()
     print("Data loaded! Processing...")
+
     ###########################
 
     climate_variables = [
@@ -39,6 +45,7 @@ if __name__ == "__main__":
         "spi12",
         "t",
         "std_t",
+        "stdm_t",
     ]
 
     def compute_stats(ds):
@@ -112,8 +119,8 @@ if __name__ == "__main__":
     # Filter children to_date smalle than 2021 (we only have climate data to 2020)
     df = df[df["to_date"] < "2021-01-01"]
 
-    df["lat_round"] = (df["LATNUM"] * 4).round() / 4
-    df["lon_round"] = (df["LONGNUM"] * 4).round() / 4
+    df["lat_round"] = df["LATNUM"].apply(lambda x: np.round(x, decimals=1))
+    df["lon_round"] = df["LONGNUM"].apply(lambda x: np.round(x, decimals=1))
     df = df.reset_index(drop=True)
 
     ### Run process ####
@@ -211,5 +218,5 @@ if __name__ == "__main__":
 
     # Drop nans in spi/temp values
     df = df.dropna(subset=shock_cols, how="any")
-    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v5.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v5.dta")
+    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v6.dta")
+    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v6.dta")
