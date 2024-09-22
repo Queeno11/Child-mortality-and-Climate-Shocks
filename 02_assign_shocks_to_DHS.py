@@ -24,10 +24,10 @@ if __name__ == "__main__":
     print("Loading data...")
 
     ### CLIMATE DATA
-    climate_data = xr.open_dataset(rf"{DATA_PROC}/Climate_shocks_v6.nc", engine="h5netcdf")
-    print(climate_data)
+    climate_data_temp = xr.open_dataset(rf"{DATA_PROC}/Climate_shocks_v6.nc", engine="h5netcdf", chunks={"lat": 1402, "lon":1802, "time":1224})
+    climate_data_temp = climate_data_temp[["std_t", "stdm_t", "t"]]
 
-    dates = climate_data.time.values
+    climate_data_spi = xr.load_dataset(rf"{DATA_PROC}/Climate_shocks_v7_spi.nc")
 
     ### DHS DATA
     full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024.dta")
@@ -43,59 +43,67 @@ if __name__ == "__main__":
         "spi6",
         "spi9",
         "spi12",
+        "spi24",
+        "spi48",
         "t",
         "std_t",
         "stdm_t",
     ]
 
-    def compute_stats(ds):
 
-        arr = ds.to_array().values
-        inutero = arr[:, :9]
-        born_1m = arr[:, 9:11]
-        born_2to12m = arr[:, 11:22]
+    def round_off(number):
+        """Round a number to the closest 0.5.
+        >>> round_off(1.3)
+        1.5
+        >>> round_off(2.6)
+        2.5
+        """
 
-        assert inutero.shape[1] == 9  # 9 months in utero
-        assert born_1m.shape[1] == 2
-        # 1 month after birth (a little bit more because we dont have climate data for the exact day of birth. On average is one month)
-        assert born_2to12m.shape[1] == 11  # next 11 months after birth
+        return round(number + .4999) - .5
 
-        # Compute stats using numpy for efficiency
-        inutero = {
-            f"{var}_inutero_avg": value
-            for var, value in zip(ds.data_vars, np.nanmean(inutero, axis=1))
-        }
-        born_1m = {
-            f"{var}_30d_avg": value
-            for var, value in zip(ds.data_vars, np.nanmean(born_1m, axis=1))
-        }
-        born_2to12m = {
-            f"{var}_2m12m_avg": value
-            for var, value in zip(ds.data_vars, np.nanmean(born_2to12m, axis=1))
-        }
+    def compute_stats(ds_temp, ds_spi):
+        # Initialize an empty dictionary to store results
+        results = {}
+        
+        # Define the time slices
+        inutero_slice = slice(0, 9)
+        born_1m_slice = slice(9, 11)
+        born_2to12m_slice = slice(11, 22)
+        
+        # # Process variables in ds_temp
+        for var in ds_temp.data_vars:
+            data = ds_temp[var].load() # if already in memory, does nothing
+            results[f"{var}_inutero_avg"] = data.isel(time=inutero_slice).mean().item()
+            results[f"{var}_30d_avg"] = data.isel(time=born_1m_slice).mean().item()
+            results[f"{var}_2m12m_avg"] = data.isel(time=born_2to12m_slice).mean().item()
+        
+        # Process variables in ds_spi
+        for var in ds_spi.data_vars:
+            data = ds_spi[var]
+            results[f"{var}_inutero_avg"] = data.isel(time=inutero_slice).mean().item()
+            results[f"{var}_30d_avg"] = data.isel(time=born_1m_slice).mean().item()
+            results[f"{var}_2m12m_avg"] = data.isel(time=born_2to12m_slice).mean().item()
+        
+        # Convert results to pandas Series
+        results_series = pd.Series(results)
+        return results_series
 
-        results = {**inutero, **born_1m, **born_2to12m}
-        results = pd.Series(results)
-        return results
 
     def get_climate_shock(from_date, to_date, lat, lon):
         if pd.isna(from_date):
             return np.nan
 
-        # Filter point
-        # climate_data_vars = climate_data[climate_variables]
-        point_data = climate_data.sel(time=slice(from_date, to_date)).sel(
-            lat=lat, lon=lon
+        # Filter point and time
+        point_data_temp = climate_data_temp.sel(
+            time=slice(from_date, to_date), lat=lat, lon=lon
         )
 
-        # Get position of original data
-        lat = point_data.lat.item()
-        lon = point_data.lon.item()
+        point_data_spi = climate_data_spi.sel(
+            time=slice(from_date, to_date), lat=round_off(lat), lon=round_off(lon)
+        )
 
-        # Filter by time
-        inutero_to_1st_year = point_data.isel(time=slice(0, 22))
-        out = compute_stats(inutero_to_1st_year)
-        # Agregar columnas acá...
+        out = compute_stats(point_data_temp, point_data_spi)
+
         return out
 
     ### Process dataframe ####
@@ -121,8 +129,10 @@ if __name__ == "__main__":
 
     df["lat_round"] = df["LATNUM"].apply(lambda x: np.round(x, decimals=1))
     df["lon_round"] = df["LONGNUM"].apply(lambda x: np.round(x, decimals=1))
+    df = df.sort_values(["lat_round",	"lon_round", "from_date"]) 
     df = df.reset_index(drop=True)
-
+    
+    # Sort data to improve efficiency in querying xarray data (a lot faster!)
     ### Run process ####
     coords_cols = ["lat_climate", "lon_climate"]
     shock_cols = []
