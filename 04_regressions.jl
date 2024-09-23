@@ -5,7 +5,8 @@ using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, Pro
 @assert CUDA.functional()
 
 # Load the data
-print("Cargando dataset...") # Only load 20000 rows
+print("Cargando dataset...")
+# df = DataFrame(load("D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v6.dta"))
 df = CSV.read("D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks.csv", DataFrame)
 
 # rename!(df,:ID_cell => :ID_cell1)

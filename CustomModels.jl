@@ -37,10 +37,10 @@ module CustomModels
                 outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_SPI$(months)_$(nameind)_$(temp) $(extra).txt" 
                 outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_SPI$(months)_$(nameind)_$(temp) $(extra).tex"
 
-                if isfile(outtxt) && isfile(outtex)
-                    println("File exists, moving to next iteration.")
-                    continue
-                end
+                # if isfile(outtxt) && isfile(outtex)
+                #     println("File exists, moving to next iteration.")
+                #     continue
+                # end
                 
                 spi_previous = [] 
                 temp_previous = []
@@ -72,7 +72,6 @@ module CustomModels
                             df, 
                             term(Symbol("child_agedeath_$(time2)")) ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(controls) + fixed_effects, 
                             Vcov.cluster(Symbol("ID_cell$i")), 
-                            weights = :hv005,
                             method=:CUDA
                         )
                         push!(regs, reg_model)
@@ -160,7 +159,7 @@ module CustomModels
         """
         
         println("\rRunning Standard Models for $(folder)\r")
-        for months in ["1", "3", "6", "9", "12"]
+        for months in ["1", "3", "6", "9", "12", "24", "48"]
             i = 1
             extra_original = extra
             for times in (["inutero", "30d", "2m12m"], )#, ["inutero", "1m3m", "4m12m"], ["inutero", "1m12m"])

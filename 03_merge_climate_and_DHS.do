@@ -25,7 +25,7 @@ save "${DATA_IN}/Income level.dta", replace
 
 use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024", clear
 gen ID = _n - 1
-merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v5"
+merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v6"
 keep if _merge==3
 drop _merge
 
@@ -37,15 +37,14 @@ drop _merge
 // keep if _merge==3
 // drop _merge
 
-rename *_mean *_avg
-rename *_born_1m_* *_30d_*
-rename *_born_2to12m_* *_2m12m_*
+// rename *_born_1m_* *_30d_*
+// rename *_born_2to12m_* *_2m12m_*
 
 *############################################################*
 *# 	 Crate climate variables
 *############################################################*
 
-foreach var in "t" "std_t" "spi1" "spi3" "spi6" "spi9" "spi12" {
+foreach var in "t" "std_t" "stdm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" "spi48" {
 	foreach time in "inutero" "30d" "2m12m" {
 		foreach stat in "avg" {
 			gen `var'_`time'_`stat'_sq = `var'_`time'_`stat' * `var'_`time'_`stat'
@@ -134,8 +133,14 @@ encode v000, gen(IDsurvey_country)
 gen time = chb_year - 1989
 gen time_sq = time*time
 
-save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.dta", replace
-export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks.csv", replace
+
+*############################################################*
+*# 	 Keep only relevant vars
+*############################################################*
+
+
+save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v6.dta", replace
+export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v6.csv", replace
 
 * Verificamos que esté todo ok
 sum t_* std_t_* spi12_* spi6_* spi3_* spi1_*
