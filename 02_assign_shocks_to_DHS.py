@@ -25,9 +25,9 @@ if __name__ == "__main__":
 
     ### CLIMATE DATA
     climate_data_temp = xr.open_dataset(rf"{DATA_PROC}/Climate_shocks_v6.nc", engine="h5netcdf", chunks={"lat": 1402, "lon":1802, "time":1224})
-    climate_data_temp = climate_data_temp[["std_t", "stdm_t", "t"]]
+    climate_data_temp = climate_data_temp[["std_t"]]
 
-    climate_data_spi = xr.load_dataset(rf"{DATA_PROC}/Climate_shocks_v7_spi.nc")
+    climate_data_spi = xr.load_dataset(rf"{DATA_PROC}/Climate_shocks_v8_spei.nc")
 
     ### DHS DATA
     full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024.dta")
@@ -38,29 +38,29 @@ if __name__ == "__main__":
     ###########################
 
     climate_variables = [
-        "spi1",
-        "spi3",
-        "spi6",
-        "spi9",
-        "spi12",
-        "spi24",
-        "spi48",
-        "t",
+        "spei1",
+        "spei3",
+        "spei6",
+        "spei9",
+        "spei12",
+        "spei24",
+        "spei48",
         "std_t",
-        "stdm_t",
     ]
 
 
     def round_off(number):
-        """Round a number to the closest 0.5.
+        """Round a number to .25 or .75.
         >>> round_off(1.3)
-        1.5
+        1.25
         >>> round_off(2.6)
-        2.5
+        2.75
+        >>> round_off(3)
+        3.25
         """
-
-        return round(number + .4999) - .5
-
+        
+        return round((number - 0.25) * 2) / 2 + 0.25
+    
     def compute_stats(ds_temp, ds_spi):
         # Initialize an empty dictionary to store results
         results = {}
@@ -228,5 +228,5 @@ if __name__ == "__main__":
 
     # Drop nans in spi/temp values
     df = df.dropna(subset=shock_cols, how="any")
-    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v6.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v6.dta")
+    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v8.dta")
+    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v8.dta")

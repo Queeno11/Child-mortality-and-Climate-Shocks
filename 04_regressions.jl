@@ -7,7 +7,7 @@ using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, Pro
 # Load the data
 print("Cargando dataset...")
 # df = DataFrame(load("D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v6.dta"))
-df = CSV.read("D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks.csv", DataFrame)
+df = CSV.read("D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v6_all_shocks.csv", DataFrame)
 
 # rename!(df,:ID_cell => :ID_cell1)
 print("Dataset cargado!")
@@ -21,13 +21,13 @@ controls_all = [controls1, controls2, controls3]
 ###  Pooled all countries into regression
 #################################################################
 
-contr_i = 1
-for controls in controls_all
-    global contr_i
-    suffix = " - controls$(contr_i)"
-    CustomModels.run_models(df, controls, "", suffix)
-    contr_i += 1
-end
+# contr_i = 1
+# for controls in controls_all
+#     global contr_i
+#     suffix = " - controls$(contr_i)"
+#     CustomModels.run_models(df, controls, "", suffix)
+#     contr_i += 1
+# end
 
 #################################################################
 ###  Heterogeneity
@@ -35,13 +35,15 @@ end
 
 # Urban & Rural
 CustomModels.run_heterogeneity_dummy(df, controls1, 1, "rural", "", "")
-CustomModels.run_heterogeneity_dummy(df, controls1, 1, "child_fem", "", "")
 
-###### Mechanisms
+# Mechanisms
 
 CustomModels.run_heterogeneity_dummy(df, controls1, 1, "pipedw", "", "")
 CustomModels.run_heterogeneity_dummy(df, controls1, 1, "href", "", "")
 CustomModels.run_heterogeneity_dummy(df, controls1, 1, "hhelectemp", "", "")
+
+# Gender
+CustomModels.run_heterogeneity_dummy(df, controls1, 1, "child_fem", "", "")
 
 
 #################################################################
@@ -56,7 +58,7 @@ prog = Progress(length(incomegroup), 1)
 # Loop over unique values
 for incomegroup in incomegroup
     next!(prog) # Update progress bar
-    for controls in [controls1, controls2, controls3]
+    for controls in [controls1]
         try
             df_incomegroup = filter(row -> row.wbincomegroup == incomegroup, df)
             CustomModels.run_models(df_incomegroup, controls, "incomegroups\\", " - $(incomegroup)")

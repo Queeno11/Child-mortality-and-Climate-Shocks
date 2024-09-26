@@ -25,6 +25,9 @@ save "${DATA_IN}/Income level.dta", replace
 
 use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024", clear
 gen ID = _n - 1
+merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v8"
+keep if _merge==3
+drop _merge
 merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v6"
 keep if _merge==3
 drop _merge
@@ -44,7 +47,9 @@ drop _merge
 *# 	 Crate climate variables
 *############################################################*
 
-foreach var in "t" "std_t" "stdm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" "spi48" {
+rename spei0* spei*
+
+foreach var in "t" "std_t" "stdm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" "spei1" "spei3" "spei6" "spei9" "spei12" "spei24" {
 	foreach time in "inutero" "30d" "2m12m" {
 		foreach stat in "avg" {
 			gen `var'_`time'_`stat'_sq = `var'_`time'_`stat' * `var'_`time'_`stat'
@@ -139,8 +144,9 @@ gen time_sq = time*time
 *############################################################*
 
 
-save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v6.dta", replace
-export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v6.csv", replace
+keep  ID_R ID_CB ID_HH t_* std_t_* stdm_t_* spei* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup
+save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v6_all_shocks.dta", replace
+export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v6_all_shocks.csv", replace
 
 * Verificamos que esté todo ok
-sum t_* std_t_* spi12_* spi6_* spi3_* spi1_*
+sum t_* std_t_* spei12_* spei6_* spei3_* spei1_*
