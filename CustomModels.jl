@@ -34,10 +34,10 @@ module CustomModels
         outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(nameind)_$(temp) $(extra).txt" 
         outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(nameind)_$(temp) $(extra).tex"
 
-        if isfile(outtxt) && isfile(outtex)
-            println("File exists, moving to next iteration.")
-            return
-        end
+        # if isfile(outtxt) && isfile(outtex)
+        #     println("File exists, moving to next iteration.")
+        #     return
+        # end
         
         spi_previous = [] 
         temp_previous = []
@@ -155,7 +155,7 @@ module CustomModels
         """
         
         println("\rRunning Standard Models for $(folder)\r")
-        for months in ["1", "3", "6", "9", "12", "24"]
+        for months in ["1", "3", "6", "9", "12"]#, "24"]
             i = 1
             extra_original = extra
             for times in (["inutero", "30d", "2m12m"], )#, ["inutero", "1m3m", "4m12m"], ["inutero", "1m12m"])

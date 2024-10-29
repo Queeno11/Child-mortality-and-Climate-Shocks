@@ -25,13 +25,12 @@ save "${DATA_IN}/Income level.dta", replace
 
 use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024", clear
 gen ID = _n - 1
-merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v8"
+merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v8" // v8 has SPEI from CRU
 keep if _merge==3
 drop _merge
-merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v6"
+merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v7" // v7 has SPI and temperature from ERA5-Land
 keep if _merge==3
 drop _merge
-
 merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta"
 keep if _merge==3
 drop _merge
@@ -52,16 +51,16 @@ rename spei0* spei*
 foreach var in "t" "std_t" "stdm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" "spei1" "spei3" "spei6" "spei9" "spei12" "spei24" {
 	foreach time in "inutero" "30d" "2m12m" {
 		foreach stat in "avg" {
-			gen `var'_`time'_`stat'_sq = `var'_`time'_`stat' * `var'_`time'_`stat'
-			gen `var'_`time'_`stat'_dpos = (`var'_`time'_`stat'>=0)
-			gen `var'_`time'_`stat'_dneg = (`var'_`time'_`stat'<=0)
-			assert `var'_`time'_`stat'_dpos + `var'_`time'_`stat'_dneg>=1
+			capture gen `var'_`time'_`stat'_sq = `var'_`time'_`stat' * `var'_`time'_`stat'
+			capture gen `var'_`time'_`stat'_dpos = (`var'_`time'_`stat'>=0)
+			capture gen `var'_`time'_`stat'_dneg = (`var'_`time'_`stat'<=0)
+			capture assert `var'_`time'_`stat'_dpos + `var'_`time'_`stat'_dneg>=1
 			
-			gen `var'_`time'_`stat'_pos = `var'_`time'_`stat' * `var'_`time'_`stat'_dpos
-			gen `var'_`time'_`stat'_neg = `var'_`time'_`stat' * `var'_`time'_`stat'_dneg
+			capture gen `var'_`time'_`stat'_pos = `var'_`time'_`stat' * `var'_`time'_`stat'_dpos
+			capture gen `var'_`time'_`stat'_neg = `var'_`time'_`stat' * `var'_`time'_`stat'_dneg
 
-			gen `var'_`time'_`stat'_sq_pos = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_dpos
-			gen `var'_`time'_`stat'_sq_neg = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_dneg
+			capture gen `var'_`time'_`stat'_sq_pos = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_dpos
+			capture gen `var'_`time'_`stat'_sq_neg = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_dneg
 		}
 	}
 }
@@ -81,36 +80,30 @@ replace child_agedeath_2m12m = child_agedeath_2m12m * 1000
 *# 	 Create control variables for the regressions
 *############################################################*
 
-* Genero ID_cell con las celdas originales
+* Genero ID_cell con las celdas originales (0.1x0.1)
 rename (lat lon) (lat_climate lon_climate)
-tostring lon_climate lat_climate , generate(lon_climate_str lat_climate_str )
-gen ID_cell_str = lat_climate_str + "-" + lon_climate_str
-encode ID_cell_str, gen(ID_cell1)
-drop ID_cell_str lon_climate_str lat_climate_str 
+egen ID_cell1 = group(lat_climate lon_climate)
 
-* Celdas agrupadas de a 4
-gen lat_climate_2 = round(lat_climate, 1)
-gen lon_climate_2 = round(lon_climate, 1)
-tostring lon_climate_2 lat_climate_2 , generate(lon_climate_str lat_climate_str )
-gen ID_cell_str = lat_climate_str + "-" + lon_climate_str
-encode ID_cell_str, gen(ID_cell2)
-drop ID_cell_str lon_climate_str lat_climate_str 
+* Celdas agrupadas de a 4 (0.25x0.25)
+gen lat_climate_2 = round(LATNUM*4, 1)/4
+gen lon_climate_2 = round(LONGNUM*4, 1)/4
+egen ID_cell2 = group(lat_climate_2 lon_climate_2)
 
-* Celdas agrupadas de a 8
-gen lat_climate_3 = lat_climate_2 - mod(lat_climate_2, 2) // Substract one if value is odd
-gen lon_climate_3 = lon_climate_2 - mod(lon_climate_2, 2)
-tostring lon_climate_3 lat_climate_3 , generate(lon_climate_str lat_climate_str )
-gen ID_cell_str = lat_climate_str + "-" + lon_climate_str
-encode ID_cell_str, gen(ID_cell3)
-drop ID_cell_str lon_climate_str lat_climate_str 
+* Celdas agrupadas de a 4 (0.5x0.5)
+gen lat_climate_3 = round(LATNUM*2, 1)/2
+gen lon_climate_3 = round(LONGNUM*2, 1)/2
+egen ID_cell3 = group(lat_climate_3 lon_climate_3)
 
-* Celdas agrupadas de a 16
-gen lat_climate_4 = lat_climate_2 - mod(lat_climate_2, 4) // Make divisible by 4
-gen lon_climate_4 = lon_climate_2 - mod(lon_climate_2, 4)
-tostring lon_climate_4 lat_climate_4 , generate(lon_climate_str lat_climate_str )
-gen ID_cell_str = lat_climate_str + "-" + lon_climate_str
-encode ID_cell_str, gen(ID_cell4)
-drop ID_cell_str lon_climate_str lat_climate_str 
+* Celdas agrupadas de a 4 (1x1)
+gen lat_climate_4 = round(LATNUM, 1)
+gen lon_climate_4 = round(LONGNUM, 1)
+egen ID_cell4 = group(lat_climate_4 lon_climate_4)
+
+* Celdas agrupadas de a 8 (2x2)
+gen lat_climate_5 = lat_climate_4 - mod(lat_climate_4, 2) // Substract one if value is odd
+gen lon_climate_5 = lat_climate_4 - mod(lat_climate_4, 2)
+egen ID_cell5 = group(lat_climate_5 lon_climate_5)
+
 
 encode code_iso3, generate(ID_country)
 
@@ -129,9 +122,7 @@ by ID_R: gen birth_order = _n
 *# 	 Keep from_2003 and born in last_10_years
 *############################################################*
 
-// use "$DATA_IN/DHS/DHSBirthsGlobalAnalysis_05142024.dta", replace
-
-keep if since_2003==1 & last_10_years==1
+// keep if since_2003==1 & last_10_years==1
 
 encode v000, gen(IDsurvey_country)
 
@@ -144,9 +135,19 @@ gen time_sq = time*time
 *############################################################*
 
 
-keep  ID_R ID_CB ID_HH t_* std_t_* stdm_t_* spei* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup
-save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v6_all_shocks.dta", replace
-export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v6_all_shocks.csv", replace
+keep  ID ID_R ID_CB ID_HH t_* std_t_* stdm_t_* spei* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup
+save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v7temp-spi_v8spei_all_shocks.dta"
+export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v7temp-spi_v8spei_all_shocks.csv"
+
+foreach j in 3 4 5 {
+	preserve
+	collapse (count) spi1_inutero_avg, by(ID_cell`j' chb_month)
+	foreach i in 5 10 20 30 40 50 100 {
+		qui gen less_than_`i' = (spi1_inutero_avg < `i')
+		tab less_than_`i'
+	}
+	restore
+}
 
 * Verificamos que esté todo ok
 sum t_* std_t_* spei12_* spei6_* spei3_* spei1_*
