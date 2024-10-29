@@ -8,6 +8,8 @@ if __name__ == "__main__":
     from climate_indices import indices, compute
     from dask.diagnostics import ProgressBar
     from dask.distributed import Client
+    import numba
+    numba.config.DISABLE_JIT = True
 
     # Set global variables
     PROJECT = r"D:\World Bank\Paper - Child mortality and Climate Shocks"
@@ -16,13 +18,13 @@ if __name__ == "__main__":
     DATA_IN = rf"{DATA}\Data_in"
     DATA_PROC = rf"{DATA}\Data_proc"
     DATA_OUT = rf"{DATA}\Data_out"
-    ERA5_DATA = rf"D:\Datasets\ERA5 Reanalysis\monthly-land"
+    ERA5_DATA = r"D:\Datasets\ERA5 Reanalysis\monthly-single-levels"
 
     #######################
     # Filter runtime warnings
-    warnings.filterwarnings("ignore", category=RuntimeWarning)
-    client = Client()  # start distributed scheduler locally.
-    print(client)
+    # warnings.filterwarnings("ignore", category=RuntimeWarning)
+    # client = Client()  # start distributed scheduler locally.
+    # print(client)
 
     def drop_duplicate_dims(ds):
         dims = list(ds.dims)
@@ -37,7 +39,7 @@ if __name__ == "__main__":
     ####  Process data ####
     ########################
     print("Warning: Running this scripts takes about a few days and requires ~600GB to store all the required data. Ensure you have such space available...")
-    era5_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1970-2021.nc")
+    era5_path = os.path.join(DATA_PROC, "ERA5_monthly_1970-2021.nc")
     if os.path.exists(era5_path):
         print("ERA5 already processed. Loading...")
     else:
@@ -88,7 +90,14 @@ if __name__ == "__main__":
     precipitation = xr.open_dataset(
         era5_path, chunks={"latitude": 100, "longitude": 100}
     )
+    precipitation = precipitation.sel(time=slice("1991", "2021") ) # Only last 30 years
 
+    # Select south america: -71.894531,-29.228890,-43.593750,-3.337954
+    precipitation = precipitation.sel(
+        lat=slice(-90, -45), lon=slice(-180, -90)
+    )
+    print(precipitation)
+        
     ########################
     ####   Compute SPI  ####
     ########################
@@ -105,7 +114,7 @@ if __name__ == "__main__":
     ## Ignore negative values, they are normal: https://confluence.ecmwf.int/display/UDOC/Why+are+there+sometimes+small+negative+precipitation+accumulations+-+ecCodes+GRIB+FAQ
 
     print("Data Ready!")
-    spi_out = rf"{DATA_PROC}\ERA5-Land_monthly_1970-2021_spi.nc"
+    spi_out = rf"{DATA_PROC}\ERA5_monthly_1991-2021_spi.nc"
     if os.path.exists(spi_out):
         print("SPI already computed!")
     else:
@@ -115,8 +124,8 @@ if __name__ == "__main__":
 
         # Parameters
         distribution = indices.Distribution.gamma
-        data_start_year = 1970
-        calibration_year_initial = 1970
+        data_start_year = 1991
+        calibration_year_initial = 1991
         calibration_year_final = 2020
         periodicity = compute.Periodicity.monthly
 
@@ -124,11 +133,11 @@ if __name__ == "__main__":
         dss = []
         for i in [1, 3, 6, 9, 12]:
 
-            spi_path = os.path.join(DATA_PROC, f"ERA5-Land_monthly_1970-2021_SPI{i}.nc")
+            spi_path = os.path.join(DATA_PROC, f"ERA5-Land_monthly_1991-2021_SPI{i}.nc")
 
             if os.path.exists(spi_path):
                 da_spi = xr.open_dataset(
-                    spi_path, chunks={"latitude": 100, "longitude": 100}
+                    spi_path#, chunks={"latitude": 100, "longitude": 100}
                 )
                 print(f"SPI-{i} already computed. Skipping...")
 
@@ -142,19 +151,13 @@ if __name__ == "__main__":
                         prec_slice = precipitation.sel(
                             lon=slice(x_min, x_min + 90), lat=slice(y_min, y_min + 45)
                         ).load()
-
-                        # Filter between 1970 and 1990 to reduce size
+                        print(prec_slice)
+                        # Filter between 1991 and 1990 to reduce size
                         da_precip_groupby = (
                             prec_slice["tp"]
                             .stack(point=("lat", "lon"))
                             .groupby(group="point")
                         )
-
-                        distribution = indices.Distribution.gamma
-                        data_start_year = 1970
-                        calibration_year_initial = 1970
-                        calibration_year_final = 2020
-                        periodicity = compute.Periodicity.monthly
 
                         da_spi = xr.apply_ufunc(
                             indices.spi,
@@ -168,19 +171,22 @@ if __name__ == "__main__":
                         )
                         da_spi = da_spi.unstack("point").rename(f"spi{i}")
 
+                        # Compress the variables by using float32
+                        da_spi = da_spi.astype(np.float32)
+                        
                         encoding = {f"spi{i}": {"zlib": True, "complevel": 6}}
                         da_spi.to_netcdf(
-                            rf"{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_{x}_{y}.nc",
+                            rf"{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_{x}_{y}.nc",
                             encoding=encoding,
                         )
                         y += 1
                     x += 1
 
             combine_order = [
-                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_0_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_0_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_0_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_0_3.nc'],
-                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_1_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_1_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_1_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_1_3.nc'],
-                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_2_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_2_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_2_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_2_3.nc'],
-                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_3_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_3_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_3_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1970-2021_slice_spi{i}_3_3.nc'],
+                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_0_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_0_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_0_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_0_3.nc'],
+                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_1_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_1_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_1_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_1_3.nc'],
+                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_2_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_2_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_2_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_2_3.nc'],
+                [rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_3_0.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_3_1.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_3_2.nc', rf'{DATA_PROC}\SPI_slices\ERA5-Land_monthly_1991-2021_slice_spi{i}_3_3.nc'],
             ]
 
             dss += [xr.open_mfdataset(combine_order, combine="nested", concat_dim=["lon", "lat"])]
@@ -198,13 +204,14 @@ if __name__ == "__main__":
 
     # Standardize temperature over 30-year average
 
-    stdtemp_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1970-2021_stdtemp.nc")
+    stdtemp_path = os.path.join(DATA_PROC, "ERA5_monthly_1991-2021_stdtemp.nc")
     if os.path.exists(stdtemp_path):
         print("Standardized temperature already computed. Skipping...")
 
     else:
         print("Computing standardized temperature...")
         temperature = xr.open_dataset(era5_path, chunks={"time": 12})
+        temperature = temperature.sel(time=slice("1991", "2021")) # Only last 30 years
         climatology_mean = temperature["t2m"].mean(dim="time")
         climatology_std = temperature["t2m"].std(dim="time")
         stand_temp = xr.apply_ufunc(
@@ -223,12 +230,13 @@ if __name__ == "__main__":
             
 
     # Standardize temperature over 30-year monthly average
-    stdmtemp_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1970-2021_stdmtemp.nc")
+    stdmtemp_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1991-2021_stdmtemp.nc")
     if os.path.exists(stdmtemp_path):
         print("Standardized temperature monthly already computed. Skipping...")
     else:
         print("Computing temperature anomalies...")
-        temperature = xr.open_dataset(era5_path, chunks={})
+        temperature = xr.open_dataset(era5_path, chunks={"time": 12})
+        temperature = temperature.sel(time=slice("1991", "2021")) # Only last 30 years
         climatology_mean_m = temperature["t2m"].groupby("time.month").mean("time")
         climatology_std_m = temperature["t2m"].groupby("time.month").std("time")
         stand_anomalies = xr.apply_ufunc(
@@ -262,7 +270,7 @@ if __name__ == "__main__":
 
     climate_data = xr.combine_by_coords([spis, temps])
 
-    out = rf"{DATA_PROC}/Climate_shocks_v6.nc"
+    out = rf"{DATA_PROC}/Climate_shocks_v9.nc"
     encoding = {
         var: {"zlib": True, "complevel": 9} for var in climate_data.data_vars
     }
