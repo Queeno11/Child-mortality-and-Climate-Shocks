@@ -209,12 +209,12 @@ if __name__ == "__main__":
             
 
     # Standardize temperature over 30-year monthly average
-    stdmtemp_path = os.path.join(DATA_PROC, "ERA5-Land_monthly_1991-2021_stdmtemp.nc")
+    stdmtemp_path = os.path.join(DATA_PROC, "ERA5_monthly_1991-2021_stdmtemp.nc")
     if os.path.exists(stdmtemp_path):
         print("Standardized temperature monthly already computed. Skipping...")
     else:
         print("Computing temperature anomalies...")
-        temperature = xr.open_dataset(era5_path, chunks={"time": 12})
+        temperature = xr.open_dataset(era5_path, chunks={"time": -1, "lat": 500, "lon": 500})
         temperature = temperature.sel(time=slice("1991", "2021")) # Only last 30 years
         climatology_mean_m = temperature["t2m"].groupby("time.month").mean("time")
         climatology_std_m = temperature["t2m"].groupby("time.month").std("time")
@@ -225,37 +225,40 @@ if __name__ == "__main__":
             climatology_std_m,
             dask="parallelized",
         )
-        encoding = {stand_anomalies.name: {"zlib": True, "complevel": 9}}
+        encoding = {stand_anomalies.name: {"zlib": True, "complevel": 5}}
         with ProgressBar():
             stand_anomalies.to_netcdf(
                 stdmtemp_path,
                 encoding=encoding,
             )
 
-    stand_temp = xr.open_dataset(stdtemp_path, chunks={})
+    stand_temp = xr.open_dataset(stdtemp_path, chunks={"lat": 500, "lon": 500, "time": 12})
     stand_temp = stand_temp.rename({"t2m": "std_t"})
 
-    stand_mtemp = xr.open_dataset(stdmtemp_path, chunks={})
+    stand_mtemp = xr.open_dataset(stdmtemp_path, chunks={"lat": 500, "lon": 500, "time": 12})
     stand_mtemp = stand_mtemp.rename({"t2m": "stdm_t"})
 
-    temperature = xr.open_dataset(era5_path, chunks={})
+    temperature = xr.open_dataset(era5_path, chunks={"lat": 500, "lon": 500, "time": 12}).sel(time=slice("1991", "2021"))
     temperature = temperature.rename({"t2m": "t"})
 
-    temps = [temperature["t"], stand_temp["std_t"], stand_mtemp["stdm_t"]]
-    temps = drop_duplicate_dims(xr.combine_by_coords(temps))
+    spis = xr.open_dataset(spi_out, chunks={"lat": 500, "lon": 500, "time": 12}).sel(time=slice("1991", "2021"))
+
+    data_arrays = [spis, temperature["t"], stand_temp["std_t"], stand_mtemp["stdm_t"]]
+
 
     ########################
     ####   Export data  ####
     ########################
 
-    climate_data = xr.combine_by_coords([spis, temps])
+    climate_data = xr.combine_by_coords(data_arrays)
 
     out = rf"{DATA_PROC}/Climate_shocks_v9.nc"
     encoding = {
-        var: {"zlib": True, "complevel": 9} for var in climate_data.data_vars
+        var: {"zlib": True, "complevel": 6} for var in climate_data.data_vars
     }
-    climate_data.to_netcdf(
-        out,
-        encoding=encoding,
-    )
+    with ProgressBar():
+        climate_data.to_netcdf(
+            out,
+            encoding=encoding,
+        )
     print(f"Data ready! file saved at {out}")
