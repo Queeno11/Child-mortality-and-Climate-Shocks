@@ -174,7 +174,9 @@ if __name__ == "__main__":
             spis += [da_spi]
 
         spis = xr.combine_by_coords(spis)
-        spis.to_netcdf(spi_out)
+        encoding = {name: {"zlib": True, "complevel": 5} for name in spis.data_vars}
+        with ProgressBar():
+            spis.to_netcdf(spi_out)
 
     #########################
     ####   Compute Temp  ####
@@ -232,16 +234,16 @@ if __name__ == "__main__":
                 encoding=encoding,
             )
 
-    stand_temp = xr.open_dataset(stdtemp_path, chunks={"lat": 500, "lon": 500, "time": 12})
+    stand_temp = xr.open_dataset(stdtemp_path, chunks={"lat": 700, "lon": 700, "time": 120})
     stand_temp = stand_temp.rename({"t2m": "std_t"})
 
-    stand_mtemp = xr.open_dataset(stdmtemp_path, chunks={"lat": 500, "lon": 500, "time": 12})
+    stand_mtemp = xr.open_dataset(stdmtemp_path, chunks={"lat": 700, "lon": 700, "time": 120})
     stand_mtemp = stand_mtemp.rename({"t2m": "stdm_t"})
 
-    temperature = xr.open_dataset(era5_path, chunks={"lat": 500, "lon": 500, "time": 12}).sel(time=slice("1991", "2021"))
+    temperature = xr.open_dataset(era5_path, chunks={"lat": 700, "lon": 700, "time": 120}).sel(time=slice("1991", "2021"))
     temperature = temperature.rename({"t2m": "t"})
 
-    spis = xr.open_dataset(spi_out, chunks={"lat": 500, "lon": 500, "time": 12}).sel(time=slice("1991", "2021"))
+    spis = xr.open_dataset(spi_out, chunks={"lat": 700, "lon": 700, "time": 120}).sel(time=slice("1991", "2021"))
 
     data_arrays = [spis, temperature["t"], stand_temp["std_t"], stand_mtemp["stdm_t"]]
 
