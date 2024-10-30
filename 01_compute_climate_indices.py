@@ -1,5 +1,5 @@
 if __name__ == "__main__":
-
+    print("Para Nico: correr desde Anaconda Bash!")
     import os
     import logging
     import numpy as np
@@ -210,6 +210,30 @@ if __name__ == "__main__":
             )
             
 
+    absdiff_path = os.path.join(DATA_PROC, "ERA5_monthly_1991-2021_absdifftemp.nc")
+    if os.path.exists(absdiff_path):
+        print("Abs diff temperature already computed. Skipping...")
+
+    else:
+        print("Computing Abs diff temperature...")
+        temperature = xr.open_dataset(era5_path, chunks={"time": 12})
+        temperature = temperature.sel(time=slice("1991", "2021")) # Only last 30 years
+        climatology_mean = temperature["t2m"].mean(dim="time")
+        climatology_std = temperature["t2m"].std(dim="time")
+        absdiff_temp = xr.apply_ufunc(
+            lambda x, m: (x - m),
+            temperature["t2m"],
+            climatology_mean,
+            dask="parallelized",
+        )
+
+        encoding = {absdiff_temp.name: {"zlib": True, "complevel": 5}}
+        with ProgressBar():
+            absdiff_temp.to_netcdf(
+                absdiff_path,
+                encoding=encoding,
+            )
+
     # Standardize temperature over 30-year monthly average
     stdmtemp_path = os.path.join(DATA_PROC, "ERA5_monthly_1991-2021_stdmtemp.nc")
     if os.path.exists(stdmtemp_path):
@@ -237,6 +261,9 @@ if __name__ == "__main__":
     stand_temp = xr.open_dataset(stdtemp_path, chunks={"lat": 700, "lon": 700, "time": 120})
     stand_temp = stand_temp.rename({"t2m": "std_t"})
 
+    absdiff_temp = xr.open_dataset(absdiff_path, chunks={"lat": 700, "lon": 700, "time": 120})
+    absdiff_temp = absdiff_temp.rename({"t2m": "absdif_t"})
+
     stand_mtemp = xr.open_dataset(stdmtemp_path, chunks={"lat": 700, "lon": 700, "time": 120})
     stand_mtemp = stand_mtemp.rename({"t2m": "stdm_t"})
 
@@ -245,7 +272,7 @@ if __name__ == "__main__":
 
     spis = xr.open_dataset(spi_out, chunks={"lat": 700, "lon": 700, "time": 120}).sel(time=slice("1991", "2021"))
 
-    data_arrays = [spis, temperature["t"], stand_temp["std_t"], stand_mtemp["stdm_t"]]
+    data_arrays = [spis, temperature["t"], stand_temp["std_t"], stand_mtemp["stdm_t"], absdiff_temp["absdif_t"]]
 
 
     ########################
