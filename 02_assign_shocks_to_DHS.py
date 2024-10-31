@@ -24,11 +24,9 @@ if __name__ == "__main__":
     print("Loading data...")
 
     ### CLIMATE DATA
-    climate_data_temp = xr.open_dataset(rf"{DATA_PROC}/Climate_shocks_v6.nc", engine="h5netcdf", chunks={"lat": 1402, "lon":1802, "time":1224})
-    climate_data_temp = climate_data_temp[["std_t"]]
-
-    climate_data_spi = xr.load_dataset(rf"{DATA_PROC}/Climate_shocks_v8_spei.nc")
-
+    climate_data = xr.open_dataset(rf"{DATA_PROC}/Climate_shocks_v9.nc")
+    climate_data = climate_data.drop_vars("month")
+    
     ### DHS DATA
     full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024.dta")
     full_dhs["ID"] = full_dhs.index
@@ -38,14 +36,17 @@ if __name__ == "__main__":
     ###########################
 
     climate_variables = [
-        "spei1",
-        "spei3",
-        "spei6",
-        "spei9",
-        "spei12",
-        "spei24",
-        "spei48",
+        "spi1",
+        "spi3",
+        "spi6",
+        "spi9",
+        "spi12",
+        "spi24",
+        "spi48",
         "std_t",
+        "stdm_t",
+        "t",
+        "absdif_t",
     ]
 
 
@@ -61,7 +62,7 @@ if __name__ == "__main__":
         
         return round((number - 0.25) * 2) / 2 + 0.25
     
-    def compute_stats(ds_temp, ds_spi):
+    def compute_stats(ds):
         # Initialize an empty dictionary to store results
         results = {}
         
@@ -71,18 +72,21 @@ if __name__ == "__main__":
         born_2to12m_slice = slice(11, 22)
         
         # # Process variables in ds_temp
-        for var in ds_temp.data_vars:
-            data = ds_temp[var].load() # if already in memory, does nothing
+        for var in ds.data_vars:
+
+            data = ds[var]
+
             results[f"{var}_inutero_avg"] = data.isel(time=inutero_slice).mean().item()
             results[f"{var}_30d_avg"] = data.isel(time=born_1m_slice).mean().item()
             results[f"{var}_2m12m_avg"] = data.isel(time=born_2to12m_slice).mean().item()
-        
-        # Process variables in ds_spi
-        for var in ds_spi.data_vars:
-            data = ds_spi[var]
-            results[f"{var}_inutero_avg"] = data.isel(time=inutero_slice).mean().item()
-            results[f"{var}_30d_avg"] = data.isel(time=born_1m_slice).mean().item()
-            results[f"{var}_2m12m_avg"] = data.isel(time=born_2to12m_slice).mean().item()
+
+            results[f"{var}_inutero_min"] = data.isel(time=inutero_slice).min().item()
+            results[f"{var}_30d_min"] = data.isel(time=born_1m_slice).min().item()
+            results[f"{var}_2m12m_min"] = data.isel(time=born_2to12m_slice).min().item()
+
+            results[f"{var}_inutero_max"] = data.isel(time=inutero_slice).max().item()
+            results[f"{var}_30d_max"] = data.isel(time=born_1m_slice).max().item()
+            results[f"{var}_2m12m_max"] = data.isel(time=born_2to12m_slice).max().item()
         
         # Convert results to pandas Series
         results_series = pd.Series(results)
@@ -92,17 +96,13 @@ if __name__ == "__main__":
     def get_climate_shock(from_date, to_date, lat, lon):
         if pd.isna(from_date):
             return np.nan
-
+        
         # Filter point and time
-        point_data_temp = climate_data_temp.sel(
+        point_data= climate_data.sel(
             time=slice(from_date, to_date), lat=lat, lon=lon
         )
 
-        point_data_spi = climate_data_spi.sel(
-            time=slice(from_date, to_date), lat=round_off(lat), lon=round_off(lon)
-        )
-
-        out = compute_stats(point_data_temp, point_data_spi)
+        out = compute_stats(point_data)
 
         return out
 
@@ -118,18 +118,20 @@ if __name__ == "__main__":
         months=-9
     )  # From in utero (9 months before birth)
     df["to_date"] = df["birthdate"] + pd.DateOffset(
-        months=13
+        months=12
     )  # To the first year of life
 
-    # Filter children from_date greater than 1990 (we only have climate data from 1990)
-    df = df[df["from_date"] > "1990-01-01"]
+    # Filter children from_date greater than 1991 (we only have climate data from 1990)
+    df = df[df["from_date"] > "1991-01-01"]
 
     # Filter children to_date smalle than 2021 (we only have climate data to 2020)
     df = df[df["to_date"] < "2021-01-01"]
-
-    df["lat_round"] = df["LATNUM"].apply(lambda x: np.round(x, decimals=1))
-    df["lon_round"] = df["LONGNUM"].apply(lambda x: np.round(x, decimals=1))
-    df = df.sort_values(["lat_round",	"lon_round", "from_date"]) 
+    df = df[(df["year"] >= 2003)] # Since 2003 (coordinates are ok)
+    
+    df["lat_round"] = df["LATNUM"].apply(lambda x: round_off(x))
+    df["lon_round"] = df["LONGNUM"].apply(lambda x: round_off(x))
+    df = df.sort_values(["lat_round", "lon_round", "from_date"]) 
+    df = df.dropna(subset=["ID", "from_date", "to_date", "lat_round", "lon_round"])
     df = df.reset_index(drop=True)
     
     # Sort data to improve efficiency in querying xarray data (a lot faster!)
@@ -138,41 +140,69 @@ if __name__ == "__main__":
     shock_cols = []
 
     print("Assigning climate shocks to DHS data...")
-    chunk_size = 100_000
-    for n in tqdm(range(0, df.index.max(), chunk_size)):
 
-        file = rf"{DATA_PROC}/births_climate_{n}.parquet"
+    # Group by rounded latitude and longitude
+    grouped = df.groupby(["lat_round", "lon_round"])
+    results = []
+    for i, stuff in tqdm(enumerate(grouped), total=len(grouped)):
+        # if (i <= 6_500):
+        #     continue
+        i_100 = ((i-1) // 100 + 1) * 100  # Round to the nearest 100, but the first one is 0
+
+        file = rf"{DATA_PROC}/DHS_climate/births_climate_{i_100}.parquet"         
         if os.path.exists(file):
-            print(f"{file} exists, moving to next iteration")
             continue
+        
+        (lat, lon), group = stuff
+        try:
+            
+            # Get the overall time range for this group
+            earliest_from_date = group["from_date"].min()
+            latest_to_date = group["to_date"].max()
 
-        chunk = df.loc[
-            (df.index >= n) & (df.index < n + chunk_size),
-            ["ID", "from_date", "to_date", "lat_round", "lon_round"],
-        ].copy()
+            # Fetch the climate data once for this location and time range
+            point_data = climate_data.sel(
+                time=slice(earliest_from_date, latest_to_date),
+                lat=lat,
+                lon=lon,
+            ).load()
 
-        climate_results = chunk.progress_apply(
-            lambda s: get_climate_shock(
-                s["from_date"],
-                s["to_date"],
-                s["lat_round"],
-                s["lon_round"],
-            ),
-            axis=1,
-        )
+            for idx, row in tqdm(group.iterrows(), total=len(group), leave=False):
+                from_date = row["from_date"]
+                to_date = row["to_date"]
+               
+                # Select the data for the specific time range
+                data = point_data.sel(time=slice(from_date, to_date))
+                assert data.time.shape[0] == 22, "Time length is not 22: " + str(len(point_data.time))
 
-        # Save results into a df
-        climate_results = climate_results.apply(pd.Series)
-        climate_results["ID"] = chunk["ID"]
-        climate_results["lat"] = chunk["lat_round"]
-        climate_results["lon"] = chunk["lon_round"]
-        climate_results.to_parquet(file, index=False)
+                # Compute statistics
+                stats = compute_stats(data)
 
-    files = os.listdir(rf"{DATA_PROC}")
+                stats["ID"] = row["ID"]
+                stats["lat"] = lat
+                stats["lon"] = lon
+
+                results.append(stats)
+               
+            if (i%100 == 0) | (i == len(grouped)-1): # Save every 100 groups  (or if its the last one) 
+                        
+                climate_results = pd.DataFrame(results)
+                climate_results.to_parquet(file, index=False)
+                print("File saved at", file)
+                results = []
+                
+
+        except Exception as e:
+            print(e)
+            print(f"Error with group: lat {lat}, lon {lon}")
+            continue
+        
+        
+    files = os.listdir(rf"{DATA_PROC}/DHS_Climate")
     files = [f for f in files if f.startswith("births_climate_")]
     data = []
     for file in tqdm(files):
-        df = pd.read_parquet(rf"{DATA_PROC}/{file}")
+        df = pd.read_parquet(rf"{DATA_PROC}/DHS_Climate/{file}")
         data += [df]
     df = pd.concat(data)
     climate_cols = df.columns
@@ -228,5 +258,5 @@ if __name__ == "__main__":
 
     # Drop nans in spi/temp values
     df = df.dropna(subset=shock_cols, how="any")
-    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v8.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v8.dta")
+    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v9.dta")
+    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9.dta")
