@@ -26,7 +26,6 @@ save "${DATA_IN}/Income level.dta", replace
 use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024", clear
 gen ID = _n - 1
 merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v9"
-tab chb_year if _merge==1
 keep if _merge==3
 drop _merge
 merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta"
@@ -35,7 +34,7 @@ drop _merge
 merge m:1  ID_HH using "${DATA_PROC}/DHSBirthsGlobalAnalysis_05142024_climate_bands_assigned.dta"
 keep if _merge==3
 drop _merge
-stop
+
 // merge m:1 v000 v001 v002 v008 using "${DATA_IN}/DHS/weights_DHS_by_hh.dta"
 // keep if _merge==3
 // drop _merge
@@ -60,10 +59,10 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 
 foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" "spi48"{
 	foreach time in "inutero" "30d" "2m12m" {
-		foreach stat in "avg" "minmax" {
+		foreach stat in  "minmax" "avg" {
 			
 			* Quadratic term
-			capture gen `var'_`time'_`stat'_sq = `var'_`time'_`stat' * `var'_`time'_`stat'
+			gen `var'_`time'_`stat'_sq = `var'_`time'_`stat' * `var'_`time'_`stat'
 			
 			* Positive and negative linear
 			if "`stat'"=="minmax" {
@@ -74,18 +73,17 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 				local posstat = "avg"
 				local negstat = "avg"
 			}
-			capture gen `var'_`time'_`stat'_dpos = (`var'_`time'_`posstat'>=0)
-			capture gen `var'_`time'_`stat'_dneg = (`var'_`time'_`negstat'<=0)
-			capture assert `var'_`time'_`stat'_dpos + `var'_`time'_`posstat'_dneg>=1
-			
-			capture gen `var'_`time'_`stat'_pos = `var'_`time'_`posstat' * `var'_`time'_`posstat'_dpos
-			capture gen `var'_`time'_`stat'_neg = `var'_`time'_`negstat' * `var'_`time'_`negstat'_dneg
+		
+			gen `var'_`time'_`stat'_pos = `var'_`time'_`posstat' if `var'_`time'_`posstat'>=0
+			gen `var'_`time'_`stat'_neg = `var'_`time'_`negstat' if `var'_`time'_`negstat'<=0	
 	
 			* Positive and negative dummy greater than threshold. 
 			foreach threshold in 0.5 1 1.5 2 2.5 {
 				local thres_str = cond(`threshold' == 0.5, "0_5", subinstr(string(`threshold'), ".", "_", .))
-				gen `var'_`time'_`stat'_gt`thres_str' = (`var'_`time'_`posstat'`threshold')
-				gen `var'_`time'_`stat'_lt`thres_str' = (`var'_`time'_`negstat'<-`threshold')
+				gen `var'_`time'_gt`thres_str'   = (`var'_`time'_`posstat'>`threshold') * `var'_`time'_`posstat'
+				gen `var'_`time'_bt0`thres_str'  = ((`var'_`time'_`posstat'>0) & (`var'_`time'_`posstat'<=`threshold')) * `var'_`time'_`posstat'
+				gen `var'_`time'_ltm`thres_str'  = (`var'_`time'_`negstat'<-`threshold') * `var'_`time'_`posstat'
+				gen `var'_`time'_bt0m`thres_str' = ((`var'_`time'_`negstat'<0) & (`var'_`time'_`negstat'>=-`threshold')) * `var'_`time'_`posstat'
 			}
 		}
 	}
@@ -160,8 +158,8 @@ gen time_sq = time*time
 *# 	 Keep only relevant vars
 *############################################################*
 
+keep  ID ID_R ID_CB ID_HH t_* std_t_* stdm_t_* absdif_t_* absdifm_t_* spei* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup
 
-keep  ID ID_R ID_CB ID_HH t_* std_t_* stdm_t_* spei* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup
 save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9.dta"
 export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9.csv"
 
