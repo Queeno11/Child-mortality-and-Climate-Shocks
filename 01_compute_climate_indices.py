@@ -258,11 +258,37 @@ if __name__ == "__main__":
                 encoding=encoding,
             )
 
+    absdiffm_path = os.path.join(DATA_PROC, "ERA5_monthly_1991-2021_absdiffmtemp.nc")
+    if os.path.exists(absdiffm_path):
+        print("Abs diff monthly temperature already computed. Skipping...")
+
+    else:
+        print("Computing monthly temperature anomalies...")
+        temperature = xr.open_dataset(era5_path, chunks={"time": -1, "lat": 500, "lon": 500})
+        temperature = temperature.sel(time=slice("1991", "2021")) # Only last 30 years
+        climatology_mean_m = temperature["t2m"].groupby("time.month").mean("time")
+        climatology_std_m = temperature["t2m"].groupby("time.month").std("time")
+        stand_anomalies = xr.apply_ufunc(
+            lambda x, m: (x - m),
+            temperature["t2m"].groupby("time.month"),
+            climatology_mean_m,
+            dask="parallelized",
+        )
+        encoding = {stand_anomalies.name: {"zlib": True, "complevel": 5}}
+        with ProgressBar():
+            stand_anomalies.to_netcdf(
+                absdiffm_path,
+                encoding=encoding,
+            )
+
     stand_temp = xr.open_dataset(stdtemp_path, chunks={"lat": 700, "lon": 700, "time": 120})
     stand_temp = stand_temp.rename({"t2m": "std_t"})
 
     absdiff_temp = xr.open_dataset(absdiff_path, chunks={"lat": 700, "lon": 700, "time": 120})
     absdiff_temp = absdiff_temp.rename({"t2m": "absdif_t"})
+
+    absdiffm_temp = xr.open_dataset(absdiffm_path, chunks={"lat": 700, "lon": 700, "time": 120})
+    absdiffm_temp = absdiffm_temp.rename({"t2m": "absdifm_t"})
 
     stand_mtemp = xr.open_dataset(stdmtemp_path, chunks={"lat": 700, "lon": 700, "time": 120})
     stand_mtemp = stand_mtemp.rename({"t2m": "stdm_t"})
@@ -272,7 +298,7 @@ if __name__ == "__main__":
 
     spis = xr.open_dataset(spi_out, chunks={"lat": 700, "lon": 700, "time": 120}).sel(time=slice("1991", "2021"))
 
-    data_arrays = [spis, temperature["t"], stand_temp["std_t"], stand_mtemp["stdm_t"], absdiff_temp["absdif_t"]]
+    data_arrays = [spis, temperature["t"], stand_temp["std_t"], stand_mtemp["stdm_t"], absdiff_temp["absdif_t"], absdiffm_temp["absdifm_t"]]
 
 
     ########################

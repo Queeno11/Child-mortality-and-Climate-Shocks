@@ -25,16 +25,17 @@ save "${DATA_IN}/Income level.dta", replace
 
 use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024", clear
 gen ID = _n - 1
-merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v8" // v8 has SPEI from CRU
-keep if _merge==3
-drop _merge
-merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v7" // v7 has SPI and temperature from ERA5-Land
+merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v9"
+tab chb_year if _merge==1
 keep if _merge==3
 drop _merge
 merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta"
 keep if _merge==3
 drop _merge
-
+merge m:1  ID_HH using "${DATA_PROC}/DHSBirthsGlobalAnalysis_05142024_climate_bands_assigned.dta"
+keep if _merge==3
+drop _merge
+stop
 // merge m:1 v000 v001 v002 v008 using "${DATA_IN}/DHS/weights_DHS_by_hh.dta"
 // keep if _merge==3
 // drop _merge
@@ -46,21 +47,46 @@ drop _merge
 *# 	 Crate climate variables
 *############################################################*
 
-rename spei0* spei*
-
-foreach var in "t" "std_t" "stdm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" "spei1" "spei3" "spei6" "spei9" "spei12" "spei24" {
+* Create min-max variables for linear and quadratic models without dummies. Only the biggest effect is the one considered (i.e. where the deviation is bigger)
+*	For example, if there were a -1.5 shock and a +1.1 shock, we keep the -1.5 for the variable `var'_`time'_`stat'_minmax
+foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" "spi48"{
 	foreach time in "inutero" "30d" "2m12m" {
-		foreach stat in "avg" {
-			capture gen `var'_`time'_`stat'_sq = `var'_`time'_`stat' * `var'_`time'_`stat'
-			capture gen `var'_`time'_`stat'_dpos = (`var'_`time'_`stat'>=0)
-			capture gen `var'_`time'_`stat'_dneg = (`var'_`time'_`stat'<=0)
-			capture assert `var'_`time'_`stat'_dpos + `var'_`time'_`stat'_dneg>=1
-			
-			capture gen `var'_`time'_`stat'_pos = `var'_`time'_`stat' * `var'_`time'_`stat'_dpos
-			capture gen `var'_`time'_`stat'_neg = `var'_`time'_`stat' * `var'_`time'_`stat'_dneg
+		gen `var'_`time'_min_abs = sqrt(`var'_`time'_min*`var'_`time'_min)
+		gen `var'_`time'_max_abs = sqrt(`var'_`time'_max*`var'_`time'_max)
+		gen		 `var'_`time'_minmax = `var'_`time'_min if `var'_`time'_min_abs>=`var'_`time'_max_abs
+		replace  `var'_`time'_minmax = `var'_`time'_max if `var'_`time'_min_abs<=`var'_`time'_max_abs
+	}
+}
 
-			capture gen `var'_`time'_`stat'_sq_pos = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_dpos
-			capture gen `var'_`time'_`stat'_sq_neg = `var'_`time'_`stat'_sq * `var'_`time'_`stat'_dneg
+foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" "spi48"{
+	foreach time in "inutero" "30d" "2m12m" {
+		foreach stat in "avg" "minmax" {
+			
+			* Quadratic term
+			capture gen `var'_`time'_`stat'_sq = `var'_`time'_`stat' * `var'_`time'_`stat'
+			
+			* Positive and negative linear
+			if "`stat'"=="minmax" {
+				local posstat = "max"
+				local negstat = "min"
+			}
+			else {
+				local posstat = "avg"
+				local negstat = "avg"
+			}
+			capture gen `var'_`time'_`stat'_dpos = (`var'_`time'_`posstat'>=0)
+			capture gen `var'_`time'_`stat'_dneg = (`var'_`time'_`negstat'<=0)
+			capture assert `var'_`time'_`stat'_dpos + `var'_`time'_`posstat'_dneg>=1
+			
+			capture gen `var'_`time'_`stat'_pos = `var'_`time'_`posstat' * `var'_`time'_`posstat'_dpos
+			capture gen `var'_`time'_`stat'_neg = `var'_`time'_`negstat' * `var'_`time'_`negstat'_dneg
+	
+			* Positive and negative dummy greater than threshold. 
+			foreach threshold in 0.5 1 1.5 2 2.5 {
+				local thres_str = cond(`threshold' == 0.5, "0_5", subinstr(string(`threshold'), ".", "_", .))
+				gen `var'_`time'_`stat'_gt`thres_str' = (`var'_`time'_`posstat'`threshold')
+				gen `var'_`time'_`stat'_lt`thres_str' = (`var'_`time'_`negstat'<-`threshold')
+			}
 		}
 	}
 }
@@ -136,8 +162,8 @@ gen time_sq = time*time
 
 
 keep  ID ID_R ID_CB ID_HH t_* std_t_* stdm_t_* spei* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup
-save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v7temp-spi_v8spei_all_shocks.dta"
-export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v7temp-spi_v8spei_all_shocks.csv"
+save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9.dta"
+export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9.csv"
 
 foreach j in 3 4 5 {
 	preserve
