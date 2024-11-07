@@ -30,6 +30,7 @@ if __name__ == "__main__":
     ### DHS DATA
     full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024.dta")
     full_dhs["ID"] = full_dhs.index
+    # Gen unique id from groups of lat, lon and from_date
     df = full_dhs.copy()
     print("Data loaded! Processing...")
 
@@ -47,6 +48,7 @@ if __name__ == "__main__":
         "stdm_t",
         "t",
         "absdif_t",
+        "absdifm_t",
     ]
 
 
@@ -107,17 +109,21 @@ if __name__ == "__main__":
         return out
 
     ### Process dataframe ####
+    # Drop nans in date columns
+    df = df.dropna(subset=["v008", "chb_year", "chb_month"], how="any")
+
     # Create datetime object from year and month
     df["day"] = 1
-    df["month"] = df["chb_month"].astype(float)
-    df["year"] = df["chb_year"].astype(float)
-    df["birthdate"] = pd.to_datetime(df[["year", "month", "day"]]).to_numpy()
-
+    df["month"] = df["chb_month"].astype(int)
+    df["year"] = df["chb_year"].astype(int)
+    df["birth_date"] = pd.to_datetime(df[["year", "month", "day"]]).to_numpy()
+    df = df.drop(columns=["day", "month", "year"])
+    
     # Maximum range of dates
-    df["from_date"] = df["birthdate"] + pd.DateOffset(
+    df["from_date"] = df["birth_date"] + pd.DateOffset(
         months=-9
     )  # From in utero (9 months before birth)
-    df["to_date"] = df["birthdate"] + pd.DateOffset(
+    df["to_date"] = df["birth_date"] + pd.DateOffset(
         months=12
     )  # To the first year of life
 
@@ -126,91 +132,7 @@ if __name__ == "__main__":
 
     # Filter children to_date smalle than 2021 (we only have climate data to 2020)
     df = df[df["to_date"] < "2021-01-01"]
-    df = df[(df["year"] >= 2003)] # Since 2003 (coordinates are ok)
     
-    df["lat_round"] = df["LATNUM"].apply(lambda x: round_off(x))
-    df["lon_round"] = df["LONGNUM"].apply(lambda x: round_off(x))
-    df = df.sort_values(["lat_round", "lon_round", "from_date"]) 
-    df = df.dropna(subset=["ID", "from_date", "to_date", "lat_round", "lon_round"])
-    df = df.reset_index(drop=True)
-    
-    # Sort data to improve efficiency in querying xarray data (a lot faster!)
-    ### Run process ####
-    coords_cols = ["lat_climate", "lon_climate"]
-    shock_cols = []
-
-    print("Assigning climate shocks to DHS data...")
-
-    # Group by rounded latitude and longitude
-    grouped = df.groupby(["lat_round", "lon_round"])
-    results = []
-    for i, stuff in tqdm(enumerate(grouped), total=len(grouped)):
-        # if (i <= 6_500):
-        #     continue
-        i_100 = ((i-1) // 100 + 1) * 100  # Round to the nearest 100, but the first one is 0
-
-        file = rf"{DATA_PROC}/DHS_climate/births_climate_{i_100}.parquet"         
-        if os.path.exists(file):
-            continue
-        
-        (lat, lon), group = stuff
-        try:
-            
-            # Get the overall time range for this group
-            earliest_from_date = group["from_date"].min()
-            latest_to_date = group["to_date"].max()
-
-            # Fetch the climate data once for this location and time range
-            point_data = climate_data.sel(
-                time=slice(earliest_from_date, latest_to_date),
-                lat=lat,
-                lon=lon,
-            ).load()
-
-            for idx, row in tqdm(group.iterrows(), total=len(group), leave=False):
-                from_date = row["from_date"]
-                to_date = row["to_date"]
-               
-                # Select the data for the specific time range
-                data = point_data.sel(time=slice(from_date, to_date))
-                assert data.time.shape[0] == 22, "Time length is not 22: " + str(len(point_data.time))
-
-                # Compute statistics
-                stats = compute_stats(data)
-
-                stats["ID"] = row["ID"]
-                stats["lat"] = lat
-                stats["lon"] = lon
-
-                results.append(stats)
-               
-            if (i%100 == 0) | (i == len(grouped)-1): # Save every 100 groups  (or if its the last one) 
-                        
-                climate_results = pd.DataFrame(results)
-                climate_results.to_parquet(file, index=False)
-                print("File saved at", file)
-                results = []
-                
-
-        except Exception as e:
-            print(e)
-            print(f"Error with group: lat {lat}, lon {lon}")
-            continue
-        
-        
-    files = os.listdir(rf"{DATA_PROC}/DHS_Climate")
-    files = [f for f in files if f.startswith("births_climate_")]
-    data = []
-    for file in tqdm(files):
-        df = pd.read_parquet(rf"{DATA_PROC}/DHS_Climate/{file}")
-        data += [df]
-    df = pd.concat(data)
-    climate_cols = df.columns
-
-    ####### Process data:
-    df = full_dhs.merge(df, on="ID", how="inner")
-    print("Number of observations merged with climate data:", df.shape[0])
-    df = df.dropna(subset=["v008", "chb_year", "chb_month"], how="any")
 
     # Date of interview
     df["year"] = 1900 + (df["v008"] - 1) // 12
@@ -219,13 +141,6 @@ if __name__ == "__main__":
     df["interview_date"] = pd.to_datetime(df[["year", "month", "day"]], dayfirst=False)
     df["interview_year"] = df["year"]
     df["interview_month"] = df["month"]
-    df = df.drop(columns=["year", "month", "day"])
-
-    # Date of birth
-    df["year"] = df["chb_year"].astype(int)
-    df["month"] = df["chb_month"].astype(int)
-    df["day"] = 15
-    df["birth_date"] = pd.to_datetime(df[["year", "month", "day"]], dayfirst=False)
     df = df.drop(columns=["year", "month", "day"])
 
     # Number of days from interview
@@ -241,12 +156,99 @@ if __name__ == "__main__":
     )
     df["since_2003"] = df["interview_year"] >= 2003
     df = df[df["last_15_years"] == True]
+   
+    
+    # Lat/Lon coordinates    
+    df["lat_round"] = df["LATNUM"].apply(lambda x: round_off(x))
+    df["lon_round"] = df["LONGNUM"].apply(lambda x: round_off(x))
+    df = df.sort_values(["lat_round", "lon_round", "from_date"]) 
+    df = df.dropna(subset=["ID", "from_date", "to_date", "lat_round", "lon_round"])
+    
+    # Store in variable
+    df["point_ID"] = df["lat_round"].astype(str) + "_" + df["lon_round"].astype(str) + "_" + df["from_date"].dt.strftime(r"%Y-%m-%d")
+    # count unique points
+    print("Number of unique points:", df["point_ID"].nunique())
+    full_dhs = df.copy()
+    df = df.reset_index(drop=True)
+    
+    # Sort data to improve efficiency in querying xarray data (a lot faster!)
+    ### Run process ####
+    coords_cols = ["lat_climate", "lon_climate"]
+    shock_cols = []
+    print(len(full_dhs))
+    print("Assigning climate shocks to DHS data...")
+
+    # Group by rounded latitude and longitude
+    grouped = df.groupby(["lat_round", "lon_round"])
+    results = []
+    for i, stuff in tqdm(enumerate(grouped), total=len(grouped)):
+        
+        (lat, lon), group = stuff
+        # try:
+        
+        # Get the overall time range for this group
+        earliest_from_date = group["from_date"].min()
+        latest_to_date = group["to_date"].max()
+
+        # Fetch the climate data once for this location and time range
+        point_data = climate_data.sel(
+            time=slice(earliest_from_date, latest_to_date),
+            lat=lat,
+            lon=lon,
+        ).load()
+        
+        # Group observations by from_date and to_date
+        date_grouped = group.groupby(["from_date", "to_date"])
+        
+        for (from_date, to_date), date_group in tqdm(date_grouped, total=len(date_grouped), leave=False):
+
+            # Select the data for the specific time range
+            data = point_data.sel(time=slice(from_date, to_date))
+            assert data.time.shape[0] == 22, "Time length is not 22: " + str(len(point_data.time))
+
+            # Compute statistics
+            stats = compute_stats(data)
+
+            stats["lat"] = lat
+            stats["lon"] = lon
+
+            # Assign the computed statistics to all observations in the date group
+            stats_df = pd.DataFrame([stats])
+
+            stats_df["point_ID"] = date_group["point_ID"].iloc[0]
+
+            results += [stats_df]
+            
+            
+        if ((i-1)%100 == 0) | (i == len(grouped)-1): # Save every 100 groups  (or if its the last one) 
+            climate_results = pd.concat(results, ignore_index=True)
+            climate_results.to_parquet(f"{DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
+            print(f"File saved at {DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
+            results = []
+            climate_results = None
+                    
+    files = os.listdir(rf"{DATA_PROC}/DHS_Climate")
+    files = [f for f in files if f.startswith("births_climate_")]
+    data = []
+    for file in tqdm(files):
+        df = pd.read_parquet(rf"{DATA_PROC}/DHS_Climate/{file}")
+        data += [df]
+    df = pd.concat(data)
+    df.to_parquet(f"{DATA_PROC}/DHS_Climate/births_climate.parquet")
+    print("File saved at", f"{DATA_PROC}/DHS_Climate/births_climate.parquet")
+    climate_cols = df.columns
+    df.to_parquet(rf"{DATA_PROC}/DHS_Climate_not_assigned.parquet")
+
+    ####### Process data:
+    df = full_dhs.merge(df, on="point_ID", how="inner")
+    print("Number of observations merged with climate data:", df.shape[0])
 
     ####### Export data:
     # df.to_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v3.parquet")
     df = df[
         climate_cols.to_list()
         + [
+            "ID",
             "interview_year",
             "interview_month",
             "birth_date",
