@@ -2,7 +2,7 @@ module CustomModels
 
     using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter
 
-    function stepped_regression(df, months, temp, drought_ind, controls, times, folder, extra; model_type="linear", with_dummies=false)
+    function stepped_regression(df, months, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra; model_type="linear", with_dummies=false)
         """
             run_regression(df, months, controls, times, folder, extra; model_type="linear", with_dummies=false)
         
@@ -22,34 +22,33 @@ module CustomModels
         # Output
         Saves regression results in both ASCII and LaTeX formats to the specified folder.
         """
-
         println("\rRunning Model: $(model_type) with dummies=$(with_dummies) - $(drought_ind)$(months)\r")
-        for stat in ["avg", "minmax"]
 
-            outpath = "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
-            mkpath(outpath)
-            outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra).txt" 
-            outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra).tex"
+        outpath = "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
+        mkpath(outpath)
+        outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra).txt" 
+        outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra).tex"
 
-            # if isfile(outtxt) && isfile(outtex)
-            #     println("File exists, moving to next iteration.")
-            #     return
-            # end
-            
-            spi_previous = [] # This list is for adding the previous SPI variables to the regression
-            temp_previous = []  # This list is for adding the previous temperature variables to the regression
-            order_spi = [] # This list is for saving the regression tables in the right order
-            order_temp = [] # This list is for saving the regression tables in the right order
-            regs = [] # regs stores the outputs of the regression models
-            
+        if isfile(outtxt) && isfile(outtex)
+            println("File exists, moving to next iteration.")
+            return
+        end
+        
+        spi_previous = [] # This list is for adding the previous SPI variables to the regression
+        temp_previous = []  # This list is for adding the previous temperature variables to the regression
+        order_spi = [] # This list is for saving the regression tables in the right order
+        order_temp = [] # This list is for saving the regression tables in the right order
+        regs = [] # regs stores the outputs of the regression models
+
+        try
             for time in 1:(length(times)-1)
                 time1 = times[time]
                 time2 = times[time + 1]
 
                 # Get SPI and temperature symbols based on the model type and dummies
-                spi_actual, temp_actual = get_symbols(months, temp, drought_ind, time2, stat, model_type, with_dummies)
+                spi_actual, temp_actual = get_symbols(months, temp, drought_ind, time2, stat, sp_threshold, model_type, with_dummies)
                 if time == 1
-                    spi_start, temp_start = get_symbols(months, temp, drought_ind, time1, stat, model_type, with_dummies)
+                    spi_start, temp_start = get_symbols(months, temp, drought_ind, time1, stat, sp_threshold, model_type, with_dummies)
                     append!(order_spi, spi_start)
                     append!(order_temp, temp_start)
                     append!(spi_previous, spi_start)
@@ -61,6 +60,7 @@ module CustomModels
 
                 for i in 1:3
                     fixed_effects = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
+                    # println( term(Symbol("child_agedeath_$(time2)")) ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(controls) + fixed_effects )
                     reg_model = reg(
                         df, 
                         term(Symbol("child_agedeath_$(time2)")) ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(controls) + fixed_effects, 
@@ -91,7 +91,10 @@ module CustomModels
                 file=outtex,
                 order=order,
             )
+        catch e
+            println("Error with ", outtex, e)
         end
+
     end
 
     function get_symbols(months, temp, drought_ind, time, stat, sp_threshold, model_type, with_dummies)
@@ -131,14 +134,14 @@ module CustomModels
             spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_$(stat)_sq_neg"), Symbol("$(drought_ind)$(months)_$(time)_$(stat)_sq_pos")]
             temp_symbols = [Symbol("$(temp)_$(time)_$(stat)_sq_neg"), Symbol("$(temp)_$(time)_$(stat)_sq_pos")]
         elseif model_type == "spline"
-            spi_symbols = [Symbol("$(drought_ind)_$(months)_$(time)_gt$(sp_threshold)"), Symbol("$(drought_ind)_$(months)_$(time)_bt0$(sp_threshold)"), Symbol("$(drought_ind)_$(months)_$(time)_ltm$(sp_threshold)"), Symbol("$(drought_ind)_$(months)_$(time)_bt0m$(sp_threshold)")]
-            temp_symbols = [Symbol("$(temp)_$(months)_$(time)_gt$(sp_threshold)"), Symbol("$(temp)_$(months)_$(time)_bt0$(sp_threshold)"), Symbol("$(temp)_$(months)_$(time)_ltm$(sp_threshold)"), Symbol("$(temp)_$(months)_$(time)_bt0m$(sp_threshold)")]            
+            spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_ltm$(sp_threshold)"), Symbol("$(drought_ind)$(months)_$(time)_bt0m$(sp_threshold)"), Symbol("$(drought_ind)$(months)_$(time)_bt0$(sp_threshold)"), Symbol("$(drought_ind)$(months)_$(time)_gt$(sp_threshold)")]
+            temp_symbols = [Symbol("$(temp)_$(time)_ltm$(sp_threshold)"), Symbol("$(temp)_$(time)_bt0m$(sp_threshold)"), Symbol("$(temp)_$(time)_bt0$(sp_threshold)"), Symbol("$(temp)_$(time)_gt$(sp_threshold)")]            
         end
 
         return spi_symbols, temp_symbols
     end
 
-    function run_models(df, controls, folder, extra)
+    function run_models(df, controls, folder, extra, months)
         """
             run_models(df, controls, folder, extra)
         
@@ -156,18 +159,27 @@ module CustomModels
         """
         
         println("\rRunning Standard Models for $(folder)\r")
-        for months in ["1", "3", "6", "9", "12", "24", "48"]
-            i = 1
+        
+        for month in months
             extra_original = extra
+            sp_threshold = 0.5 # Set default value to avoid breaking the function when this parameter is not used
             for times in (["inutero", "30d", "2m12m"], )#, ["inutero", "1m3m", "4m12m"], ["inutero", "1m12m"])
+                i = 1
                 for temp in ["stdm_t", "absdifm_t", "absdif_t", "std_t", "t"]
                     for drought_ind in ["spi"]#, "spei"]        
-                        extra_with_time = extra_original * " - times$(i)"
-                        stepped_regression(df, months, temp, drought_ind, controls, times, folder, extra_with_time, model_type="linear")
-                        # stepped_regression(df, months, temp, drought_ind, controls, times, folder, extra_with_time, model_type="quadratic")
-                        stepped_regression(df, months, temp, drought_ind, controls, times, folder, extra_with_time, model_type="linear", with_dummies=true)
-                        # stepped_regression(df, months, temp, drought_ind, controls, times, folder, extra_with_time, model_type="quadratic", with_dummies=true)
-                        stepped_regression(df, months, temp, drought_ind, controls, times, folder, extra_with_time, model_type="spline")
+                        for stat in ["avg"] #, "minmax"]
+
+                            extra_with_time = extra_original #* " - times$(i)"
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear")
+                            # stepped_regression(df, month, temp, drought_ind, controls, times, folder, extra_with_time, model_type="quadratic")
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
+                            # stepped_regression(df, month, temp, drought_ind, controls, times, folder, extra_with_time, model_type="quadratic", with_dummies=true)
+                            for sp_threshold in ["0_5", "1", "1_5"]
+                                extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
+                                stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
+                            end
+
+                        end
                     end
                 end
                 i += 1
@@ -177,19 +189,19 @@ module CustomModels
 
     
 
-    function run_heterogeneity_dummy(df, controls, controls_i, heterogeneity_var, folder, extra)
+    function run_heterogeneity_dummy(df, controls, controls_i, heterogeneity_var, folder, extra, months)
         df = dropmissing(df, Symbol(heterogeneity_var))
 
         df_filtered = filter(row -> row[heterogeneity_var] == 0, df)
         suffix = " - $(heterogeneity_var)0 - controls$(controls_i)"
-        CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", suffix)
+        CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", suffix, months)
 
         df_filtered = filter(row -> row[heterogeneity_var] == 1, df)
         suffix = " - $(heterogeneity_var)1 - controls$(controls_i)"
-        CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", suffix)
+        CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", suffix, months)
     end
 
-    function run_heterogeneity(df, controls, controls_i, heterogeneity_var, folder, extra)
+    function run_heterogeneity(df, controls, controls_i, heterogeneity_var, folder, extra, months)
 
         groups = unique(df[heterogeneity_var])
 
@@ -202,12 +214,11 @@ module CustomModels
             try
                 df_filtered = filter(row -> row[heterogeneity_var] == group, df)
                 suffix = " - $(heterogeneity_var)$(group) - controls$(controls_i)"
-                CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", " - $(group)")
+                CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", " - $(group)", months)
             catch
                 printlnln("Error en ", group)
             end
         end
     end
-
 
 end # module SteppedRegression

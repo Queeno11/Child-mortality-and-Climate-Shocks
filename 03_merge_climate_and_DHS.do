@@ -48,7 +48,7 @@ drop _merge
 
 * Create min-max variables for linear and quadratic models without dummies. Only the biggest effect is the one considered (i.e. where the deviation is bigger)
 *	For example, if there were a -1.5 shock and a +1.1 shock, we keep the -1.5 for the variable `var'_`time'_`stat'_minmax
-foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" "spi48"{
+foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" { // "spi24" "spi48"{
 	foreach time in "inutero" "30d" "2m12m" {
 		gen `var'_`time'_min_abs = sqrt(`var'_`time'_min*`var'_`time'_min)
 		gen `var'_`time'_max_abs = sqrt(`var'_`time'_max*`var'_`time'_max)
@@ -57,7 +57,7 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 	}
 }
 
-foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" "spi48"{
+foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" { // "spi24" "spi48"{
 	foreach time in "inutero" "30d" "2m12m" {
 		foreach stat in  "minmax" "avg" {
 			
@@ -68,23 +68,29 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 			if "`stat'"=="minmax" {
 				local posstat = "max"
 				local negstat = "min"
+
+				gen `var'_`time'_`stat'_pos = 0
+				replace `var'_`time'_`stat'_pos = `var'_`time'_max if `var'_`time'_max>=0
+				gen `var'_`time'_`stat'_neg = 0 
+				replace `var'_`time'_`stat'_neg = `var'_`time'_min if `var'_`time'_min<=0	
+
+				* Positive and negative dummy greater than threshold. 
+				foreach threshold in 0.5 1 1.5 {
+					local thres_str = cond(`threshold' == 0.5, "0_5", subinstr(string(`threshold'), ".", "_", .))
+					gen `var'_`time'_gt`thres_str'   = (`var'_`time'_max>`threshold') * `var'_`time'_max
+					gen `var'_`time'_bt0`thres_str'  = ((`var'_`time'_max>0) & (`var'_`time'_max<=`threshold')) * `var'_`time'_max
+					gen `var'_`time'_ltm`thres_str'  = (`var'_`time'_min<-`threshold') * `var'_`time'_min
+					gen `var'_`time'_bt0m`thres_str' = ((`var'_`time'_min<0) & (`var'_`time'_min>=-`threshold')) * `var'_`time'_min
+				}
 			}
 			else {
-				local posstat = "avg"
-				local negstat = "avg"
+				gen `var'_`time'_avg_pos = 0
+				replace `var'_`time'_avg_pos = `var'_`time'_avg if `var'_`time'_avg>=0
+				gen `var'_`time'_avg_neg = 0
+				replace `var'_`time'_avg_neg = `var'_`time'_avg  if `var'_`time'_avg<=0	
 			}
 		
-			gen `var'_`time'_`stat'_pos = `var'_`time'_`posstat' if `var'_`time'_`posstat'>=0
-			gen `var'_`time'_`stat'_neg = `var'_`time'_`negstat' if `var'_`time'_`negstat'<=0	
 	
-			* Positive and negative dummy greater than threshold. 
-			foreach threshold in 0.5 1 1.5 2 2.5 {
-				local thres_str = cond(`threshold' == 0.5, "0_5", subinstr(string(`threshold'), ".", "_", .))
-				gen `var'_`time'_gt`thres_str'   = (`var'_`time'_`posstat'>`threshold') * `var'_`time'_`posstat'
-				gen `var'_`time'_bt0`thres_str'  = ((`var'_`time'_`posstat'>0) & (`var'_`time'_`posstat'<=`threshold')) * `var'_`time'_`posstat'
-				gen `var'_`time'_ltm`thres_str'  = (`var'_`time'_`negstat'<-`threshold') * `var'_`time'_`posstat'
-				gen `var'_`time'_bt0m`thres_str' = ((`var'_`time'_`negstat'<0) & (`var'_`time'_`negstat'>=-`threshold')) * `var'_`time'_`posstat'
-			}
 		}
 	}
 }
@@ -158,11 +164,15 @@ gen time_sq = time*time
 *# 	 Keep only relevant vars
 *############################################################*
 
-keep  ID ID_R ID_CB ID_HH t_* std_t_* stdm_t_* absdif_t_* absdifm_t_* spei* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup
+drop *_min *_max *_min_* *_max_*
 
-save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9.dta"
-export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9.csv"
+keep  ID ID_R ID_CB ID_HH t_* std_t_* stdm_t_* absdif_t_* absdifm_t_* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup climate_band_32 climate_band_5_data climate_band_5
 
+compress
+save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9.dta", replace
+export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9.csv", replace
+
+stop
 foreach j in 3 4 5 {
 	preserve
 	collapse (count) spi1_inutero_avg, by(ID_cell`j' chb_month)
