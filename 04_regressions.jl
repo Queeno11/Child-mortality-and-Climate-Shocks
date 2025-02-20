@@ -26,53 +26,53 @@ for m in ["1", "3", "6", "9", "12", "24"]
     ]
     columns_to_include = vcat(columns_to_include, controls, [:chb_month, :chb_year, :chb_year_sq, :rural, :pipedw, :href, :hhelectemp, :wbincomegroup, :climate_band_1, :climate_band_2, :climate_band_3, :southern])
 
-    print("Cargando dataset...")
+    println("Cargando dataset...")
     local df
     df = CSV.read(
-        "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9.csv", DataFrame; limit=2000,
+        "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9.csv", DataFrame;
         select=columns_to_include,
         # silencewarnings = true,
     )
-    print("Dataset cargado!")
+    print("   Dataset cargado!")
 
     #################################################################
     ###  Pooled all countries into regression
     #################################################################
 
-    # termcontrols = term.(controls)
-    # CustomModels.run_models(df, termcontrols, "", "", [m])
+    termcontrols = term.(controls)
+    CustomModels.run_models(df, termcontrols, "", "", [m])
 
     # #################################################################
     # ###  heterogeneity
     # #################################################################
     
-    # Income Group
-    CustomModels.run_heterogeneity(df, controls, "wbincomegroup", [m])
-
+    
     # Climate Bands (3 classifications)
     CustomModels.run_heterogeneity(df, controls, "climate_band_1", [m])
     CustomModels.run_heterogeneity(df, controls, "climate_band_2", [m])
-    CustomModels.run_heterogeneity(df, controls, "climate_band_3", [m])
-
+    # CustomModels.run_heterogeneity(df, controls, "climate_band_3", [m])
+    
     # Northern & Southern Hemisphere
     CustomModels.run_heterogeneity_dummy(df, controls, "southern", [m])
-
+    
+    # Income Group
+    # CustomModels.run_heterogeneity(df, controls, "wbincomegroup", [m])
 
     # #################################################################
     # ###  Mechanisms
     # #################################################################
 
-    # # Urban & Rural
-    # CustomModels.run_heterogeneity_dummy(df, controls, "rural", "", "", [m])
+    # Urban & Rural
+    CustomModels.run_heterogeneity_dummy(df, controls, "rural", "", "", [m])
 
-    # # Mechanisms
+    # Mechanisms
 
-    # CustomModels.run_heterogeneity_dummy(df, controls, "pipedw", "", "", [m])
-    # CustomModels.run_heterogeneity_dummy(df, controls, "href", "", "", [m])
-    # CustomModels.run_heterogeneity_dummy(df, controls, "hhelectemp", "", "", [m])
+    CustomModels.run_heterogeneity_dummy(df, controls, "pipedw", "", "", [m])
+    CustomModels.run_heterogeneity_dummy(df, controls, "href", "", "", [m])
+    CustomModels.run_heterogeneity_dummy(df, controls, "hhelectemp", "", "", [m])
 
-    # # Gender
-    # CustomModels.run_heterogeneity_dummy(df, controls, "child_fem", "", "", [m])
+    # Gender
+    CustomModels.run_heterogeneity_dummy(df, controls, "child_fem", "", "", [m])
 
     break
 

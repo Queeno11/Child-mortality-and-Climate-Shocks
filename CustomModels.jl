@@ -26,8 +26,8 @@ module CustomModels
 
         outpath = "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
         mkpath(outpath)
-        outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra).txt" 
-        outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra).tex"
+        outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe.txt" 
+        outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe.tex"
 
         # if isfile(outtxt) && isfile(outtex)
         #     println("File exists, moving to next iteration.")
@@ -197,15 +197,15 @@ module CustomModels
 
     
 
-    function run_heterogeneity_dummy(df, controls, controls_i, heterogeneity_var, folder, extra, months)
+    function run_heterogeneity_dummy(df, controls, heterogeneity_var, months)
         df = dropmissing(df, Symbol(heterogeneity_var))
 
         df_filtered = filter(row -> row[heterogeneity_var] == 0, df)
-        suffix = " - $(heterogeneity_var)0 - controls$(controls_i)"
+        suffix = " - $(heterogeneity_var)0"
         CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", suffix, months)
 
         df_filtered = filter(row -> row[heterogeneity_var] == 1, df)
-        suffix = " - $(heterogeneity_var)1 - controls$(controls_i)"
+        suffix = " - $(heterogeneity_var)1"
         CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", suffix, months)
     end
 
