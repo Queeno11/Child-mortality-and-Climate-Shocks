@@ -39,16 +39,13 @@ drop _merge
 // keep if _merge==3
 // drop _merge
 
-// rename *_born_1m_* *_30d_*
-// rename *_born_2to12m_* *_2m12m_*
-
 *############################################################*
 *# 	 Crate climate variables
 *############################################################*
-stop
+
 * Create min-max variables for linear and quadratic models without dummies. Only the biggest effect is the one considered (i.e. where the deviation is bigger)
 *	For example, if there were a -1.5 shock and a +1.1 shock, we keep the -1.5 for the variable `var'_`time'_`stat'_minmax
-foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" // "spi48"{
+foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" { // "spi48"{
 	foreach time in "inutero" "30d" "2m12m" {
 		gen `var'_`time'_min_abs = sqrt(`var'_`time'_min*`var'_`time'_min)
 		gen `var'_`time'_max_abs = sqrt(`var'_`time'_max*`var'_`time'_max)
@@ -57,7 +54,7 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 	}
 }
 
-foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" // "spi48"{
+foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" { // "spi48"{
 	foreach time in "inutero" "30d" "2m12m" {
 		foreach stat in  "minmax" "avg" {
 			

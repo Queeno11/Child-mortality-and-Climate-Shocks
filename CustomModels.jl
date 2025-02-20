@@ -2,7 +2,7 @@ module CustomModels
 
     using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter
 
-    function stepped_regression(df, months, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra; model_type="linear", with_dummies=false, fe="standard")
+    function stepped_regression(df, months, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra; model_type="linear", with_dummies=false, fixed_effects="standard")
         """
             run_regression(df, months, controls, times, folder, extra; model_type="linear", with_dummies=false)
         
@@ -59,15 +59,15 @@ module CustomModels
             end
 
             for i in 1:3
-                if fe == "standard"
-                    fixed_effects = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
-                elseif fe == "quadratic_time"
-                    fixed_effects = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i") & term(:chb_year2)) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
+                if fixed_effects == "standard"
+                    fixed_effects_term = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
+                elseif fixed_effects == "quadratic_time"
+                    fixed_effects_term = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i")) & term(:chb_year_sq) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
                 end
 
                 reg_model = reg(
                     df, 
-                    term(Symbol("child_agedeath_$(time2)")) ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(term.(controls)) + fixed_effects, 
+                    term(Symbol("child_agedeath_$(time2)")) ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(term.(controls)) + fixed_effects_term, 
                     Vcov.cluster(Symbol("ID_cell$i")), 
                     method=:CUDA
                 )
@@ -176,9 +176,9 @@ module CustomModels
                             extra_with_time = extra_original #* " - times$(i)"
                             # Linear and Quadratic models - all cases
                             stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
-                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, fe="quadratic_time")
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, fixed_effects="quadratic_time")
                             stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic")
-                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic", fe="quadratic_time")
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic", fixed_effects="quadratic_time")
 
                             # Spline models - only for standardized variables (std_t, stdm_t):
                             if temp in ["std_t", "stdm_t"]
@@ -211,7 +211,7 @@ module CustomModels
 
     function run_heterogeneity(df, controls, heterogeneity_var, months)
 
-        groups = unique(df[heterogeneity_var])
+        groups = unique(df[!, heterogeneity_var])
 
         # Create a progress bar
         prog = Progress(length(groups), 1)
