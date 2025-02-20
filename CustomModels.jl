@@ -2,7 +2,7 @@ module CustomModels
 
     using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter
 
-    function stepped_regression(df, months, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra; model_type="linear", with_dummies=false)
+    function stepped_regression(df, months, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra; model_type="linear", with_dummies=false, fe="standard")
         """
             run_regression(df, months, controls, times, folder, extra; model_type="linear", with_dummies=false)
         
@@ -29,10 +29,10 @@ module CustomModels
         outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra).txt" 
         outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra).tex"
 
-        if isfile(outtxt) && isfile(outtex)
-            println("File exists, moving to next iteration.")
-            return
-        end
+        # if isfile(outtxt) && isfile(outtex)
+        #     println("File exists, moving to next iteration.")
+        #     return
+        # end
         
         spi_previous = [] # This list is for adding the previous SPI variables to the regression
         temp_previous = []  # This list is for adding the previous temperature variables to the regression
@@ -40,60 +40,64 @@ module CustomModels
         order_temp = [] # This list is for saving the regression tables in the right order
         regs = [] # regs stores the outputs of the regression models
 
-        try
-            for time in 1:(length(times)-1)
-                time1 = times[time]
-                time2 = times[time + 1]
+        # try
+        for time in 1:(length(times)-1)
+            time1 = times[time]
+            time2 = times[time + 1]
 
-                # Get SPI and temperature symbols based on the model type and dummies
-                spi_actual, temp_actual = get_symbols(months, temp, drought_ind, time2, stat, sp_threshold, model_type, with_dummies)
-                if time == 1
-                    spi_start, temp_start = get_symbols(months, temp, drought_ind, time1, stat, sp_threshold, model_type, with_dummies)
-                    append!(order_spi, spi_start)
-                    append!(order_temp, temp_start)
-                    append!(spi_previous, spi_start)
-                    append!(temp_previous, temp_start)
-                else
-                    # Filter out children that did not survive the previous time period
-                    df = filter(row -> row[Symbol("child_agedeath_$(time1)")] == 0, df)
-                end
-
-                for i in 1:3
-                    fixed_effects = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
-                    # println( term(Symbol("child_agedeath_$(time2)")) ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(controls) + fixed_effects )
-                    reg_model = reg(
-                        df, 
-                        term(Symbol("child_agedeath_$(time2)")) ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(controls) + fixed_effects, 
-                        Vcov.cluster(Symbol("ID_cell$i")), 
-                        method=:CUDA
-                    )
-                    push!(regs, reg_model)
-                end
-                append!(spi_previous, spi_actual)
-                append!(temp_previous, temp_actual)
-                append!(order_spi, spi_actual)
-                append!(order_temp, temp_actual)
+            # Get SPI and temperature symbols based on the model type and dummies
+            spi_actual, temp_actual = get_symbols(months, temp, drought_ind, time2, stat, sp_threshold, model_type, with_dummies)
+            if time == 1
+                spi_start, temp_start = get_symbols(months, temp, drought_ind, time1, stat, sp_threshold, model_type, with_dummies)
+                append!(order_spi, spi_start)
+                append!(order_temp, temp_start)
+                append!(spi_previous, spi_start)
+                append!(temp_previous, temp_start)
+            else
+                # Filter out children that did not survive the previous time period
+                df = filter(row -> row[Symbol("child_agedeath_$(time1)")] == 0, df)
             end
 
-            # Generate regression table
-            order = vcat(order_spi, order_temp)
-            order = [string(sym) for sym in order]
+            for i in 1:3
+                if fe == "standard"
+                    fixed_effects = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
+                elseif fe == "quadratic_time"
+                    fixed_effects = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i") & term(:chb_year2)) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
+                end
 
-            regtable(
-                regs...; 
-                render = AsciiTable(), 
-                file=outtxt,
-                order=order,
-            )
-            regtable(
-                regs...; 
-                render = LatexTable(), 
-                file=outtex,
-                order=order,
-            )
-        catch e
-            println("Error with ", outtex, e)
+                reg_model = reg(
+                    df, 
+                    term(Symbol("child_agedeath_$(time2)")) ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(term.(controls)) + fixed_effects, 
+                    Vcov.cluster(Symbol("ID_cell$i")), 
+                    method=:CUDA
+                )
+                push!(regs, reg_model)
+            end
+            append!(spi_previous, spi_actual)
+            append!(temp_previous, temp_actual)
+            append!(order_spi, spi_actual)
+            append!(order_temp, temp_actual)
         end
+
+        # Generate regression table
+        order = vcat(order_spi, order_temp)
+        order = [string(sym) for sym in order]
+
+        regtable(
+            regs...; 
+            render = AsciiTable(), 
+            file=outtxt,
+            order=order,
+        )
+        regtable(
+            regs...; 
+            render = LatexTable(), 
+            file=outtex,
+            order=order,
+        )
+        # catch e
+        #     println("Error with ", outtex, e)
+        # end
 
     end
 
@@ -167,18 +171,22 @@ module CustomModels
                 i = 1
                 for temp in ["stdm_t", "absdifm_t", "absdif_t", "std_t", "t"]
                     for drought_ind in ["spi"]#, "spei"]        
-                        for stat in ["avg"] #, "minmax"]
+                        for stat in ["avg", "minmax"]
 
                             extra_with_time = extra_original #* " - times$(i)"
-                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear")
-                            # stepped_regression(df, month, temp, drought_ind, controls, times, folder, extra_with_time, model_type="quadratic")
+                            # Linear and Quadratic models - all cases
                             stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
-                            # stepped_regression(df, month, temp, drought_ind, controls, times, folder, extra_with_time, model_type="quadratic", with_dummies=true)
-                            for sp_threshold in ["0_5", "1", "1_5"]
-                                extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
-                                stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
-                            end
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, fe="quadratic_time")
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic")
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic", fe="quadratic_time")
 
+                            # Spline models - only for standardized variables (std_t, stdm_t):
+                            if temp in ["std_t", "stdm_t"]
+                                for sp_threshold in ["0_5", "1", "1_5"]
+                                    extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
+                                    stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
+                                end
+                            end
                         end
                     end
                 end
@@ -216,7 +224,7 @@ module CustomModels
                 suffix = " - $(heterogeneity_var)$(group) - controls$(controls_i)"
                 CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", " - $(group)", months)
             catch
-                printlnln("Error en ", group)
+                println("Error en ", group)
             end
         end
     end
