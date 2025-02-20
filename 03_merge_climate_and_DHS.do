@@ -25,13 +25,13 @@ save "${DATA_IN}/Income level.dta", replace
 
 use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024", clear
 gen ID = _n - 1
-merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v9"
+merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v9" // Add climate variables
 keep if _merge==3
 drop _merge
-merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta"
+merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta" // Add income group
 keep if _merge==3
 drop _merge
-merge m:1  ID_HH using "${DATA_PROC}/DHSBirthsGlobalAnalysis_05142024_climate_bands_assigned.dta"
+merge m:1  ID_HH using "${DATA_PROC}/DHSBirthsGlobalAnalysis_05142024_climate_bands_assigned.dta" // Add climate bands and southern hemisphere dummy
 keep if _merge==3
 drop _merge
 
@@ -45,10 +45,10 @@ drop _merge
 *############################################################*
 *# 	 Crate climate variables
 *############################################################*
-
+stop
 * Create min-max variables for linear and quadratic models without dummies. Only the biggest effect is the one considered (i.e. where the deviation is bigger)
 *	For example, if there were a -1.5 shock and a +1.1 shock, we keep the -1.5 for the variable `var'_`time'_`stat'_minmax
-foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" { // "spi24" "spi48"{
+foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" // "spi48"{
 	foreach time in "inutero" "30d" "2m12m" {
 		gen `var'_`time'_min_abs = sqrt(`var'_`time'_min*`var'_`time'_min)
 		gen `var'_`time'_max_abs = sqrt(`var'_`time'_max*`var'_`time'_max)
@@ -57,7 +57,7 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 	}
 }
 
-foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" { // "spi24" "spi48"{
+foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" // "spi48"{
 	foreach time in "inutero" "30d" "2m12m" {
 		foreach stat in  "minmax" "avg" {
 			
@@ -147,6 +147,7 @@ foreach var in mother_ageb mother_eduy {
 sort ID_R chb_year chb_month
 by ID_R: gen birth_order = _n 
 
+gen chb_year_sq = chb_year*chb_year
 
 *############################################################*
 *# 	 Keep from_2003 and born in last_10_years
@@ -166,7 +167,7 @@ gen time_sq = time*time
 
 drop *_min *_max *_min_* *_max_*
 
-keep  ID ID_R ID_CB ID_HH t_* std_t_* stdm_t_* absdif_t_* absdifm_t_* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup climate_band_32 climate_band_5_data climate_band_5
+keep  ID ID_R ID_CB ID_HH t_* std_t_* stdm_t_* absdif_t_* absdifm_t_* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year chb_year_sq child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup climate_band_3 climate_band_2 climate_band_1 southern
 
 compress
 save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9.dta", replace
