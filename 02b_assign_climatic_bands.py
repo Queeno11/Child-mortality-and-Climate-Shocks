@@ -65,6 +65,10 @@ gdf_dhs = gdf_dhs.set_crs("epsg:4326", allow_override=True)
 gdf = gdf.set_crs("epsg:4326", allow_override=True)
 gdf_dhs_climatebands = gdf_dhs.sjoin(gdf)
 
+
+## Create southern hemisphere dummy 
+gdf_dhs_climatebands["southern"] = (gdf_dhs_climatebands["LATNUM"]<0)
+
 # Export
 outpath = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_proc\DHSBirthsGlobalAnalysis_05142024_climate_bands_assigned.dta"
 gdf_dhs_climatebands = gdf_dhs_climatebands[["ID_HH", "climate_band_3", "climate_band_2", "climate_band_1"]].drop_duplicates("ID_HH")
