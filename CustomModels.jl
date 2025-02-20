@@ -209,7 +209,7 @@ module CustomModels
         CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", suffix, months)
     end
 
-    function run_heterogeneity(df, controls, controls_i, heterogeneity_var, folder, extra, months)
+    function run_heterogeneity(df, controls, heterogeneity_var, months)
 
         groups = unique(df[heterogeneity_var])
 
@@ -221,7 +221,6 @@ module CustomModels
             next!(prog) # Update progress bar
             try
                 df_filtered = filter(row -> row[heterogeneity_var] == group, df)
-                suffix = " - $(heterogeneity_var)$(group) - controls$(controls_i)"
                 CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", " - $(group)", months)
             catch
                 println("Error en ", group)
@@ -229,4 +228,6 @@ module CustomModels
         end
     end
 
+
+    
 end # module SteppedRegression
