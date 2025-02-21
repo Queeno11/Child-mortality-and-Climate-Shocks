@@ -31,7 +31,7 @@ for m in ["1", "3", "6", "9", "12", "24"]
     df = CSV.read(
         "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9.csv", DataFrame;
         select=columns_to_include,
-        # silencewarnings = true,
+        # limit=10000,
     )
     print("   Dataset cargado!")
 
@@ -42,15 +42,14 @@ for m in ["1", "3", "6", "9", "12", "24"]
     termcontrols = term.(controls)
     CustomModels.run_models(df, termcontrols, "", "", [m])
 
-    # #################################################################
-    # ###  heterogeneity
-    # #################################################################
+    # # #################################################################
+    # # ###  heterogeneity
+    # # #################################################################
     
     
-    # Climate Bands (3 classifications)
-    CustomModels.run_heterogeneity(df, controls, "climate_band_1", [m])
-    CustomModels.run_heterogeneity(df, controls, "climate_band_2", [m])
-    # CustomModels.run_heterogeneity(df, controls, "climate_band_3", [m])
+    # # Climate Bands (3 classifications)
+    # CustomModels.run_heterogeneity(df, controls, "climate_band_1", [m])
+    # CustomModels.run_heterogeneity(df, controls, "climate_band_2", [m])
     
     # Northern & Southern Hemisphere
     CustomModels.run_heterogeneity_dummy(df, controls, "southern", [m])

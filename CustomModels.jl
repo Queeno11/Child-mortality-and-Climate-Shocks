@@ -140,8 +140,18 @@ module CustomModels
             spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_$(stat)_sq_neg"), Symbol("$(drought_ind)$(months)_$(time)_$(stat)_sq_pos")]
             temp_symbols = [Symbol("$(temp)_$(time)_$(stat)_sq_neg"), Symbol("$(temp)_$(time)_$(stat)_sq_pos")]
         elseif model_type == "spline"
-            spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_ltm$(sp_threshold)"), Symbol("$(drought_ind)$(months)_$(time)_bt0m$(sp_threshold)"), Symbol("$(drought_ind)$(months)_$(time)_bt0$(sp_threshold)"), Symbol("$(drought_ind)$(months)_$(time)_gt$(sp_threshold)")]
-            temp_symbols = [Symbol("$(temp)_$(time)_ltm$(sp_threshold)"), Symbol("$(temp)_$(time)_bt0m$(sp_threshold)"), Symbol("$(temp)_$(time)_bt0$(sp_threshold)"), Symbol("$(temp)_$(time)_gt$(sp_threshold)")]            
+            spi_symbols = [
+                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_ltm$(sp_threshold)"), 
+                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_bt0m$(sp_threshold)"), 
+                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_bt0$(sp_threshold)"), 
+                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_gt$(sp_threshold)")
+            ]
+            temp_symbols = [
+                Symbol("$(temp)_$(time)_$(stat)_ltm$(sp_threshold)"),
+                Symbol("$(temp)_$(time)_$(stat)_bt0m$(sp_threshold)"),
+                Symbol("$(temp)_$(time)_$(stat)_bt0$(sp_threshold)"),
+                Symbol("$(temp)_$(time)_$(stat)_gt$(sp_threshold)")
+            ]            
         end
 
         return spi_symbols, temp_symbols
@@ -184,7 +194,7 @@ module CustomModels
 
                             # Spline models - only for standardized variables (std_t, stdm_t):
                             if temp in ["std_t", "stdm_t"]
-                                for sp_threshold in ["0_5", "1", "1_5"]
+                                for sp_threshold in ["1", "2"]
                                     extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
                                     stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
                                 end

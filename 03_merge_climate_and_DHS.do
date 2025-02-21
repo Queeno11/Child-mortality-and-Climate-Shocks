@@ -72,12 +72,15 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 				replace `var'_`time'_`stat'_neg = `var'_`time'_min if `var'_`time'_min<=0	
 
 				* Positive and negative dummy greater than threshold. 
-				foreach threshold in 0.5 1 1.5 {
-					local thres_str = cond(`threshold' == 0.5, "0_5", subinstr(string(`threshold'), ".", "_", .))
-					gen `var'_`time'_gt`thres_str'   = (`var'_`time'_max>`threshold') * `var'_`time'_max
-					gen `var'_`time'_bt0`thres_str'  = ((`var'_`time'_max>0) & (`var'_`time'_max<=`threshold')) * `var'_`time'_max
-					gen `var'_`time'_ltm`thres_str'  = (`var'_`time'_min<-`threshold') * `var'_`time'_min
-					gen `var'_`time'_bt0m`thres_str' = ((`var'_`time'_min<0) & (`var'_`time'_min>=-`threshold')) * `var'_`time'_min
+				foreach sd in 1 2 {
+					qui sum `var'_`time'_max if `var'_`time'_max>0
+					local threshold_max = r(mean) + `sd'*r(sd)
+					gen `var'_`time'_`stat'_gt`sd'   = (`var'_`time'_max>`threshold_max') * `var'_`time'_max
+					gen `var'_`time'_`stat'_bt0`sd'  = ((`var'_`time'_max>0) & (`var'_`time'_max<=`threshold_max')) * `var'_`time'_max
+					qui sum `var'_`time'_min if `var'_`time'_min>0
+					local threshold_min = r(mean) + `sd'*r(sd)
+					gen `var'_`time'_`stat'_ltm`sd'  = (`var'_`time'_min<-`threshold_min') * `var'_`time'_min
+					gen `var'_`time'_`stat'_bt0m`sd' = ((`var'_`time'_min<0) & (`var'_`time'_min>=-`threshold_min')) * `var'_`time'_min
 				}
 			}
 			else {
@@ -85,6 +88,19 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 				replace `var'_`time'_avg_pos = `var'_`time'_avg if `var'_`time'_avg>=0
 				gen `var'_`time'_avg_neg = 0
 				replace `var'_`time'_avg_neg = `var'_`time'_avg  if `var'_`time'_avg<=0	
+
+				* Positive and negative dummy greater than threshold. 
+				foreach sd in 1 2 {
+					qui sum `var'_`time'_avg_pos if `var'_`time'_avg_pos>0
+					local threshold_avg_pos = r(mean) + `sd'*r(sd)
+					gen `var'_`time'_`stat'_gt`sd'   = (`var'_`time'_avg_pos>`threshold_avg_pos') * `var'_`time'_avg_pos
+					gen `var'_`time'_`stat'_bt0`sd'  = ((`var'_`time'_avg_pos>0) & (`var'_`time'_avg_pos<=`threshold_avg_pos')) * `var'_`time'_max
+					qui sum `var'_`time'_avg_neg if `var'_`time'_avg_neg>0
+					local threshold_avg_neg = r(mean) + `sd'*r(sd)
+					gen `var'_`time'_`stat'_ltm`sd'  = (`var'_`time'_avg_neg<-`threshold_avg_neg') * `var'_`time'_avg_neg
+					gen `var'_`time'_`stat'_bt0m`sd' = ((`var'_`time'_avg_neg<0) & (`var'_`time'_avg_neg>=-`threshold_avg_neg')) * `var'_`time'_min
+				}
+
 			}
 		
 	
