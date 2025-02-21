@@ -98,7 +98,9 @@ module CustomModels
         # catch e
         #     println("Error with ", outtex, e)
         # end
-
+        
+        # Garbage collection
+        GC.gc()
     end
 
     function get_symbols(months, temp, drought_ind, time, stat, sp_threshold, model_type, with_dummies)
