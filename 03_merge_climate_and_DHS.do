@@ -73,14 +73,18 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 
 				* Positive and negative dummy greater than threshold. 
 				foreach sd in 1 2 {
+					* This part is tricky. For minmax, we have a bimodal distribution for min and max values, therefore we
+					*	treat them as two different distributions, computing their own sd and mean. For avg, we only compute their
+					*	sd and mean of the pooled distribution!
 					qui sum `var'_`time'_max if `var'_`time'_max>0
 					local threshold_max = r(mean) + `sd'*r(sd)
-					gen `var'_`time'_`stat'_gt`sd'   = (`var'_`time'_max>`threshold_max') * `var'_`time'_max
-					gen `var'_`time'_`stat'_bt0`sd'  = ((`var'_`time'_max>0) & (`var'_`time'_max<=`threshold_max')) * `var'_`time'_max
+					gen `var'_`time'_`stat'_gt`sd'   = (`var'_`time'_max>=`threshold_max') * `var'_`time'_max
+					gen `var'_`time'_`stat'_bt0`sd'  = ((`var'_`time'_max>=0) & (`var'_`time'_max<`threshold_max')) * `var'_`time'_max
+					
 					qui sum `var'_`time'_min if `var'_`time'_min>0
 					local threshold_min = r(mean) + `sd'*r(sd)
-					gen `var'_`time'_`stat'_ltm`sd'  = (`var'_`time'_min<-`threshold_min') * `var'_`time'_min
-					gen `var'_`time'_`stat'_bt0m`sd' = ((`var'_`time'_min<0) & (`var'_`time'_min>=-`threshold_min')) * `var'_`time'_min
+					gen `var'_`time'_`stat'_ltm`sd'  = (`var'_`time'_min<`threshold_min') * `var'_`time'_min
+					gen `var'_`time'_`stat'_bt0m`sd' = ((`var'_`time'_min<0) & (`var'_`time'_min>=`threshold_min')) * `var'_`time'_min
 				}
 			}
 			else {
@@ -91,14 +95,14 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 
 				* Positive and negative dummy greater than threshold. 
 				foreach sd in 1 2 {
-					qui sum `var'_`time'_avg_pos if `var'_`time'_avg_pos>0
+					qui sum `var'_`time'_avg
 					local threshold_avg_pos = r(mean) + `sd'*r(sd)
-					gen `var'_`time'_`stat'_gt`sd'   = (`var'_`time'_avg_pos>`threshold_avg_pos') * `var'_`time'_avg_pos
-					gen `var'_`time'_`stat'_bt0`sd'  = ((`var'_`time'_avg_pos>0) & (`var'_`time'_avg_pos<=`threshold_avg_pos')) * `var'_`time'_max
-					qui sum `var'_`time'_avg_neg if `var'_`time'_avg_neg>0
-					local threshold_avg_neg = r(mean) + `sd'*r(sd)
-					gen `var'_`time'_`stat'_ltm`sd'  = (`var'_`time'_avg_neg<-`threshold_avg_neg') * `var'_`time'_avg_neg
-					gen `var'_`time'_`stat'_bt0m`sd' = ((`var'_`time'_avg_neg<0) & (`var'_`time'_avg_neg>=-`threshold_avg_neg')) * `var'_`time'_min
+					local threshold_avg_neg = r(mean) - `sd'*r(sd)
+					
+					gen `var'_`time'_avg_gt`sd'   = (`var'_`time'_avg>=`threshold_avg_pos') * `var'_`time'_avg
+					gen `var'_`time'_avg_bt0`sd'  = ((`var'_`time'_avg<`threshold_avg_pos') & (`var'_`time'_avg>=0)) * `var'_`time'_avg
+					gen `var'_`time'_avg_bt0m`sd'  = ((`var'_`time'_avg>=`threshold_avg_neg') & (`var'_`time'_avg<0)) * `var'_`time'_avg
+					gen `var'_`time'_avg_ltm`sd' = (`var'_`time'_avg<`threshold_avg_neg') * `var'_`time'_avg
 				}
 
 			}
@@ -181,7 +185,7 @@ gen time_sq = time*time
 drop *_min *_max *_min_* *_max_*
 
 keep  ID ID_R ID_CB ID_HH t_* std_t_* stdm_t_* absdif_t_* absdifm_t_* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year chb_year_sq child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup climate_band_3 climate_band_2 climate_band_1 southern
-
+stop
 compress
 save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9.dta", replace
 export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9.csv", replace
