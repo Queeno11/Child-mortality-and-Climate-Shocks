@@ -193,11 +193,9 @@ module CustomModels
                             stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic", fixed_effects="quadratic_time")
 
                             # Spline models - only for standardized variables (std_t, stdm_t):
-                            if temp in ["std_t", "stdm_t"]
-                                for sp_threshold in ["1", "2"]
-                                    extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
-                                    stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
-                                end
+                            for sp_threshold in ["1", "2"]
+                                extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
+                                stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
                             end
                         end
                     end
