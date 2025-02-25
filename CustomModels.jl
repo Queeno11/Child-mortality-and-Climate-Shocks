@@ -29,10 +29,10 @@ module CustomModels
         outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe.txt" 
         outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe.tex"
 
-        # if isfile(outtxt) && isfile(outtex)
-        #     println("File exists, moving to next iteration.")
-        #     return
-        # end
+        if isfile(outtxt) && isfile(outtex)
+            println("File exists, moving to next iteration.")
+            return
+        end
         
         spi_previous = [] # This list is for adding the previous SPI variables to the regression
         temp_previous = []  # This list is for adding the previous temperature variables to the regression
@@ -157,7 +157,7 @@ module CustomModels
         return spi_symbols, temp_symbols
     end
 
-    function run_models(df, controls, folder, extra, months)
+    function run_models(df, controls, folder, extra, months; only_linear=false)
         """
             run_models(df, controls, folder, extra)
         
@@ -183,11 +183,14 @@ module CustomModels
                 i = 1
                 for temp in ["stdm_t", "absdifm_t", "absdif_t", "std_t", "t"]
                     for drought_ind in ["spi"]#, "spei"]        
-                        for stat in ["avg", "minmax"]
+                        for stat in ["avg"]#, "minmax"]
 
                             extra_with_time = extra_original #* " - times$(i)"
                             # Linear and Quadratic models - all cases
                             stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
+                            if only_linear
+                                continue
+                            end
                             stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, fixed_effects="quadratic_time")
                             stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic")
                             stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic", fixed_effects="quadratic_time")
@@ -212,11 +215,11 @@ module CustomModels
 
         df_filtered = filter(row -> row[heterogeneity_var] == 0, df)
         suffix = " - $(heterogeneity_var)0"
-        CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", suffix, months)
+        CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", suffix, months, only_linear=true)
 
         df_filtered = filter(row -> row[heterogeneity_var] == 1, df)
         suffix = " - $(heterogeneity_var)1"
-        CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", suffix, months)
+        CustomModels.run_models(df_filtered, controls, "heterogeneity\\$(heterogeneity_var)", suffix, months, only_linear=true)
     end
 
     function run_heterogeneity(df, controls, heterogeneity_var, months)
