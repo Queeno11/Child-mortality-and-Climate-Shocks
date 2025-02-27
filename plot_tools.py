@@ -364,7 +364,7 @@ def plot_regression_coefficients(all_values, all_ci_top, all_ci_bot, margin, col
         ax5.spines["bottom"].set_position(("outward", 25))  # Move third x-axis further down
         ax5 = add_whitespace_to_axis(ax5, [2.5])
 
-    fig.savefig(outpath, bbox_inches='tight', pad_inches=1)
+    fig.savefig(outpath, bbox_inches='tight')
 
 def plot_spline_coefficients(all_values, all_ci_top, all_ci_bot, margin, mfcs=[], labels=[], plot="both", outpath=None):
     
@@ -422,7 +422,7 @@ def plot_spline_coefficients(all_values, all_ci_top, all_ci_bot, margin, mfcs=[]
     ax3.set_xticklabels(["<-1 Std", "Between\n-1 and 0 Std", "Between\n0 and +1 Std", ">1 Std"])
     ax3.tick_params(axis="x", length=0)  # Remove tick marks
     
-    fig.savefig(outpath, bbox_inches='tight', pad_inches=1)
+    fig.savefig(outpath, bbox_inches='tight')
 
 def extract_sample_size(filepath):
     import re
@@ -508,3 +508,45 @@ def plot_heterogeneity(f_name, var, folder, colors=[], labels=[]):
             plot="only_spi", 
             outpath=rf"{folder}\heterogeneity - {var} - spi {f_name} {sign}.png"
         )        
+
+def plot_shocks_histogram(df, cols, outpath):
+    
+    import seaborn as sns
+    
+    fig, axs = plt.subplots(3, 2, figsize=(8, 6), sharey=True)
+
+    for i, ax in enumerate(axs.flatten()):
+        col = cols[i]
+        # if "spi1" not in col:
+        #     continue
+        
+        s = df[col]
+        
+        # Compute thresholds
+        std = s.std()
+        mean = s.mean()
+        positive = mean + std
+        negative = mean - std
+        
+        s.plot(kind="kde", color="black", label=col, ax=ax)
+        ax.axvline(positive, color="black", linestyle="--")
+        ax.axvline(negative, color="black", linestyle="--")
+        ax.axvline(0, color="black", linestyle="-")
+
+        ax.set_xlim(-2.5, 2.5)
+        ax.set_ylim(-0.1, 1.2)
+        ax.set_ylabel("")
+        
+        
+    fig.tight_layout(pad=2)
+
+    plt.text(x=-7.33, y=5, s=f"Standardized Temperature Anomaly")
+    plt.text(x=-1.54, y=5, s=f"Standardized Precipitation Index")
+
+    plt.text(x=-2.73, y=3.16, s=f"In-utero", ha="center")
+    plt.text(x=-2.73, y=1.36, s=f"First 30-days", ha="center")
+    plt.text(x=-2.73, y=-0.45, s=f"Between month 1 and 12", ha="center")
+    sns.despine()
+    
+    fig.savefig(outpath, dpi=300, bbox_inches='tight', pad_inches=0.2)
+

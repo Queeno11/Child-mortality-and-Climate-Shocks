@@ -2,6 +2,7 @@ import os
 import argparse
 import plot_tools
 import numpy as np
+import pandas as pd
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Plot regression results from LaTeX output.")
@@ -15,16 +16,28 @@ spi  = args.spi
 temp = args.temp
 stat = args.stat
 
+DATA_OUT = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_out"
 OUTPUTS = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs"
 OUT_FIGS = rf"{OUTPUTS}\Figures\{spi} {temp} {stat}"
 os.makedirs(rf"{OUT_FIGS}", exist_ok=True)
 
 ###### Figure 1: Histograms
-
+cols = [
+    "stdm_t_inutero_avg",
+    "spi1_inutero_avg",
+    "stdm_t_30d_avg",
+    "spi1_30d_avg",
+    "stdm_t_2m12m_avg",
+    "spi1_2m12m_avg",
+]
+print("Loading DHS-Climate data...")
+df = pd.read_csv(rf"{DATA_OUT}\DHSBirthsGlobal&ClimateShocks_v9.csv", usecols=cols)
+print("Data loaded!")
+outpath = rf"{OUT_FIGS}\histograms.png"
+plot_tools.plot_shocks_histogram(df, cols, outpath=outpath)
+exit()
 
 ###### Figure 2: Main coefficients dummies true
-
-# Main Plot
 file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp}  standard_fe.tex"  # Replace with the actual path to your LaTeX file.
 outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
 
@@ -54,9 +67,7 @@ plot_tools.plot_regression_coefficients(
     outpath=rf"{OUT_FIGS}\coefplot_spi.png"
 )
 
-
 ###### Figure 2.5: Fixed effects comparison
-
 file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp}  quadratic_time_fe.tex"  # Replace with the actual path to your LaTeX file.
 outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
 
@@ -135,14 +146,12 @@ for var in ["temp", "spi"]:
     
     
 ### Figure 4: Climate bands 1 heterogeneity
-
 f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
 colors=["#ffd220", "#79c78d", "#fe3500"] 
 labels=["Arid","Temperate", "Tropical"]
 plot_tools.plot_heterogeneity(f_name, "climate_band_1", folder=OUT_FIGS, colors=colors, labels=labels)    
 
 ### FIgure 4.5: Climate bands 2 heterogeneity
-
 f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
 
 colors = [
