@@ -47,6 +47,10 @@ for m in ["1", "3", "6", "9", "12", "24"]
     termcontrols = term.(controls)
     CustomModels.run_models(df, termcontrols, "", "", [m])
 
+    if m != 1
+        # Only run heterogeneity for SPI1
+        continue
+    end
     # # #################################################################
     # # ###  heterogeneity
     # # #################################################################
