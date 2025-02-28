@@ -37,6 +37,7 @@ for m in ["1", "3", "6", "9", "12", "24"]
         "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9.csv", DataFrame;
         select=columns_to_include,
         rows_to_check=1000,
+        # limit=10000,
     )
     print("   Dataset cargado!")
 

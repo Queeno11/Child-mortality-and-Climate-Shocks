@@ -9,6 +9,17 @@ module CustomModels
         Runs the specified regression models on the provided DataFrame `df` for different time periods. 
         This function supports multiple model types, including linear, quadratic, and quadratic with dummy variables.
         
+        Results in stata cannot be directly replicated because reghdfe creates one variable for each ID_cell, which makes it
+        imposible to fit in a RAM. Nevertheless, this function replicates a model such as:
+            
+            reghdfe child_agedeath_30d spi1_inutero_avg_neg spi1_inutero_avg_pos spi1_30d_avg_neg spi1_30d_avg_pos 
+                                       stdm_t_inutero_avg_neg stdm_t_inutero_avg_pos stdm_t_30d_avg_neg stdm_t_30d_avg_pos 
+                                       ${controls} i.ID_cell1#c.chb_year, 
+                                       absorb(ID_cell1#chb_month ID_cell1) vce(cluster ID_cell1) nocons
+
+        the term i.ID_cell1#c.chb_year adds a linear trend on every fixed effect, and the term absorb(ID_cell1#chb_month ID_cell1) 
+        adds the fixed effects for each cell and cell-month interaction. 
+
         # Arguments
         - `df`: DataFrame containing the data.
         - `months`: String specifying the SPI time window (e.g., "1", "3", "6", "9", "12").
@@ -71,6 +82,7 @@ module CustomModels
                     Vcov.cluster(Symbol("ID_cell$i")), 
                     method=:CUDA
                 )
+                println(reg_model)
                 push!(regs, reg_model)
             end
             append!(spi_previous, spi_actual)
