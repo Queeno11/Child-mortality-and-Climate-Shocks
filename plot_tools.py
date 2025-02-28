@@ -16,8 +16,8 @@ def compute_ci(coefs, ses):
     upper = []
     for coef, se in zip(coefs, ses):
         if coef is not None and se is not None:
-            lower.append(coef - 1.96 * se)
-            upper.append(coef + 1.96 * se)
+            lower.append(coef - 2.0796 * se)
+            upper.append(coef + 2.0796 * se)
         else:
             lower.append(None)
             upper.append(None)
@@ -253,7 +253,7 @@ def distribute_x_values(x_values, n, margin=0.1):
 
     return out_values
 
-def plot_regression_coefficients(all_values, all_ci_top, all_ci_bot, margin, colors=[], labels=[], plot="both", outpath=None):
+def plot_regression_coefficients(all_values, all_ci_top, all_ci_bot, margin, colors=[], labels=[], plot="both", outpath=None, legend_cols=4):
     
     def add_whitespace_to_axis(ax, x):
             ax.set_xticks(x)
@@ -304,7 +304,7 @@ def plot_regression_coefficients(all_values, all_ci_top, all_ci_bot, margin, col
         ax.errorbar(x, values, yerr=yerr, capsize=3, fmt="o", color=color, label=label)
 
     if len(labels) > 0:
-        ax.legend(bbox_to_anchor=(0.47, -0.2), frameon=False, ncols=4, loc="upper center")
+        ax.legend(bbox_to_anchor=(0.47, -0.2), frameon=False, ncols=legend_cols, loc="upper center")
     
     ax.axhline(y=0, color="black", linestyle="--", dashes=(7, 7), linewidth =1)
     ax.set_xlim(0.5, len(all_values[0])+.5)
