@@ -3,6 +3,7 @@ import argparse
 import plot_tools
 import numpy as np
 import pandas as pd
+import geopandas as gpd
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Plot regression results from LaTeX output.")
@@ -22,20 +23,19 @@ OUT_FIGS = rf"{OUTPUTS}\Figures\{spi} {temp} {stat}"
 os.makedirs(rf"{OUT_FIGS}", exist_ok=True)
 
 ###### Figure 1: Histograms
-cols = [
-    "stdm_t_inutero_avg",
-    "spi1_inutero_avg",
-    "stdm_t_30d_avg",
-    "spi1_30d_avg",
-    "stdm_t_2m12m_avg",
-    "spi1_2m12m_avg",
-]
-print("Loading DHS-Climate data...")
-df = pd.read_csv(rf"{DATA_OUT}\DHSBirthsGlobal&ClimateShocks_v9.csv", usecols=cols)
-print("Data loaded!")
-outpath = rf"{OUT_FIGS}\histograms.png"
-plot_tools.plot_shocks_histogram(df, cols, outpath=outpath)
-exit()
+# cols = [
+#     "stdm_t_inutero_avg",
+#     "spi1_inutero_avg",
+#     "stdm_t_30d_avg",
+#     "spi1_30d_avg",
+#     "stdm_t_2m12m_avg",
+#     "spi1_2m12m_avg",
+# ]
+# print("Loading DHS-Climate data...")
+# df = pd.read_csv(rf"{DATA_OUT}\DHSBirthsGlobal&ClimateShocks_v9.csv", usecols=cols)
+# print("Data loaded!")
+# outpath = rf"{OUT_FIGS}\histograms.png"
+# plot_tools.plot_shocks_histogram(df, cols, outpath=outpath)
 
 ###### Figure 2: Main coefficients dummies true
 file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp}  standard_fe.tex"  # Replace with the actual path to your LaTeX file.
@@ -87,7 +87,8 @@ plot_tools.plot_regression_coefficients(
     colors=["#ff5100", "#7c0f06", "#3e9fe1", "#1a4461", ], 
     labels=["Standard FE (+)","Quadratic Time FE (+)", "Standard FE (-)","Quadratic Time FE (-)"], 
     plot="only_temp", 
-    outpath=rf"{OUT_FIGS}\coefplot_fe_temp.png"
+    outpath=rf"{OUT_FIGS}\coefplot_fe_temp.png",
+    legend_cols=2,
 )
 plot_tools.plot_regression_coefficients(
     values, 
@@ -97,7 +98,8 @@ plot_tools.plot_regression_coefficients(
     colors=["#3e9fe1", "#1a4461", "#ff5100", "#7c0f06"], 
     labels=["Standard FE (+)","Quadratic Time FE (+)", "Standard FE (-)","Quadratic Time FE (-)"], 
     plot="only_spi", 
-    outpath=rf"{OUT_FIGS}\coefplot_fe_spi.png"
+    outpath=rf"{OUT_FIGS}\coefplot_fe_spi.png",
+    legend_cols=2,
 )
 
 
@@ -239,4 +241,72 @@ colors = [
 ]
 labels=["Male", "Female",]
 plot_tools.plot_heterogeneity(f_name, "child_fem", folder=OUT_FIGS, colors=colors, labels=labels)    
+
+
+################## Descriptive statistcs
+####### Plot DHS sample:
+
+df = pd.read_stata(r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_in\DHS\DHSBirthsGlobalAnalysis_05142024.dta")
+
+df = df.dropna(subset=["v008", "chb_year", "chb_month"], how="any")
+
+# Create datetime object from year and month
+df["day"] = 1
+df["month"] = df["chb_month"].astype(int)
+df["year"] = df["chb_year"].astype(int)
+df["birth_date"] = pd.to_datetime(df[["year", "month", "day"]]).to_numpy()
+df = df.drop(columns=["day", "month", "year"])
+
+# Maximum range of dates
+df["from_date"] = df["birth_date"] + pd.DateOffset(
+    months=-9
+)  # From in utero (9 months before birth)
+df["to_date"] = df["birth_date"] + pd.DateOffset(
+    months=12
+)  # To the first year of life
+
+# Filter children from_date greater than 1991 (we only have climate data from 1990)
+df = df[df["from_date"] > "1991-01-01"]
+
+# Filter children to_date smalle than 2021 (we only have climate data to 2020)
+df = df[df["to_date"] < "2021-01-01"]
+
+
+# Date of interview
+df["year"] = 1900 + (df["v008"] - 1) // 12
+df["month"] = df["v008"] - 12 * (df["year"] - 1900)
+df["day"] = 1
+df["interview_date"] = pd.to_datetime(df[["year", "month", "day"]], dayfirst=False)
+df["interview_year"] = df["year"]
+df["interview_month"] = df["month"]
+df = df.drop(columns=["year", "month", "day"])
+
+# Number of days from interview
+df["days_from_interview"] = df["interview_date"] - df["birth_date"]
+
+# excluir del análisis a aquellos niños que nacieron 12 meses alrededor de la fecha de la encuesta y no más allá de 10 y 15 años del momento de la encuesta.
+# PREGUNTA PARA PAULA: ¿ella ya hizo el filtro de 15 años y 30 dias?
+df["last_15_years"] = (df["days_from_interview"] > np.timedelta64(30, "D")) & (
+    df["days_from_interview"] < np.timedelta64(15 * 365, "D")
+)
+df["last_10_years"] = (df["days_from_interview"] > np.timedelta64(30, "D")) & (
+    df["days_from_interview"] < np.timedelta64(10 * 365, "D")
+)
+df["since_2003"] = df["interview_year"] >= 2003
+df = df[df["last_15_years"] == True]
+
+gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.LONGNUM, df.LATNUM))
+
+world_bounds = gpd.read_file(r"D:\Datasets\World Bank Official Boundaries\WB_countries_Admin0_10m\WB_countries_Admin0_10m.shp")
+
+# plot world without fill and with black borders and thin lines
+ax = world_bounds.simplify(0.1).plot(edgecolor='black', facecolor='none', linewidth=0.4, figsize=(20, 10))
+
+# Remove axis
+ax.axis('off')
+ax.set_xlim(-180, 180)
+ax.set_ylim(-70, 85)
+
+gdf.plot(ax=ax, markersize=.05)
+
 
