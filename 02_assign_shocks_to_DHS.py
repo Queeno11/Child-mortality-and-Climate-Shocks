@@ -69,29 +69,36 @@ if __name__ == "__main__":
         results = {}
         
         # Define the time slices
-        inutero_slice = slice(0, 9)
-        born_1m_slice = slice(9, 11)
-        born_2to12m_slice = slice(11, 22)
+        timeframes = {
+            "inutero_1m3m": slice(0, 3),
+            "inutero_4m6m": slice(3, 6),
+            "inutero_6m9m": slice(6, 9),
+            "born_1m3m": slice(9, 12),
+            "born_3m6m": slice(12, 15),
+            "born_6m9m": slice(15, 18),
+            "born_9m12m": slice(18, 21),
+        }
         
         # # Process variables in ds_temp
-        for var in ds.data_vars:
+        for timename, filter in timeframes.items():
+            
+            data = ds.isel(time=filter).mean()
+            
+            for var in ds.data_vars:
 
-            data = ds[var]
+                results[f"{var}_{timename}_avg"] = data[var].item()
 
-            results[f"{var}_inutero_avg"] = data.isel(time=inutero_slice).mean().item()
-            results[f"{var}_30d_avg"] = data.isel(time=born_1m_slice).mean().item()
-            results[f"{var}_2m12m_avg"] = data.isel(time=born_2to12m_slice).mean().item()
+                # results[f"{var}_inutero_min"] = data.isel(time=inutero_slice).min().item()
+                # results[f"{var}_30d_min"] = data.isel(time=born_1m_slice).min().item()
+                # results[f"{var}_2m12m_min"] = data.isel(time=born_2to12m_slice).min().item()
 
-            results[f"{var}_inutero_min"] = data.isel(time=inutero_slice).min().item()
-            results[f"{var}_30d_min"] = data.isel(time=born_1m_slice).min().item()
-            results[f"{var}_2m12m_min"] = data.isel(time=born_2to12m_slice).min().item()
-
-            results[f"{var}_inutero_max"] = data.isel(time=inutero_slice).max().item()
-            results[f"{var}_30d_max"] = data.isel(time=born_1m_slice).max().item()
-            results[f"{var}_2m12m_max"] = data.isel(time=born_2to12m_slice).max().item()
-        
+                # results[f"{var}_inutero_max"] = data.isel(time=inutero_slice).max().item()
+                # results[f"{var}_30d_max"] = data.isel(time=born_1m_slice).max().item()
+                # results[f"{var}_2m12m_max"] = data.isel(time=born_2to12m_slice).max().item()
+            
         # Convert results to pandas Series
         results_series = pd.Series(results)
+
         return results_series
 
 
@@ -260,5 +267,5 @@ if __name__ == "__main__":
 
     # Drop nans in spi/temp values
     df = df.dropna(subset=shock_cols, how="any")
-    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v9.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9.dta")
+    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v9b.dta")
+    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9b.dta")
