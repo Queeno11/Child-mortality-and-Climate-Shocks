@@ -14,7 +14,7 @@ controls = controls2 # controls3, controls1
 
 # # Read the file schema without loading data
 file = CSV.File(
-    "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9.csv"; limit=100
+    "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9b.csv"; limit=100
 )
 
 ## Loop over months to avoid overloading memory, only load the necessary columns
@@ -34,10 +34,10 @@ for m in ["1", "3", "6", "9", "12", "24"]
     println("Cargando dataset...")
     local df
     df = CSV.read(
-        "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9.csv", DataFrame;
+        "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9b.csv", DataFrame;
         select=columns_to_include,
         rows_to_check=1000,
-        # limit=10000,
+        # limit=1000,
     )
     print("   Dataset cargado!")
 
