@@ -191,7 +191,7 @@ module CustomModels
         for month in months
             extra_original = extra
             sp_threshold = 0.5 # Set default value to avoid breaking the function when this parameter is not used
-            for times in (["inutero", "30d", "2m12m"], )#, ["inutero", "1m3m", "4m12m"], ["inutero", "1m12m"])
+            for times in (["inutero_1m3m", "inutero_4m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m"])#, ["inutero", "1m3m", "4m12m"], ["inutero", "1m12m"])
                 i = 1
                 for temp in ["stdm_t", "absdifm_t", "absdif_t", "std_t", "t"]
                     for drought_ind in ["spi"]#, "spei"]        
