@@ -23,7 +23,7 @@ import excel using "D:\World Bank\Data-Portal-Brief-Generator\Data\Data_Raw\Coun
 rename wbcode code_iso3
 save "${DATA_IN}/Income level.dta", replace
 
-use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024", clear
+use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_11072024", clear
 gen ID = _n - 1
 merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v9b" // Add climate variables
 keep if _merge==3
@@ -31,7 +31,7 @@ drop _merge
 merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta" // Add income group
 keep if _merge==3
 drop _merge
-merge m:1  ID_HH using "${DATA_PROC}/DHSBirthsGlobalAnalysis_05142024_climate_bands_assigned.dta" // Add climate bands and southern hemisphere dummy
+merge m:1  ID_HH using "${DATA_PROC}/DHSBirthsGlobalAnalysis_11072024_climate_bands_assigned.dta" // Add climate bands and southern hemisphere dummy
 keep if _merge==3
 drop _merge
 
