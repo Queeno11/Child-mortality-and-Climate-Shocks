@@ -24,7 +24,7 @@ for m in ["1", "3", "6", "9", "12", "24"]
     local columns_to_include
     columns_to_include = [
         name for name in file.names 
-        if any(occursin(string(including), string(name)) for including in [Symbol("spi$(m)_"), "stdm_t_",  "absdifm_t_", "absdif_t_", "std_t_", "t_", "ID_cell", "child_agedeath_"])
+        if any(occursin(string(including), string(name)) for including in [Symbol("spi$(m)_"), "std_t_", "stdm_t_", "ID_cell", "child_agedeath_"]) #   "absdifm_t_", "absdif_t_", "t_",])
     ]
     columns_to_include = vcat(columns_to_include, controls, [:chb_month, :chb_year, :chb_year_sq, :rural, :pipedw, :href, :hhelectemp, :wbincomegroup, :climate_band_1, :climate_band_2, :climate_band_3, :southern])
 
@@ -39,7 +39,7 @@ for m in ["1", "3", "6", "9", "12", "24"]
         rows_to_check=1000,
         # limit=1000,
     )
-    print("   Dataset cargado!")
+    print("Dataset cargado!")
 
     #################################################################
     ###  Pooled all countries into regression

@@ -54,7 +54,7 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 	}
 } */
 
-foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" { // "spi48"{
+foreach var in  "std_t" "stdm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" { // "t" "absdif_t" "absdifm_t" "spi48"{
 	foreach time in "inutero_1m3m" "inutero_4m6m" "inutero_6m9m" "born_1m3m" "born_3m6m" "born_6m9m" "born_9m12m" {
 		foreach stat in  "avg" { // "minmax" {
 			
@@ -119,14 +119,18 @@ drop index
 *# 	 Create child agedeath variables
 *############################################################*
 
-egen child_agedeath_1m3m = rowmax( child_agedeath_30d child_agedeath_30d3m)
+drop child_agedeath_3m6m
+gen child_agedeath_1m3m = 0
+gen child_agedeath_3m6m = 0
 gen child_agedeath_6m9m = 0
-replace child_agedeath_6m9m = 1 if child_agedeath>6 & child_agedeath<=9
 gen child_agedeath_9m12m = 0
-replace child_agedeath_9m12m = 1 if child_agedeath>9 & child_agedeath<=12
+replace child_agedeath_1m3m= 1 if child_agedeath>=0 & child_agedeath<3
+replace child_agedeath_3m6m = 1 if child_agedeath>=3 & child_agedeath<6
+replace child_agedeath_6m9m = 1 if child_agedeath>=6 & child_agedeath<9
+replace child_agedeath_9m12m = 1 if child_agedeath>=9 & child_agedeath<12
 
 replace child_agedeath_1m3m = child_agedeath_1m3m * 1000
-
+replace child_agedeath_3m6m = child_agedeath_3m6m * 1000
 replace child_agedeath_6m9m = child_agedeath_6m9m * 1000
 replace child_agedeath_9m12m = child_agedeath_9m12m * 1000
 
