@@ -28,7 +28,7 @@ if __name__ == "__main__":
     climate_data = climate_data.drop_vars("month")
     
     ### DHS DATA
-    full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_05142024.dta")
+    full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_11072024.dta")
     full_dhs["ID"] = full_dhs.index
     # Gen unique id from groups of lat, lon and from_date
     df = full_dhs.copy()
@@ -77,6 +77,10 @@ if __name__ == "__main__":
             "born_3m6m": slice(12, 15),
             "born_6m9m": slice(15, 18),
             "born_9m12m": slice(18, 21),
+            "born_12m15m": slice(21, 24),
+            "born_15m18m": slice(24, 27),
+            "born_18m21m": slice(27, 30),
+            "born_21m24m": slice(30, 33),
         }
         
         # # Process variables in ds_temp
@@ -127,12 +131,13 @@ if __name__ == "__main__":
     df = df.drop(columns=["day", "month", "year"])
     
     # Maximum range of dates
+    # FIXME: CHequear que estén bien asignados estos valores
     df["from_date"] = df["birth_date"] + pd.DateOffset(
         months=-9
     )  # From in utero (9 months before birth)
     df["to_date"] = df["birth_date"] + pd.DateOffset(
-        months=12
-    )  # To the first year of life
+        months=24
+    )  # To the second year of life
 
     # Filter children from_date greater than 1991 (we only have climate data from 1990)
     df = df[df["from_date"] > "1991-01-01"]
@@ -227,7 +232,7 @@ if __name__ == "__main__":
             results += [stats_df]
             
             
-        if ((i-1)%100 == 0) | (i == len(grouped)-1): # Save every 100 groups  (or if its the last one) 
+        if ((i-1)%1000 == 0) | (i == len(grouped)-1): # Save every 1000 groups  (or if its the last one) 
             climate_results = pd.concat(results, ignore_index=True)
             climate_results.to_parquet(f"{DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
             print(f"File saved at {DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
@@ -267,5 +272,5 @@ if __name__ == "__main__":
 
     # Drop nans in spi/temp values
     df = df.dropna(subset=shock_cols, how="any")
-    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v9b.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9b.dta")
+    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v9c.dta")
+    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9c.dta")
