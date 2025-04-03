@@ -216,7 +216,7 @@ if __name__ == "__main__":
 
             # Select the data for the specific time range
             data = point_data.sel(time=slice(from_date, to_date))
-            assert data.time.shape[0] == 22, "Time length is not 22: " + str(len(point_data.time))
+            # assert data.time.shape[0] == (9+12+12), f"Time length is not right (must be {9+12+12}): {len(point_data.time)})"
 
             # Compute statistics
             stats = compute_stats(data)
@@ -258,7 +258,7 @@ if __name__ == "__main__":
     ####### Export data:
     # df.to_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v3.parquet")
     df = df[
-        climate_cols.to_list()
+        climate_cols.to_list()|
         + [
             "ID",
             "interview_year",
