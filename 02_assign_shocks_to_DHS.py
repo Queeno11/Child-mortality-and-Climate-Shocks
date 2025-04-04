@@ -188,56 +188,56 @@ if __name__ == "__main__":
     coords_cols = ["lat_climate", "lon_climate"]
     shock_cols = []
     print(len(full_dhs))
-    print("Assigning climate shocks to DHS data...")
+    # print("Assigning climate shocks to DHS data...")
 
-    # Group by rounded latitude and longitude
-    grouped = df.groupby(["lat_round", "lon_round"])
-    results = []
-    for i, stuff in tqdm(enumerate(grouped), total=len(grouped)):
+    # # Group by rounded latitude and longitude
+    # grouped = df.groupby(["lat_round", "lon_round"])
+    # results = []
+    # for i, stuff in tqdm(enumerate(grouped), total=len(grouped)):
         
-        (lat, lon), group = stuff
-        # try:
+    #     (lat, lon), group = stuff
+    #     # try:
         
-        # Get the overall time range for this group
-        earliest_from_date = group["from_date"].min()
-        latest_to_date = group["to_date"].max()
+    #     # Get the overall time range for this group
+    #     earliest_from_date = group["from_date"].min()
+    #     latest_to_date = group["to_date"].max()
 
-        # Fetch the climate data once for this location and time range
-        point_data = climate_data.sel(
-            time=slice(earliest_from_date, latest_to_date),
-            lat=lat,
-            lon=lon,
-        ).load()
+    #     # Fetch the climate data once for this location and time range
+    #     point_data = climate_data.sel(
+    #         time=slice(earliest_from_date, latest_to_date),
+    #         lat=lat,
+    #         lon=lon,
+    #     ).load()
         
-        # Group observations by from_date and to_date
-        date_grouped = group.groupby(["from_date", "to_date"])
+    #     # Group observations by from_date and to_date
+    #     date_grouped = group.groupby(["from_date", "to_date"])
         
-        for (from_date, to_date), date_group in tqdm(date_grouped, total=len(date_grouped), leave=False):
+    #     for (from_date, to_date), date_group in tqdm(date_grouped, total=len(date_grouped), leave=False):
 
-            # Select the data for the specific time range
-            data = point_data.sel(time=slice(from_date, to_date))
-            # assert data.time.shape[0] == (9+12+12), f"Time length is not right (must be {9+12+12}): {len(point_data.time)})"
+    #         # Select the data for the specific time range
+    #         data = point_data.sel(time=slice(from_date, to_date))
+    #         # assert data.time.shape[0] == (9+12+12), f"Time length is not right (must be {9+12+12}): {len(point_data.time)})"
 
-            # Compute statistics
-            stats = compute_stats(data)
+    #         # Compute statistics
+    #         stats = compute_stats(data)
 
-            stats["lat"] = lat
-            stats["lon"] = lon
+    #         stats["lat"] = lat
+    #         stats["lon"] = lon
 
-            # Assign the computed statistics to all observations in the date group
-            stats_df = pd.DataFrame([stats])
+    #         # Assign the computed statistics to all observations in the date group
+    #         stats_df = pd.DataFrame([stats])
 
-            stats_df["point_ID"] = date_group["point_ID"].iloc[0]
+    #         stats_df["point_ID"] = date_group["point_ID"].iloc[0]
 
-            results += [stats_df]
+    #         results += [stats_df]
             
             
-        if ((i-1)%1000 == 0) | (i == len(grouped)-1): # Save every 1000 groups  (or if its the last one) 
-            climate_results = pd.concat(results, ignore_index=True)
-            climate_results.to_parquet(f"{DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
-            print(f"File saved at {DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
-            results = []
-            climate_results = None
+    #     if ((i-1)%1000 == 0) | (i == len(grouped)-1): # Save every 1000 groups  (or if its the last one) 
+    #         climate_results = pd.concat(results, ignore_index=True)
+    #         climate_results.to_parquet(f"{DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
+    #         print(f"File saved at {DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
+    #         results = []
+    #         climate_results = None
                     
     files = os.listdir(rf"{DATA_PROC}/DHS_Climate")
     files = [f for f in files if f.startswith("births_climate_")]
@@ -256,9 +256,8 @@ if __name__ == "__main__":
     print("Number of observations merged with climate data:", df.shape[0])
 
     ####### Export data:
-    # df.to_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v3.parquet")
     df = df[
-        climate_cols.to_list()|
+        climate_cols.to_list()
         + [
             "ID",
             "interview_year",
@@ -270,6 +269,10 @@ if __name__ == "__main__":
         ]
     ]
 
+    # Cast everything in float64 to float32
+    float_cols = df.select_dtypes(include=["float64"]).columns
+    df[float_cols] = df[float_cols].astype("float32")
+    
     # Drop nans in spi/temp values
     df = df.dropna(subset=shock_cols, how="any")
     df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v9c.dta")

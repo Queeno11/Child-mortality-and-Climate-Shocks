@@ -25,7 +25,7 @@ save "${DATA_IN}/Income level.dta", replace
 
 use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_11072024", clear
 gen ID = _n - 1
-merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v9b" // Add climate variables
+merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v9c" // Add climate variables
 keep if _merge==3
 drop _merge
 merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta" // Add income group
@@ -55,7 +55,7 @@ foreach var in "t" "std_t" "stdm_t" "absdif_t" "absdifm_t" "spi1" "spi3" "spi6" 
 } */
 
 foreach var in  "std_t" "stdm_t" "spi1" "spi3" "spi6" "spi9" "spi12" "spi24" { // "t" "absdif_t" "absdifm_t" "spi48"{
-	foreach time in "inutero_1m3m" "inutero_4m6m" "inutero_6m9m" "born_1m3m" "born_3m6m" "born_6m9m" "born_9m12m" {
+	foreach time in "inutero_1m3m" "inutero_4m6m" "inutero_6m9m" "born_1m3m" "born_3m6m" "born_6m9m" "born_9m12m" "born_12m15m" "born_15m18m" "born_18m21m" "born_21m24m" {
 		foreach stat in  "avg" { // "minmax" {
 			
 			* Quadratic term
@@ -124,15 +124,28 @@ gen child_agedeath_1m3m = 0
 gen child_agedeath_3m6m = 0
 gen child_agedeath_6m9m = 0
 gen child_agedeath_9m12m = 0
+gen child_agedeath_12m15m = 0
+gen child_agedeath_15m18m = 0
+gen child_agedeath_18m21m = 0
+gen child_agedeath_21m24m = 0
+
 replace child_agedeath_1m3m= 1 if child_agedeath>=0 & child_agedeath<3
 replace child_agedeath_3m6m = 1 if child_agedeath>=3 & child_agedeath<6
 replace child_agedeath_6m9m = 1 if child_agedeath>=6 & child_agedeath<9
 replace child_agedeath_9m12m = 1 if child_agedeath>=9 & child_agedeath<12
+replace child_agedeath_12m15m = 1 if child_agedeath>=12 & child_agedeath<15
+replace child_agedeath_15m18m = 1 if child_agedeath>=15 & child_agedeath<18
+replace child_agedeath_18m21m = 1 if child_agedeath>=18 & child_agedeath<21
+replace child_agedeath_21m24m = 1 if child_agedeath>=21 & child_agedeath<24
 
 replace child_agedeath_1m3m = child_agedeath_1m3m * 1000
 replace child_agedeath_3m6m = child_agedeath_3m6m * 1000
 replace child_agedeath_6m9m = child_agedeath_6m9m * 1000
 replace child_agedeath_9m12m = child_agedeath_9m12m * 1000
+replace child_agedeath_12m15m = child_agedeath_12m15m * 1000
+replace child_agedeath_15m18m = child_agedeath_15m18m * 1000
+replace child_agedeath_18m21m = child_agedeath_18m21m * 1000
+replace child_agedeath_21m24m = child_agedeath_21m24m * 1000
 
 *############################################################*
 *# 	 Create control variables for the regressions
@@ -197,9 +210,20 @@ gen time_sq = time*time
 
 keep  ID ID_R ID_CB ID_HH t_* std_t_* stdm_t_* absdif_t_* absdifm_t_* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year chb_year_sq child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup climate_band_3 climate_band_2 climate_band_1 southern
 
-compress
-save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9b.dta", replace
-export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9b.csv", replace quote
+
+foreach var of varlist _all {
+    // Check if the variable is of type double
+    if "`: type `var''" == "double" {
+		display "`var'"
+		// Change the variable type to float
+		recast float `var', force
+    }
+}
+
+
+
+save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9c.dta", replace
+
 
 stop
 foreach j in 3 4 5 {
@@ -214,3 +238,5 @@ foreach j in 3 4 5 {
 
 * Verificamos que esté todo ok
 sum t_* std_t_* spei12_* spei6_* spei3_* spei1_*
+
+
