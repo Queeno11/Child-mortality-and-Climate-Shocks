@@ -14,7 +14,7 @@ controls = controls2 # controls3, controls1
 
 # # Read the file schema without loading data
 file = CSV.File(
-    "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9b.csv"; limit=100
+    "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9c.csv"; limit=100
 )
 
 ## Loop over months to avoid overloading memory, only load the necessary columns
@@ -26,15 +26,22 @@ for m in ["1", "3", "6", "9", "12", "24"]
         name for name in file.names 
         if any(occursin(string(including), string(name)) for including in [Symbol("spi$(m)_"), "std_t_", "stdm_t_", "ID_cell", "child_agedeath_"]) #   "absdifm_t_", "absdif_t_", "t_",])
     ]
-    columns_to_include = vcat(columns_to_include, controls, [:chb_month, :chb_year, :chb_year_sq, :rural, :pipedw, :href, :hhelectemp, :wbincomegroup, :climate_band_1, :climate_band_2, :climate_band_3, :southern])
+    columns_to_include = [
+        col for col in columns_to_include
+        if any(occursin(string(including), string(col)) for including in ["avg_pos", "avg_neg", "ID_cell", "child_agedeath_"]) #   "absdifm_t_", "absdif_t_", "t_",])
+    ]
 
+    columns_to_include = vcat(columns_to_include, controls, [:chb_month, :chb_year, :chb_year_sq, :rural, :pipedw, :helec, :href, :hhaircon, :hhfan, :hhelectemp, :wbincomegroup, :climate_band_1, :climate_band_2, :climate_band_3, :southern])
+    
     # Remove columns with minmax string in the name
     columns_to_include = [name for name in columns_to_include if !occursin("minmax", string(name))]
 
     println("Cargando dataset...")
+    println("Columns to include: ", columns_to_include)
+
     local df
     df = CSV.read(
-        "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9b.csv", DataFrame;
+        "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9c.csv", DataFrame;
         select=columns_to_include,
         rows_to_check=1000,
         # limit=1000,
@@ -46,9 +53,9 @@ for m in ["1", "3", "6", "9", "12", "24"]
     #################################################################
 
     termcontrols = term.(controls)
-    CustomModels.run_models(df, termcontrols, "", "", [m])
+    # CustomModels.run_models(df, termcontrols, "", "", [m])
 
-    if m != 1
+    if m != "1"
         # Only run heterogeneity for SPI1
         continue
     end
@@ -79,9 +86,11 @@ for m in ["1", "3", "6", "9", "12", "24"]
     CustomModels.run_heterogeneity_dummy(df, controls, "pipedw", [m])
     CustomModels.run_heterogeneity_dummy(df, controls, "href", [m])
     CustomModels.run_heterogeneity_dummy(df, controls, "hhelectemp", [m])
+    CustomModels.run_heterogeneity_dummy(df, controls, "hhfan", [m])
+    CustomModels.run_heterogeneity_dummy(df, controls, "hhaircon", [m])
+    CustomModels.run_heterogeneity_dummy(df, controls, "helec", [m])
 
     # Gender
     CustomModels.run_heterogeneity_dummy(df, controls, "child_fem", [m])
-
 
 end

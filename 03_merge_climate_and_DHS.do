@@ -210,19 +210,20 @@ gen time_sq = time*time
 
 keep  ID ID_R ID_CB ID_HH t_* std_t_* stdm_t_* absdif_t_* absdifm_t_* spi* child_fem child_mulbirth birth_order rural d_weatlh_ind_2 d_weatlh_ind_3 d_weatlh_ind_4 d_weatlh_ind_5 mother_age mother_ageb_squ mother_ageb_cub mother_eduy mother_eduy_squ mother_eduy_cub chb_month chb_year chb_year_sq child_agedeath_* ID_cell* pipedw href hhelectemp wbincomegroup climate_band_3 climate_band_2 climate_band_1 southern
 
-
+drop child_agedeath_30d child_agedeath_30d3m child_agedeath_6m12m child_agedeath_12m
 foreach var of varlist _all {
     // Check if the variable is of type double
     if "`: type `var''" == "double" {
-		display "`var'"
 		// Change the variable type to float
 		recast float `var', force
     }
 }
 
-
-
 save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9c.dta", replace
+export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9c.csv", replace quote
+
+
+
 
 
 stop
