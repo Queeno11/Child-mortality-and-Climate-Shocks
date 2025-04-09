@@ -11,19 +11,71 @@ def remove_words_from_string(long_string, words):
         long_string = long_string.replace(word, "")
     return long_string.strip()
 
+def contains_any_string(main_string, strings_list):
+    return any(sub in main_string for sub in strings_list)
+
+def contained_string(main_string, strings_list):
+    contained =  [sub for sub in strings_list if sub in main_string]
+    assert len(contained) == 1, f"More than one string from the list is contained in the main string: {main_string} contains {contained}"
+    return contained[0]
+
+def to_float(s):
+    if len(s)>0:
+        return float(s)
+    else:
+        return np.nan
+
 def compute_ci(coefs, ses):
     lower = []
     upper = []
     for coef, se in zip(coefs, ses):
         if coef is not None and se is not None:
-            lower.append(coef - 2.0796 * se)
-            upper.append(coef + 2.0796 * se)
+            lower.append(coef - 2.042 * se) # 95% confidence interval with t(30df)
+            upper.append(coef + 2.042 * se)
         else:
             lower.append(None)
             upper.append(None)
     return lower, upper
 
-def extract_coefficients_and_CI_latex(file_path, file_type="default"):
+def highlight_significant_points(ax, xvalues, coefs, lower, marker='o', color='red', s=80, **kwargs):
+    """
+    Highlights points on the axis where the lower bound of the CI is above zero.
+    
+    Parameters:
+      ax : matplotlib.axes.Axes
+          The axis on which to plot.
+      xvalues : array-like
+          The x-axis positions corresponding to the coefficient estimates.
+      coefs : array-like
+          The coefficient estimates.
+      lower : array-like
+          The lower bounds of the confidence intervals.
+      marker : str, optional
+          The marker style for highlighted points (default is 's' for square).
+      color : str, optional
+          The color for the highlighted markers (default is 'red').
+      s : int, optional
+          The size of the highlighted markers.
+      **kwargs : additional keyword arguments passed to ax.scatter.
+    """
+    xvalues = np.array(xvalues)
+    coefs = np.array(coefs)
+    lower = np.array(lower)
+    
+    # Create a Boolean mask of points where the lower bound is above zero.
+    significant = lower > 0
+    if np.any(significant):
+        ax.scatter(xvalues[significant],
+                   coefs[significant],
+                   marker=marker,
+                   color=color,
+                   s=s,
+                   edgecolor='k',
+                   linewidth=1.5,
+                   zorder=3,
+                   **kwargs)
+
+def extract_coefficients_and_CI_latex(file_path):
     """
     Extracts coefficients and their 95% CI bounds from a LaTeX table.
     
@@ -45,194 +97,125 @@ def extract_coefficients_and_CI_latex(file_path, file_type="default"):
     or a valid temperature prefix (e.g., "stdm_t_", "absdifm_t_", etc.). The function removes these prefixes 
     to derive a key.
     """
+    # Set dictionary to export results
+    results = {}
+    
     # Define valid prefixes for each group.
     valid_temps = ("stdm_t_", "absdifm_t_", "absdif_t_", "std_t_", "t_")
-    valid_spis = ("spi1_", "spi3_", "spi6_", "spi9_", "spi2_", "sp24_", "spi48_")
-    
-    spi_data = {}
-    temp_data = {}
-    
+    valid_spis = ("spi1_", "spi3_", "spi6_", "spi9_", "spi12_", "spi24_", "spi48_")
+    valid_timeframes = [
+        "inutero_1m3m", "inutero_4m6m", "inutero_6m9m", 
+        "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m", 
+        "born_12m15m", "born_15m18m", "born_18m21m", "born_21m24m", 
+    ]
+    spi_data = {"cell1": {}, "cell2": {}, "cell3": {}}
+    temp_data = {"cell1": {}, "cell2": {}, "cell3": {}}
+
     # Read file lines.
-    assert os.path.exists(file_path), f"File not found: {file_path}"
     with open(file_path, "r") as file:
         lines = file.readlines()
-    
+
     i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        if not line:
-            i += 1
-            continue
+    len_tokens = 0
+    for i, line in enumerate(lines):
+        line = line.strip()
+
         # Replace LaTeX escapes.
         line = line.replace(r"\\", "").replace(r"\_", "_")
-        
+
         # Process lines that start with any valid spi or temp prefix.
-        if line.startswith(valid_spis) or line.startswith(valid_temps):
-            # The first token holds the variable name.
-            tokens = line.split()  # splitting by whitespace
-            first_token = tokens[0]  # e.g., "spi_inutero_avg_neg" or "spi_inutero_avg_ltm1"
-            
-            # Remove the valid prefixes to obtain the key.
-            key = remove_words_from_string(first_token, valid_spis)
-            key = remove_words_from_string(key, valid_temps)
-            if key and key[0] == "_":
-                key = key[1:]
-            
-            # Split the row by ampersand to extract coefficient tokens.
-            coeff_tokens = [t.replace("\\", "").strip() for t in line.split("&")]
-            
-            # For rows containing "2m12m", assume col1 is blank so extract only col4.
-            if "2m12m" in key:
-                col1_val = None
-                col4_token = coeff_tokens[4] if len(coeff_tokens) > 4 and coeff_tokens[4] != "" else None
-                if col4_token:
-                    col4_token = col4_token.replace("*", "")
-                try:
-                    col4_val = float(col4_token) if col4_token is not None else None
-                except ValueError:
-                    col4_val = None
-            else:
-                # Otherwise extract both column (1) and column (4).
-                col1_token = coeff_tokens[1] if len(coeff_tokens) > 1 and coeff_tokens[1] != "" else None
-                col4_token = coeff_tokens[4] if len(coeff_tokens) > 4 and coeff_tokens[4] != "" else None
-                if col1_token:
-                    col1_token = col1_token.replace("*", "")
-                if col4_token:
-                    col4_token = col4_token.replace("*", "")
-                try:
-                    col1_val = float(col1_token) if col1_token is not None else None
-                except ValueError:
-                    col1_val = None
-                try:
-                    col4_val = float(col4_token) if col4_token is not None else None
-                except ValueError:
-                    col4_val = None
-            
-            # Get the standard error row (assumed to be the very next line).
-            std_err_val1 = None
-            std_err_val4 = None
-            if i + 1 < len(lines):
-                err_line = lines[i + 1].strip()
-                err_tokens = [t.replace("\\\\", "").strip() for t in err_line.split("&")]
-                if "2m12m" in key:
-                    if len(err_tokens) > 4 and err_tokens[4] != "":
-                        err_token4 = err_tokens[4].replace("(", "").replace(")", "").replace("*", "").strip()
-                    else:
-                        err_token4 = None
-                    try:
-                        std_err_val4 = float(err_token4) if err_token4 is not None else None
-                    except ValueError:
-                        std_err_val4 = None
-                else:
-                    if len(err_tokens) > 1 and err_tokens[1] != "":
-                        err_token1 = err_tokens[1].replace("(", "").replace(")", "").replace("*", "").strip()
-                    else:
-                        err_token1 = None
-                    if len(err_tokens) > 4 and err_tokens[4] != "":
-                        err_token4 = err_tokens[4].replace("(", "").replace(")", "").replace("*", "").strip()
-                    else:
-                        err_token4 = None
-                    try:
-                        std_err_val1 = float(err_token1) if err_token1 is not None else None
-                    except ValueError:
-                        std_err_val1 = None
-                    try:
-                        std_err_val4 = float(err_token4) if err_token4 is not None else None
-                    except ValueError:
-                        std_err_val4 = None
-                i += 1  # Skip the error row.
-            
-            # Save into the appropriate dictionary.
-            if line.startswith(valid_spis):
-                spi_data[key] = {"coef": (col1_val, col4_val), "se": (std_err_val1, std_err_val4)}
-            elif line.startswith(valid_temps):
-                temp_data[key] = {"coef": (col1_val, col4_val), "se": (std_err_val1, std_err_val4)}
-        i += 1
+        if not (line.startswith(valid_spis) or line.startswith(valid_temps)):
+            continue
 
-    # ----------------------------------------------------------------
-    # Now reorder and compute CIs according to the file_type.
-    if file_type == "default":
-        # In default mode we expect keys like "..._avg_neg" or "..._avg_pos"
-        def order_data(data, sign="neg"):
-            ordered_coefs = []
-            ordered_ses = []
-            # For "inutero" and "30d": take col1 then col4.
-            for key in data:
-                if key.startswith(f"inutero_avg_{sign}") or key.startswith(f"30d_avg_{sign}"):
-                    coef = data[key]["coef"]
-                    se = data[key]["se"]
-                    ordered_coefs.append(coef[0])
-                    ordered_coefs.append(coef[1])
-                    ordered_ses.append(se[0])
-                    ordered_ses.append(se[1])
-            # For "2m12m": take only the col4 value.
-            key_def = f"2m12m_avg_{sign}"
-            if key_def in data:
-                coef = data[key_def]["coef"]
-                se = data[key_def]["se"]
-                ordered_coefs.append(coef[1])
-                ordered_ses.append(se[1])
+        # print(line)
+        # The first token holds the variable name.
+        tokens = line.split()  # splitting by whitespace
+        err_line = lines[i + 1].strip()
+        full_key = tokens[0]  # e.g., "spi_inutero_avg_neg" or "spi_inutero_avg_ltm1"
+
+        # Remove the valid prefixes to obtain the key.
+        key = remove_words_from_string(full_key, valid_spis)
+        key = remove_words_from_string(key, valid_temps)
+        if key and key[0] == "_":
+            key = key[1:]
+        
+        # Split the row by ampersand to extract coefficient tokens.
+        coeff_tokens = [t.replace("\\", "").strip() for t in line.split("&")]
+        err_tokens = [t.replace("\\", "").strip() for t in err_line.split("&")]
+        
+        if len_tokens==0:
+            len_tokens = len(coeff_tokens)
+        assert len_tokens == len(coeff_tokens), f"Length mismatch: {len_tokens} vs {len(coeff_tokens)}"
+        
+        if contains_any_string(full_key, valid_timeframes):
+           
+            # Select the coefficients from the corresponding cell FE and remove the stars 
+            cell1 = [to_float(c.replace("*", "")) for c in coeff_tokens[1::3]]
+            cell2 = [to_float(c.replace("*", "")) for c in coeff_tokens[2::3]]
+            cell3 = [to_float(c.replace("*", "")) for c in coeff_tokens[3::3]]
+            
+            # Select the standard errors from the corresponding cell FE and remove the stars
+            err_cell1 = [to_float(c.replace("(", "").replace(")", "")) for c in err_tokens[1::3]]
+            err_cell2 = [to_float(c.replace("(", "").replace(")", "")) for c in err_tokens[2::3]]
+            err_cell3 = [to_float(c.replace("(", "").replace(")", "")) for c in err_tokens[3::3]]
+
+            # Compute the confidence intervals
+            cilower_cell1, ciupper_cell1 = compute_ci(cell1, err_cell1)
+            cilower_cell2, ciupper_cell2 = compute_ci(cell2, err_cell2)
+            cilower_cell3, ciupper_cell3 = compute_ci(cell3, err_cell3)
+            
+            if contains_any_string(full_key, valid_spis):
+                spi_data["cell1"][key] = {"coef": cell1, "se": err_cell1, "lower": cilower_cell1, "upper": ciupper_cell1}
+                spi_data["cell2"][key] = {"coef": cell2, "se": err_cell2, "lower": cilower_cell2, "upper": ciupper_cell2}
+                spi_data["cell3"][key] = {"coef": cell3, "se": err_cell3, "lower": cilower_cell3, "upper": ciupper_cell3}
                 
-            # Reorder coefs
-            ordered_coefs = [ordered_coefs[0], ordered_coefs[2], ordered_coefs[1], ordered_coefs[3], ordered_coefs[4]]
-            ordered_ses = [ordered_ses[0], ordered_ses[2], ordered_ses[1], ordered_ses[3], ordered_ses[4]]
-
-            return ordered_coefs, ordered_ses
-        
-        spi_neg_coefs, spi_neg_ses = order_data(spi_data, "neg")
-        spi_pos_coefs, spi_pos_ses = order_data(spi_data, "pos")
-        temp_neg_coefs, temp_neg_ses = order_data(temp_data, "neg")
-        temp_pos_coefs, temp_pos_ses = order_data(temp_data, "pos")
-        
-        spi_neg_ci_lower, spi_neg_ci_upper = compute_ci(spi_neg_coefs, spi_neg_ses)
-        spi_pos_ci_lower, spi_pos_ci_upper = compute_ci(spi_pos_coefs, spi_pos_ses)
-        temp_neg_ci_lower, temp_neg_ci_upper = compute_ci(temp_neg_coefs, temp_neg_ses)
-        temp_pos_ci_lower, temp_pos_ci_upper = compute_ci(temp_pos_coefs, temp_pos_ses)
-        
-        return {
-            "spi_neg": {"coefs": spi_neg_coefs, "lower": spi_neg_ci_lower, "upper": spi_neg_ci_upper},
-            "spi_pos": {"coefs": spi_pos_coefs, "lower": spi_pos_ci_lower, "upper": spi_pos_ci_upper},
-            "temp_neg": {"coefs": temp_neg_coefs, "lower": temp_neg_ci_lower, "upper": temp_neg_ci_upper},
-            "temp_pos": {"coefs": temp_pos_coefs, "lower": temp_pos_ci_lower, "upper": temp_pos_ci_upper}
-        }
+            elif contains_any_string(full_key, valid_temps):
+                temp_data["cell1"][key] = {"coef": cell1, "se": err_cell1, "lower": cilower_cell1, "upper": ciupper_cell1}
+                temp_data["cell2"][key] = {"coef": cell2, "se": err_cell2, "lower": cilower_cell2, "upper": ciupper_cell2}
+                temp_data["cell3"][key] = {"coef": cell3, "se": err_cell3, "lower": cilower_cell3, "upper": ciupper_cell3}
+                        
+    results["spi"] = spi_data
+    results["temp"] = temp_data
     
-    elif file_type == "spline":
-        # In spline mode we expect keys ending in one of four categories.
-        categories = ["ltm1", "bt0m1", "bt01", "gt1"]
+    return results
+
+def extract_coefficients_and_CI_latex_heterogeneity(heterogeneity, shock, spi, temp, stat):
+    """
+    Extracts coefficients and confidence intervals from a LaTeX file.
+    
+    Parameters:
+      file_path : str
+          Path to the LaTeX file containing the regression results.
+          
+    Returns:
+      dict : A dictionary containing the extracted coefficients and confidence intervals.
+    """
+    f_name = f"linear_dummies_true_{spi}_{stat}_{temp}  -"
+    files = os.listdir(rf"{OUTPUTS}\heterogeneity\{heterogeneity}")
+    files = [f for f in files if f_name in f]
+    files = [f for f in files if "standard_fe.tex" in f]
+    bands = [f.replace(f"linear_dummies_true_{spi}_{stat}_{temp}  - ", "").replace(" standard_fe.tex", "") for f in files] 
+
+    plotdata = {}
+    for i, band in enumerate(bands):
+
+        file_path = rf"{OUTPUTS}\heterogeneity\\{heterogeneity}\{files[i]}"
+        n = extract_sample_size(file_path)
+
+        if n < 100_000:
+            continue
         
-        def order_data_spline(data, cat):
-            ordered_coefs = []
-            ordered_ses = []
-            # For "inutero" and "30d": take col1 then col4.
-            for period in ["inutero", "30d"]:
-                key = f"{period}_avg_{cat}"
-                if key in data:
-                    coef = data[key]["coef"]
-                    se = data[key]["se"]
-                    ordered_coefs.append(coef[0])
-                    ordered_coefs.append(coef[1])
-                    ordered_ses.append(se[0])
-                    ordered_ses.append(se[1])
-            # For "2m12m": take only col4.
-            key = f"2m12m_avg_{cat}"
-            if key in data:
-                coef = data[key]["coef"]
-                se = data[key]["se"]
-                ordered_coefs.append(coef[1])
-                ordered_ses.append(se[1])
-            return ordered_coefs, ordered_ses
-        
-        spi_result = {}
-        temp_result = {}
-        for cat in categories:
-            spi_coefs, spi_ses = order_data_spline(spi_data, cat)
-            temp_coefs, temp_ses = order_data_spline(temp_data, cat)
-            spi_ci_lower, spi_ci_upper = compute_ci(spi_coefs, spi_ses)
-            temp_ci_lower, temp_ci_upper = compute_ci(temp_coefs, temp_ses)
-            spi_result[cat] = {"coefs": spi_coefs, "lower": spi_ci_lower, "upper": spi_ci_upper}
-            temp_result[cat] = {"coefs": temp_coefs, "lower": temp_ci_lower, "upper": temp_ci_upper}
-        
-        return {"spi": spi_result, "temp": temp_result}
+        outdata = extract_coefficients_and_CI_latex(file_path)
+
+        # Gather all the keys:
+        keys = list(outdata[shock]["cell1"].keys())
+
+        for key in keys:
+            if key not in plotdata:
+                plotdata[key] = {}
+            plotdata[key][band] = outdata[shock]["cell1"][key]
+    
+    return plotdata
     
 def distribute_x_values(x_values, n, margin=0.1):
     ''' Given a set of values for x, distribute them evenly across n groups. 
@@ -253,119 +236,100 @@ def distribute_x_values(x_values, n, margin=0.1):
 
     return out_values
 
-def plot_regression_coefficients(all_values, all_ci_top, all_ci_bot, margin, colors=[], labels=[], plot="both", outpath=None, legend_cols=4):
+def plot_regression_coefficients(
+        data, 
+        shock,
+        spi, 
+        temp, 
+        stat,
+        margin=0.2,
+        colors=["#ff5100", "#3e9fe1"], 
+        labels=["High temperature shocks","Low temperature shocks"],
+        outpath=None,
+    ):
     
-    def add_whitespace_to_axis(ax, x):
-            ax.set_xticks(x)
-            ax.set_xticklabels("")
-            ax.tick_params(axis="x", length=10, width=10, color="white", direction="inout", zorder=100)  # Remove tick marks
-            ax.spines["bottom"].set_visible(False)  # Move third x-axis further down
-            ax.set_xticks(x, minor=True)
+    import os
+    import seaborn as sns
 
-            return ax
-        
-    # Check if trying to plot single series or multiple:
-    is_list_of_lists = isinstance(all_values[0], list)
+    title_labels = {
+        "inutero_1m3m_avg_pos": "1st In-Utero Quarter",
+        "inutero_4m6m_avg_pos": "2nd In-Utero Quarter",
+        "inutero_6m9m_avg_pos": "3rd In-Utero Quarter",
+        "born_1m3m_avg_pos": "1st Born Quarter",
+        "born_3m6m_avg_pos": "2nd Born Quarter",
+        "born_6m9m_avg_pos": "3rd Born Quarter",
+        "born_9m12m_avg_pos": "4th Born Quarter",
+        "born_12m15m_avg_pos": "5th Born Quarter",
+        "born_15m18m_avg_pos": "6th Born Quarter",
+    }
     
-    if not is_list_of_lists:
-        all_values = [all_values]
-        all_ci_top = [all_ci_top]
-        all_ci_bot = [all_ci_bot]
+    data = data[shock]["cell1"]
+
+    fig, axs = plt.subplots(2, 4, figsize=(20, 6))
+
+    xvalues_clean = [0,1,2,3,4]
+    for i, key in enumerate(data.keys()):
+
+        if i/2==len(axs.flatten()):
+            break
+        i_round = i // 2
+        pos = int((i/2 - i_round )*2)
+        
+        plotdata = data[key]
+
+        coefs = np.array(plotdata["coef"][:5])
+        lower = np.array(plotdata["lower"][:5])
+        upper = np.array(plotdata["upper"][:5])
+        
+        is_neg = "_neg" in key
+        
+        if is_neg:
+            coefs = coefs*-1
+            old_upper = upper
+            upper = lower*-1
+            lower = old_upper*-1
+        yerr = [
+            list(np.subtract(coefs, lower)), # 'down' error
+            list(np.subtract(upper, coefs))
+        ]  # 'up' error
+        
+        # Get the color from the cycle
+        color = colors[0] if is_neg else colors[1]
+        label = labels[0] if is_neg else labels[1]
+        
+        ax = axs.flatten()[i_round]
+
+        xvalues = distribute_x_values(xvalues_clean, 2, margin=margin)[pos]
+        if i_round != i/2:
+            ax.set_title(title_labels[key])
+        
+        ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
+        ax.plot(xvalues, coefs, color=color)
+
+        # Now call our helper function to highlight points with a lower CI bound > 0.
+        highlight_significant_points(ax, xvalues, coefs, lower, color=color)
+
+        ax.axhline(y=0, color="black", linewidth=1)
+        # sns.lineplot(data["inutero_1m3m_avg_pos"]["coef"], ax=ax)
+        # sns.despine()
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q", "5th Q"])#, "6th Q"])
+        ax.set_xlim(-0.3, 4.6)
+        if i<4*2: # Only the first row of plots
+            ax.set_ylim(-0.8, 1.5)
+        else:
+            ax.set_ylim(-0.6, 0.8)
+            
+    fig.tight_layout()
+    plt.legend(loc='lower center', bbox_to_anchor=(-1.2, -0.35), ncol=2, frameon=False)
     
-    if plot == "only_spi":
-        all_values = [x[5:] for x in all_values]
-        all_ci_top = [x[5:] for x in all_ci_top]
-        all_ci_bot = [x[5:] for x in all_ci_bot]
+    os.makedirs(outpath, exist_ok=True)
+    filename = fr"{outpath}\{shock}_coefficients_{spi}_{stat}_{temp}.png"
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    print("Se creó la figura ", filename)
         
-    elif plot == "only_temp":
-        all_values = [x[:5] for x in all_values]
-        all_ci_top = [x[:5] for x in all_ci_top]
-        all_ci_bot = [x[:5] for x in all_ci_bot]    
-    
-    elif plot != "both":
-        raise ValueError("Invalid value for 'plot'. Must be 'both', 'only_spi', or 'only_temp'.")
-
-    x = range(1, len(all_values[0])+1)
-    values_x = distribute_x_values(x, len(all_values), margin) 
-
-    fig, ax = plt.subplots(1, 1, figsize=(6, 4))
-    for data_set in range(len(all_values)):
-        values = all_values[data_set]
-        x = values_x[data_set]
-        ci_top = all_ci_top[data_set]
-        ci_bot = all_ci_bot[data_set]
-        color = colors[data_set] if len(colors) > 0 else "black"
-        label = labels[data_set] if len(labels) > 0 else None
-        
-        yerr = [list(np.array(values) - np.array(ci_bot)), # 'down' error
-                list(np.array(ci_top) - np.array(values))]  # 'up' error
-
-        # Plot error bars
-        ax.errorbar(x, values, yerr=yerr, capsize=3, fmt="o", color=color, label=label)
-
-    if len(labels) > 0:
-        ax.legend(bbox_to_anchor=(0.47, -0.2), frameon=False, ncols=legend_cols, loc="upper center")
-    
-    ax.axhline(y=0, color="black", linestyle="--", dashes=(7, 7), linewidth =1)
-    ax.set_xlim(0.5, len(all_values[0])+.5)
-    
-    # Set second level of labels (1 month and 2-12 months)
-    if plot == "both":
-        ax = add_whitespace_to_axis(ax, [1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5])
-
-        x_labels = ["1m", "2-12m", "1m", "2-12m", "2-12m", "1m", "2-12m", "1m", "2-12m", "2-12m",]
-        ax2 = ax.secondary_xaxis('bottom')
-        ax2.set_xticks(range(1, len(all_values[0])+1))
-        ax2.set_xticklabels(x_labels)
-        ax2.tick_params(axis="x", length=0)  # Remove tick marks
-        ax3 = ax.secondary_xaxis('bottom')  # Add another secondary x-axis
-        
-        ax3.spines["bottom"].set_position(("outward", 25))  # Move third x-axis further down
-        ax3.set_xticks([1.5, 3.5, 5, 6.5, 8.5, 10],)
-        ax3.set_xticklabels(["In-Utero", "1m", "2-12m", "In-Utero", "1m", "2-12m"])
-        ax3.tick_params(axis="x", length=0)  # Remove tick marks
-
-        ax4 = ax.secondary_xaxis('bottom')  # Add another secondary x-axis
-        ax4.spines["bottom"].set_position(("outward", 25))  # Move third x-axis further down
-        ax4 = add_whitespace_to_axis(ax4, [2.5, 4.5, 5.5, 7.5, 9.5])
-
-        # Set third level of labels (1 month and 2-12 months)
-        ax5 = ax.secondary_xaxis('bottom')  # Add another secondary x-axis
-        ax5.spines["bottom"].set_position(("outward", 50))  # Move third x-axis further down
-        ax5.set_xticks([3, 8],)
-        ax5.set_xticklabels(["Temperature", "Precipitation"])
-        ax5.tick_params(axis="x", length=0)  # Remove tick marks
-
-        ax6 = ax.secondary_xaxis('bottom')  # Add another secondary x-axis
-        ax6.spines["bottom"].set_position(("outward", 50))  # Move third x-axis further down
-        ax6 = add_whitespace_to_axis(ax6, [5.5])
-        
-    else:
-        ax = add_whitespace_to_axis(ax, [1.5, 2.5, 3.5, 4.5])
-        
-        ax2 = ax.secondary_xaxis('bottom')
-        ax2.set_xticklabels([])
-        ax2.tick_params(axis="x", length=0)  # Remove tick marks
-        
-        ax3 = ax.secondary_xaxis('bottom')  # Add another secondary x-axis
-        
-        ax3.set_xticks([1, 2, 3, 4, 5],)
-        ax3.set_xticklabels(["In-Utero", "1m", "In-Utero", "1m", "2-12m"])
-        ax3.tick_params(axis="x", length=0)  # Remove tick marks
-        
-        # Set second level of labels (1 month and 2-12 months)
-        ax4 = ax.secondary_xaxis('bottom')  # Add another secondary x-axis
-        ax4.spines["bottom"].set_position(("outward", 25))  # Move third x-axis further down
-        ax4.set_xticks([1.5, 4],)
-        ax4.set_xticklabels(["1 month", "2-12 months"])
-        ax4.tick_params(axis="x", length=0)  # Remove tick marks
-
-        ax5 = ax.secondary_xaxis('bottom')  # Add another secondary x-axis
-        ax5.spines["bottom"].set_position(("outward", 25))  # Move third x-axis further down
-        ax5 = add_whitespace_to_axis(ax5, [2.5])
-
-    fig.savefig(outpath, bbox_inches='tight')
-
 def plot_spline_coefficients(all_values, all_ci_top, all_ci_bot, margin, mfcs=[], labels=[], plot="both", outpath=None):
     
     def add_whitespace_to_axis(ax, x):
@@ -452,63 +416,117 @@ def extract_sample_size(filepath):
         
     return None
 
-def plot_heterogeneity(f_name, var, folder, colors=[], labels=[]):
-    
-    files = os.listdir(rf"{OUTPUTS}\heterogeneity\{var}")
-    files = [f for f in files if f_name in f]
-    files = [f for f in files if "standard_fe.tex" in f]
-    bands = [f.replace(f"{f_name}  - ", "").replace(" standard_fe.tex", "") for f in files] 
-    
-    signs = ["pos", "neg"]
+def plot_heterogeneity(
+        heterogeneity,
+        spi, 
+        temp, 
+        stat, 
+        colors=None,
+        labels=None,    
+        outpath=None,
+    ):
+    '''
+        Plot the coefficients of the heterogeneity analysis.
+        Parameters:
+            full_data: dict
+                The data containing the coefficients and confidence intervals.
+            heterogeneity: str
+                The type of heterogeneity to plot. Must have a folder in the 
+                outputs directory with the same name. 
+            shock: str
+                The type of shock to plot. Can be "temp" or "spi".
+            spi: str
+                The type of SPI to plot. Can be "spi1", "spi3", "spi6", "spi9", 
+                "spi12", "spi24", "spi48".   
+            temp: str
+                The type of temperature to plot.
+            stat: str
+                The type of statistic to plot.  
+            colors: list
+                The colors to use for the different cases.
+            labels: list
+                The labels to use for the different cases.
+            outpath: str
+                The path to save the plot.
+    '''         
+    for shock in ["temp", "spi"]:
+        full_data = extract_coefficients_and_CI_latex_heterogeneity(
+            heterogeneity, shock, spi, temp, stat
+        )            
 
-    for sign in signs:
-        valid_bands = []
-        values = []
-        lower = []
-        upper = []
-
-        for i, band in enumerate(bands):
-
-            file_path = rf"{OUTPUTS}\heterogeneity\\{var}\{files[i]}"
-            n = extract_sample_size(file_path)
-
-            if n < 100_000:
-                continue
-            print(band)
+        for sign in ["_neg", "_pos"]:
             
-            outdata = extract_coefficients_and_CI_latex(file_path)
+            # Keep only keys that contain the specified sign
+            data = {k: v for k, v in full_data.items() if sign in k}
+            n_heterogeneity = len(data[f"inutero_1m3m_avg{sign}"].keys())
 
-            values += [outdata[f"temp_{sign}"]["coefs"] + outdata[f"spi_{sign}"]["coefs"]]
-            lower  += [outdata[f"temp_{sign}"]["lower"] + outdata[f"spi_{sign}"]["lower"]]
-            upper  += [outdata[f"temp_{sign}"]["upper"] + outdata[f"spi_{sign}"]["upper"]]
-            valid_bands += [band]
+            title_labels = {
+                f"inutero_1m3m_avg{sign}": "1st In-Utero Quarter",
+                f"inutero_4m6m_avg{sign}": "2nd In-Utero Quarter",
+                f"inutero_6m9m_avg{sign}": "3rd In-Utero Quarter",
+                f"born_1m3m_avg{sign}": "1st Born Quarter",
+                f"born_3m6m_avg{sign}": "2nd Born Quarter",
+                f"born_6m9m_avg{sign}": "3rd Born Quarter",
+                f"born_9m12m_avg{sign}": "4th Born Quarter",
+                f"born_12m15m_avg{sign}": "5th Born Quarter",
+                f"born_15m18m_avg{sign}": "6th Born Quarter",
+            }
+            fig, axs = plt.subplots(2, 4, figsize=(20, 6))
+            xvalues_clean = [0,1,2,3,4]
+            for i, key in enumerate(data.keys()):
+                if "born_15m18m_avg" in key:
+                    break
+                heterogeneity_data = data[key]
+                for j, case in enumerate(heterogeneity_data.keys()):
 
-        if len(colors)>0:
-            if (len(colors)!=len(valid_bands)) or (len(labels)!=len(valid_bands)):
-                raise ValueError(f"Number of colors and labels must match the number of valid_bands: {colors} {valid_bands}")
-        
-        plot_regression_coefficients(
-            values, 
-            upper,
-            lower,
-            margin=0.1,
-            colors=colors, 
-            labels=labels, 
-            plot="only_temp", 
-            outpath=rf"{folder}\heterogeneity - {var} - temp {f_name} {sign}.png"
-        )
+                    coefs = np.array(heterogeneity_data[case]["coef"][:5])
+                    lower = np.array(heterogeneity_data[case]["lower"][:5])
+                    upper = np.array(heterogeneity_data[case]["upper"][:5])
+                    
+                    is_neg = "_neg" in key
+                    sign = "_neg" if is_neg else "_pos"
+                    
+                    if is_neg:
+                        coefs = coefs*-1
+                        old_upper = upper
+                        upper = lower*-1
+                        lower = old_upper*-1
+                    yerr = [
+                        list(np.subtract(coefs, lower)), # 'down' error
+                        list(np.subtract(upper, coefs))
+                    ]  # 'up' error
+                    
+                    # Get the color from the cycle
+                    color = colors[j]
+                    label = labels[j]
+                    if (i==0) & (shock=="spi") & (sign=="_neg"): # Only print this for this first iteration
+                        print(f"case: {case} -> label: {label}")
+                    
+                    ax = axs.flatten()[i]
 
-        plot_regression_coefficients(
-            values, 
-            upper,
-            lower,
-            margin=0.1,
-            colors=colors, 
-            labels=labels, 
-            plot="only_spi", 
-            outpath=rf"{folder}\heterogeneity - {var} - spi {f_name} {sign}.png"
-        )        
+                    xvalues = distribute_x_values(xvalues_clean, n_heterogeneity, margin=0.15)[j]
+                    
+                    ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
+                    ax.plot(xvalues, coefs, color=color)
 
+                    # Now call our helper function to highlight points with a lower CI bound > 0.
+                    highlight_significant_points(ax, xvalues, coefs, lower, color=color)
+
+                ax.set_title(title_labels[key])
+                ax.axhline(y=0, color="black", linewidth=1)
+                ax.spines['top'].set_visible(False)
+                ax.spines['bottom'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q", "5th Q"])#, "6th Q"])
+                ax.set_xlim(-0.3, 4.6)
+
+            fig.tight_layout()
+            plt.legend(loc='lower center', bbox_to_anchor=(-1.2, -0.35), ncol=6, frameon=False)
+
+            filename = fr"{outpath}\heterogeneity {heterogeneity} - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
+            plt.savefig(filename, dpi=300, bbox_inches='tight')
+            print("Se creó la figura ", filename)
+    
 def plot_shocks_histogram(df, cols, outpath):
     
     import seaborn as sns
