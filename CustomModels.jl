@@ -208,19 +208,19 @@ module CustomModels
 
                             extra_with_time = extra_original #* " - times$(i)"
                             # Linear and Quadratic models - all cases
-                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
-                            if only_linear
-                                continue
-                            end
+                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
+                            # if only_linear
+                            #     continue
+                            # end
                             # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, fixed_effects="quadratic_time")
                             # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic")
                             # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic", fixed_effects="quadratic_time")
 
-                            # # Spline models - only for standardized variables (std_t, stdm_t):
-                            # for sp_threshold in ["1", "2"]
-                            #     extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
-                            #     stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
-                            # end
+                            # Spline models - only for standardized variables (std_t, stdm_t):
+                            for sp_threshold in ["1", "2"]
+                                extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
+                                stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
+                            end
                         end
                     end
                 end

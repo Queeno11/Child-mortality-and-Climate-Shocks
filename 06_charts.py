@@ -44,105 +44,76 @@ outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
 plot_tools.plot_regression_coefficients(
     data=outdata, 
     shock="temp",
-    spi="spi1",
-    temp="stdm_t",
-    stat="avg",
+    spi=spi,
+    temp=temp,
+    stat=stat,
     margin=0.25,
     colors=["#3e9fe1", "#ff5100"], 
     labels=["Low temperature shocks", "High temperature shocks"],  
-    outpath=rf"{OUT_FIGS}"
+    outpath=rf"{OUT_FIGS}",
+    add_line=True,
 )
 
 plot_tools.plot_regression_coefficients(
     data=outdata, 
     shock="spi",
-    spi="spi1",
-    temp="stdm_t",
-    stat="avg",
+    spi=spi,
+    temp=temp,
+    stat=stat,
     margin=0.25,
     colors=["#ff5100", "#3e9fe1"], 
     labels=["Low precipitation shocks", "High precipitation shocks"], 
+    outpath=rf"{OUT_FIGS}",
+    add_line=True,
+)
+
+### Figure 3: Main coefficients Spline
+file_path = rf"{OUTPUTS}\spline_dummies_false_{spi}_{stat}_{temp}  - spthreshold1 standard_fe.tex"  # Replace with the actual path to your LaTeX file.
+outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
+
+plot_tools.plot_spline_coefficients(
+    data=outdata, 
+    shock="spi",
+    spi=spi,
+    temp=temp,
+    stat=stat,
+    margin=0.15,
+    colors = [
+        "#ff5100",  # Very high temperature
+        "#ff9a40",  # High temperature
+        "#76b7e5",  # Low temperature
+        "#3e9fe1",   # Very low temperature
+    ],
+    labels=[
+        "Very high precipitation shocks", 
+        "High precipitation shocks",
+        "Low precipitation shocks", 
+        "Very low precipitation shocks",
+    ],
     outpath=rf"{OUT_FIGS}"
 )
 
-# ###### Figure 2.5: Fixed effects comparison
-# file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp}  quadratic_time_fe.tex"  # Replace with the actual path to your LaTeX file.
-# outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
-
-# values_tfe = (outdata["temp_pos"]["coefs"] + outdata["spi_pos"]["coefs"], outdata["temp_neg"]["coefs"] + outdata["spi_neg"]["coefs"])
-# lower_tfe  = (outdata["temp_pos"]["lower"] + outdata["spi_pos"]["lower"], outdata["temp_neg"]["lower"] + outdata["spi_neg"]["lower"])
-# upper_tfe  = (outdata["temp_pos"]["upper"] + outdata["spi_pos"]["upper"], outdata["temp_neg"]["upper"] + outdata["spi_neg"]["upper"])
-
-# values = [values_sfe[0], values_tfe[0], values_sfe[1], values_tfe[1]]
-# lower  = [lower_sfe[0], lower_tfe[0], lower_sfe[1], lower_tfe[1]]
-# upper =  [upper_sfe[0], upper_tfe[0], upper_sfe[1], upper_tfe[1]]
-
-# plot_tools.plot_regression_coefficients(
-#     values, 
-#     upper, 
-#     lower, 
-#     margin=0.1, 
-#     colors=["#ff5100", "#7c0f06", "#3e9fe1", "#1a4461", ], 
-#     labels=["Standard FE (+)","Quadratic Time FE (+)", "Standard FE (-)","Quadratic Time FE (-)"], 
-#     plot="only_temp", 
-#     outpath=rf"{OUT_FIGS}\coefplot_fe_temp.png",
-#     legend_cols=2,
-# )
-# plot_tools.plot_regression_coefficients(
-#     values, 
-#     upper, 
-#     lower, 
-#     margin=0.1, 
-#     colors=["#3e9fe1", "#1a4461", "#ff5100", "#7c0f06"], 
-#     labels=["Standard FE (+)","Quadratic Time FE (+)", "Standard FE (-)","Quadratic Time FE (-)"], 
-#     plot="only_spi", 
-#     outpath=rf"{OUT_FIGS}\coefplot_fe_spi.png",
-#     legend_cols=2,
-# )
-
-
-# ### Figure 3: Main coefficients Spline
-# std = 1
-# file_path = rf"{OUTPUTS}\spline_dummies_false_{spi}_{stat}_{temp}  - spthreshold{std} standard_fe.tex"  # Replace with the actual path to your LaTeX file.
-# outdata = plot_tools.extract_coefficients_and_CI_latex(file_path, file_type="spline")
-
-# # Shock labels
-# names = {
-#     0: {"shock": "inutero", "death": "30d"},
-#     1: {"shock": "inutero", "death": "1m-12m"},
-#     2: {"shock": "30d", "death": "30d"},
-#     3: {"shock": "30d", "death": "1m-12m"},
-#     4: {"shock": "1m-12m", "death": "1m-12m"},
-# }
-
-# for var in ["temp", "spi"]:
-#     # Extract coefficients and ci
-#     data = {"coefs": [], "upper": [], "lower": []}
-#     for i in range(5):
-#         shock = names[i]["shock"]
-#         for j in ["coefs", "upper", "lower"]:
-#             ltm1 = outdata[var]["ltm1"][j][i]
-#             bt0m1 = outdata[var]["bt0m1"][j][i]
-#             bt01 = outdata[var]["bt01"][j][i]
-#             gt1 = outdata[var]["gt1"][j][i]
-#             data[j] += [[ltm1, bt0m1, bt01, gt1]]
-            
-#         if names[i]["death"] == "1m-12m":
-#             if i!=5:
-#                 labels = [names[i-1]["death"], names[i]["death"]]
-#             else:
-#                 labels = [names[i-1]["death"]]
-#             outname = rf"{OUT_FIGS}\coefplot_spline_{var}_{shock}_{std}.png"
-#             plot_tools.plot_spline_coefficients(
-#                 data["coefs"], 
-#                 data["upper"], 
-#                 data["lower"], 
-#                 mfcs=["black", "white"], 
-#                 labels=labels,
-#                 margin=0.1, 
-#                 outpath=outname
-#             )
-#             data = {"coefs": [], "upper": [], "lower": []}
+plot_tools.plot_spline_coefficients(
+    data=outdata, 
+    shock="temp",
+    spi=spi,
+    temp=temp,
+    stat=stat,
+    margin=0.15,
+    colors = [
+        "#3e9fe1",   # Very low temperature
+        "#76b7e5",  # Low temperature
+        "#ff9a40",  # High temperature
+        "#ff5100",  # Very high temperature
+    ],
+    labels=[
+        "Very low temperature shocks",
+        "Low temperature shocks", 
+        "High temperature shocks",
+        "Very high temperature shocks", 
+    ],
+    outpath=rf"{OUT_FIGS}"
+)
     
     
 ### Figure 4: Climate bands 1 heterogeneity

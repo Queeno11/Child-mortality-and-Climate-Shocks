@@ -26,15 +26,27 @@ for m in ["1", "3", "6", "9", "12", "24"]
         name for name in file.names 
         if any(occursin(string(including), string(name)) for including in [Symbol("spi$(m)_"), "std_t_", "stdm_t_", "ID_cell", "child_agedeath_"]) #   "absdifm_t_", "absdif_t_", "t_",])
     ]
-    columns_to_include = [
-        col for col in columns_to_include
-        if any(occursin(string(including), string(col)) for including in ["avg_pos", "avg_neg", "ID_cell", "child_agedeath_"]) #   "absdifm_t_", "absdif_t_", "t_",])
-    ]
+    # columns_to_include = [
+    #     col for col in columns_to_include
+    #     if any(occursin(string(including), string(col)) for including in ["avg_pos", "avg_neg", "ID_cell", "child_agedeath_"]) #   "absdifm_t_", "absdif_t_", "t_",])
+    # ]
 
+    
     columns_to_include = vcat(columns_to_include, controls, [:chb_month, :chb_year, :chb_year_sq, :rural, :pipedw, :helec, :href, :hhaircon, :hhfan, :hhelectemp, :wbincomegroup, :climate_band_1, :climate_band_2, :climate_band_3, :southern])
     
     # Remove columns with minmax string in the name
     columns_to_include = [name for name in columns_to_include if !occursin("minmax", string(name))]
+
+    # Build a dictionary mapping column names to types based on their prefixes
+    col_types = Dict{Symbol, DataType}()
+    for col in columns_to_include
+        col_str = string(col)
+        if startswith(col_str, "spi$(m)") || startswith(col_str, "std_t_") || startswith(col_str, "stdm_t_")
+            col_types[col] = Float32
+        elseif startswith(col_str, "child_agedeath_")
+            col_types[col] = Int32
+        end
+    end
 
     println("Cargando dataset...")
     println("Columns to include: ", columns_to_include)
@@ -43,7 +55,7 @@ for m in ["1", "3", "6", "9", "12", "24"]
     df = CSV.read(
         "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9c.csv", DataFrame;
         select=columns_to_include,
-        rows_to_check=1000,
+        types = col_types,
         # limit=1000,
     )
     print("Dataset cargado!")
@@ -53,7 +65,7 @@ for m in ["1", "3", "6", "9", "12", "24"]
     #################################################################
 
     termcontrols = term.(controls)
-    # CustomModels.run_models(df, termcontrols, "", "", [m])
+    CustomModels.run_models(df, termcontrols, "", "", [m])
 
     if m != "1"
         # Only run heterogeneity for SPI1

@@ -246,10 +246,10 @@ def plot_regression_coefficients(
         colors=["#ff5100", "#3e9fe1"], 
         labels=["High temperature shocks","Low temperature shocks"],
         outpath=None,
+        add_line=False,
     ):
     
     import os
-    import seaborn as sns
 
     title_labels = {
         "inutero_1m3m_avg_pos": "1st In-Utero Quarter",
@@ -261,25 +261,32 @@ def plot_regression_coefficients(
         "born_9m12m_avg_pos": "4th Born Quarter",
         "born_12m15m_avg_pos": "5th Born Quarter",
         "born_15m18m_avg_pos": "6th Born Quarter",
+        "born_18m21m_avg_pos": "7th Born Quarter",
+        "born_21m24m_avg_pos": "8th Born Quarter",
     }
     
     data = data[shock]["cell1"]
 
-    fig, axs = plt.subplots(2, 4, figsize=(20, 6))
-
-    xvalues_clean = [0,1,2,3,4]
+    fig, axs = plt.subplots(3, 4, figsize=(20, 12))
+    axs[0][0].spines['top'].set_visible(False)
+    axs[0][0].spines['bottom'].set_visible(False)
+    axs[0][0].spines['right'].set_visible(False)
+    axs[0][0].spines['left'].set_visible(False)
+    axs[0][0].set_xticks([])
+    axs[0][0].set_yticks([])
+    
+    xvalues_clean = [0,1,2,3,4,5,6,7]
     for i, key in enumerate(data.keys()):
 
         if i/2==len(axs.flatten()):
             break
         i_round = i // 2
-        pos = int((i/2 - i_round )*2)
-        
+        pos = int((i/2 - i_round)*2)
         plotdata = data[key]
 
-        coefs = np.array(plotdata["coef"][:5])
-        lower = np.array(plotdata["lower"][:5])
-        upper = np.array(plotdata["upper"][:5])
+        coefs = np.array(plotdata["coef"][:8])
+        lower = np.array(plotdata["lower"][:8])
+        upper = np.array(plotdata["upper"][:8])
         
         is_neg = "_neg" in key
         
@@ -297,14 +304,15 @@ def plot_regression_coefficients(
         color = colors[0] if is_neg else colors[1]
         label = labels[0] if is_neg else labels[1]
         
-        ax = axs.flatten()[i_round]
+        ax = axs.flatten()[i_round+1]
 
         xvalues = distribute_x_values(xvalues_clean, 2, margin=margin)[pos]
         if i_round != i/2:
             ax.set_title(title_labels[key])
         
         ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
-        ax.plot(xvalues, coefs, color=color)
+        if add_line:
+            ax.plot(xvalues, coefs, color=color)
 
         # Now call our helper function to highlight points with a lower CI bound > 0.
         highlight_significant_points(ax, xvalues, coefs, lower, color=color)
@@ -315,78 +323,119 @@ def plot_regression_coefficients(
         ax.spines['top'].set_visible(False)
         ax.spines['bottom'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q", "5th Q"])#, "6th Q"])
-        ax.set_xlim(-0.3, 4.6)
+        ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q", "5th Q", "6th Q", "7th Q", "8th Q"])
+        ax.set_xlim(-0.3, 7.6)
         if i<4*2: # Only the first row of plots
             ax.set_ylim(-0.8, 1.5)
         else:
             ax.set_ylim(-0.6, 0.8)
             
     fig.tight_layout()
-    plt.legend(loc='lower center', bbox_to_anchor=(-1.2, -0.35), ncol=2, frameon=False)
+    plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.2), ncol=2, frameon=False)
     
     os.makedirs(outpath, exist_ok=True)
     filename = fr"{outpath}\{shock}_coefficients_{spi}_{stat}_{temp}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Se creó la figura ", filename)
         
-def plot_spline_coefficients(all_values, all_ci_top, all_ci_bot, margin, mfcs=[], labels=[], plot="both", outpath=None):
+def plot_spline_coefficients(
+        data, 
+        shock,
+        spi, 
+        temp, 
+        stat,
+        margin=0.2,
+        colors=["#ff5100", "#3e9fe1"], 
+        labels=["High temperature shocks","Low temperature shocks"],
+        outpath=None,
+    ):
     
-    def add_whitespace_to_axis(ax, x):
-            ax.set_xticks(x)
-            ax.set_xticklabels("")
-            ax.tick_params(axis="x", length=10, width=10, color="white", direction="inout", zorder=100)  # Remove tick marks
-            ax.spines["bottom"].set_visible(False)  # Move third x-axis further down
-            ax.set_xticks(x, minor=True)
+    import os
 
-            return ax
+    title_labels = {
+        "inutero_1m3m": "1st In-Utero Quarter",
+        "inutero_4m6m": "2nd In-Utero Quarter",
+        "inutero_6m9m": "3rd In-Utero Quarter",
+        "born_1m3m": "1st Born Quarter",
+        "born_3m6m": "2nd Born Quarter",
+        "born_6m9m": "3rd Born Quarter",
+        "born_9m12m": "4th Born Quarter",
+        "born_12m15m": "5th Born Quarter",
+        "born_15m18m": "6th Born Quarter",
+        "born_18m21m": "7th Born Quarter",
+        "born_21m24m": "8th Born Quarter",
+    }
+
+    data = data[shock]["cell1"]
+
+    fig, axs = plt.subplots(3, 4, figsize=(20, 12))
+    axs[0][0].spines['top'].set_visible(False)
+    axs[0][0].spines['bottom'].set_visible(False)
+    axs[0][0].spines['right'].set_visible(False)
+    axs[0][0].spines['left'].set_visible(False)
+    axs[0][0].set_xticks([])
+    axs[0][0].set_yticks([])
+
+    xvalues_clean = [0,1,2,3,4,5,6,7]
+    line_values = []
+    for i, key in enumerate(data.keys()):
+        if i/4==len(axs.flatten()):
+            break
+        i_round = i // 4
+        pos = int((i/4 - i_round )*4)
         
-    # Check if trying to plot single series or multiple:
-    is_list_of_lists = isinstance(all_values[0], list)
-    
-    if not is_list_of_lists:
-        all_values = [all_values]
-        all_ci_top = [all_ci_top]
-        all_ci_bot = [all_ci_bot]
+        plotdata = data[key]
+
+        coefs = np.array(plotdata["coef"][:8])
+        lower = np.array(plotdata["lower"][:8])
+        upper = np.array(plotdata["upper"][:8])
         
-    x = range(1, len(all_values[0])+1)
-    values_x = distribute_x_values(x, len(all_values), margin) 
-
-    fig, ax = plt.subplots(1, 1, figsize=(6, 4))
-    for data_set in range(len(all_values)):
-        values = all_values[data_set]
-        x = values_x[data_set]
-        ci_top = all_ci_top[data_set]
-        ci_bot = all_ci_bot[data_set]
-        mfc = mfcs[data_set] if len(mfcs) > 0 else "black"
-        label = labels[data_set] if len(labels) > 0 else None
+        is_neg = ("ltm1" or "bt0m1") in key
+        if is_neg:
+            coefs = coefs*-1
+            old_upper = upper
+            upper = lower*-1
+            lower = old_upper*-1
+        yerr = [
+            list(np.subtract(coefs, lower)), # 'down' error
+            list(np.subtract(upper, coefs))
+        ]  # 'up' error
         
-        yerr = [list(np.array(values) - np.array(ci_bot)), # 'down' error
-                list(np.array(ci_top) - np.array(values))]  # 'up' error
+        # Get the color from the cycle
+        color = colors[pos]
+        label = labels[pos]
+        
+        ax = axs.flatten()[i_round]
 
-        # Plot error bars
-        ax.errorbar(x, values, yerr=yerr, capsize=3, fmt="o", mfc=mfc, color="black", label=label)
+        xvalues = distribute_x_values(xvalues_clean, 4, margin=margin)[pos+1]
+        if pos == 3:
+            ax.set_title(title_labels[key.split(f"_{stat}")[0]])
+        
+        ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
 
-    if len(labels) > 0:
-        ax.legend(bbox_to_anchor=(0.47, -0.15), frameon=False, ncols=4, loc="upper center")
-    
-    ax.axhline(y=0, color="black", linestyle="--", dashes=(7, 7), linewidth =1)
-    ax.set_xlim(0.5, len(all_values[0])+.5)
-    
-    # Set second level of labels (1 month and 2-12 months)
-    ax = add_whitespace_to_axis(ax, [1.5, 2.5, 3.5])
-    
-    ax2 = ax.secondary_xaxis('bottom')
-    ax2.set_xticklabels([])
-    ax2.tick_params(axis="x", length=0)  # Remove tick marks
-    
-    ax3 = ax.secondary_xaxis('bottom')  # Add another secondary x-axis
-    
-    ax3.set_xticks([1, 2, 3, 4],)
-    ax3.set_xticklabels(["<-1 Std", "Between\n-1 and 0 Std", "Between\n0 and +1 Std", ">1 Std"])
-    ax3.tick_params(axis="x", length=0)  # Remove tick marks
-    
-    fig.savefig(outpath, bbox_inches='tight')
+        # Now call our helper function to highlight points with a lower CI bound > 0.
+        highlight_significant_points(ax, xvalues, coefs, lower, color=color)
+
+        ax.axhline(y=0, color="black", linewidth=1)
+        # sns.lineplot(data["inutero_1m3m_avg_pos"]["coef"], ax=ax)
+        # sns.despine()
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q", "5th Q", "6th Q", "7th Q", "8th Q"])
+        ax.set_xlim(-0.3, 7.6)
+        line_values += [coefs] 
+        
+            
+    fig.tight_layout()
+    plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.2), ncol=2, frameon=False)
+
+    os.makedirs(outpath, exist_ok=True)
+    filename = fr"{outpath}\{shock}_spline_coefficients_{spi}_{stat}_{temp}.png"
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    print("Se creó la figura ", filename)
+
+    return
 
 def extract_sample_size(filepath):
     import re
@@ -424,6 +473,7 @@ def plot_heterogeneity(
         colors=None,
         labels=None,    
         outpath=None,
+        add_line=False,
     ):
     '''
         Plot the coefficients of the heterogeneity analysis.
@@ -470,18 +520,20 @@ def plot_heterogeneity(
                 f"born_9m12m_avg{sign}": "4th Born Quarter",
                 f"born_12m15m_avg{sign}": "5th Born Quarter",
                 f"born_15m18m_avg{sign}": "6th Born Quarter",
+                f"born_18m21m_avg{sign}": "7th Born Quarter",
+                f"born_21m24m_avg{sign}": "8th Born Quarter",
             }
-            fig, axs = plt.subplots(2, 4, figsize=(20, 6))
-            xvalues_clean = [0,1,2,3,4]
+            fig, axs = plt.subplots(3, 3, figsize=(18, 12))
+            xvalues_clean = [0,1,2,3,4,5,6,7]
             for i, key in enumerate(data.keys()):
-                if "born_15m18m_avg" in key:
+                if i==len(axs.flatten()):
                     break
                 heterogeneity_data = data[key]
                 for j, case in enumerate(heterogeneity_data.keys()):
 
-                    coefs = np.array(heterogeneity_data[case]["coef"][:5])
-                    lower = np.array(heterogeneity_data[case]["lower"][:5])
-                    upper = np.array(heterogeneity_data[case]["upper"][:5])
+                    coefs = np.array(heterogeneity_data[case]["coef"][:8])
+                    lower = np.array(heterogeneity_data[case]["lower"][:8])
+                    upper = np.array(heterogeneity_data[case]["upper"][:8])
                     
                     is_neg = "_neg" in key
                     sign = "_neg" if is_neg else "_pos"
@@ -507,7 +559,8 @@ def plot_heterogeneity(
                     xvalues = distribute_x_values(xvalues_clean, n_heterogeneity, margin=0.15)[j]
                     
                     ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
-                    ax.plot(xvalues, coefs, color=color)
+                    if add_line:
+                        ax.plot(xvalues, coefs, color=color)
 
                     # Now call our helper function to highlight points with a lower CI bound > 0.
                     highlight_significant_points(ax, xvalues, coefs, lower, color=color)
@@ -517,11 +570,11 @@ def plot_heterogeneity(
                 ax.spines['top'].set_visible(False)
                 ax.spines['bottom'].set_visible(False)
                 ax.spines['right'].set_visible(False)
-                ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q", "5th Q"])#, "6th Q"])
-                ax.set_xlim(-0.3, 4.6)
+                ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q", "5th Q", "6th Q", "7th Q", "8th Q"])
+                ax.set_xlim(-0.3, 7.6)
 
             fig.tight_layout()
-            plt.legend(loc='lower center', bbox_to_anchor=(-1.2, -0.35), ncol=6, frameon=False)
+            plt.legend(loc='lower center', bbox_to_anchor=(-.63, -0.2), ncol=2, frameon=False)
 
             filename = fr"{outpath}\heterogeneity {heterogeneity} - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
             plt.savefig(filename, dpi=300, bbox_inches='tight')
