@@ -14,7 +14,7 @@ controls = controls2 # controls3, controls1
 
 # # Read the file schema without loading data
 file = CSV.File(
-    "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9c.csv"; limit=100
+    "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9d.csv"; limit=100
 )
 
 ## Loop over months to avoid overloading memory, only load the necessary columns
@@ -53,7 +53,7 @@ for m in ["1", "3", "6", "9", "12", "24"]
 
     local df
     df = CSV.read(
-        "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9c.csv", DataFrame;
+        "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9d.csv", DataFrame;
         select=columns_to_include,
         types = col_types,
         # limit=1000,

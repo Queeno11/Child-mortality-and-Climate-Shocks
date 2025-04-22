@@ -276,5 +276,5 @@ if __name__ == "__main__":
     
     # Drop nans in spi/temp values
     df = df.dropna(subset=shock_cols, how="any")
-    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v9c.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9c.dta")
+    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v9d.dta")
+    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9d.dta")
