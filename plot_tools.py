@@ -405,9 +405,9 @@ def plot_spline_coefficients(
         color = colors[pos]
         label = labels[pos]
         
-        ax = axs.flatten()[i_round]
+        ax = axs.flatten()[i_round+1]
 
-        xvalues = distribute_x_values(xvalues_clean, 4, margin=margin)[pos+1]
+        xvalues = distribute_x_values(xvalues_clean, 4, margin=margin)[pos]
         if pos == 3:
             ax.set_title(title_labels[key.split(f"_{stat}")[0]])
         
@@ -428,7 +428,7 @@ def plot_spline_coefficients(
         
             
     fig.tight_layout()
-    plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.2), ncol=2, frameon=False)
+    plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.25), ncol=2, frameon=False)
 
     os.makedirs(outpath, exist_ok=True)
     filename = fr"{outpath}\{shock}_spline_coefficients_{spi}_{stat}_{temp}.png"
@@ -523,8 +523,15 @@ def plot_heterogeneity(
                 f"born_18m21m_avg{sign}": "7th Born Quarter",
                 f"born_21m24m_avg{sign}": "8th Born Quarter",
             }
-            fig, axs = plt.subplots(3, 3, figsize=(18, 12))
+            fig, axs = plt.subplots(3, 4, figsize=(20, 12))
             xvalues_clean = [0,1,2,3,4,5,6,7]
+            axs[0][0].spines['top'].set_visible(False)
+            axs[0][0].spines['bottom'].set_visible(False)
+            axs[0][0].spines['right'].set_visible(False)
+            axs[0][0].spines['left'].set_visible(False)
+            axs[0][0].set_xticks([])
+            axs[0][0].set_yticks([])
+
             for i, key in enumerate(data.keys()):
                 if i==len(axs.flatten()):
                     break
@@ -554,7 +561,7 @@ def plot_heterogeneity(
                     if (i==0) & (shock=="spi") & (sign=="_neg"): # Only print this for this first iteration
                         print(f"case: {case} -> label: {label}")
                     
-                    ax = axs.flatten()[i]
+                    ax = axs.flatten()[i+1]
 
                     xvalues = distribute_x_values(xvalues_clean, n_heterogeneity, margin=0.15)[j]
                     
@@ -574,7 +581,7 @@ def plot_heterogeneity(
                 ax.set_xlim(-0.3, 7.6)
 
             fig.tight_layout()
-            plt.legend(loc='lower center', bbox_to_anchor=(-.63, -0.2), ncol=2, frameon=False)
+            plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.25), ncol=2, frameon=False)
 
             filename = fr"{outpath}\heterogeneity {heterogeneity} - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
             plt.savefig(filename, dpi=300, bbox_inches='tight')
