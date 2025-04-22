@@ -101,7 +101,7 @@ if __name__ == "__main__":
                 # results[f"{var}_2m12m_max"] = data.isel(time=born_2to12m_slice).max().item()
             
         # Convert results to pandas Series
-        results_series = pd.Series(results)
+        results_series = pd.Series(results, dtype="float16")
 
         return results_series
 
@@ -271,6 +271,7 @@ if __name__ == "__main__":
 
     # Cast everything in float64 to float32
     float_cols = df.select_dtypes(include=["float64"]).columns
+    print(f"Converting float64 to float32: {float_cols}")
     df[float_cols] = df[float_cols].astype("float32")
     
     # Drop nans in spi/temp values
