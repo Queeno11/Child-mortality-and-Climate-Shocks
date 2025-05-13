@@ -43,7 +43,7 @@ print(f"Data loaded! Number of observations: {births.shape[0]}")
 
 # ---------- 3.  Climate-shock feature engineering ----------
 print("Creating variables...")
-climate_list  = ["std_t", "stdm_t", "spi1", "spi3", "spi6", "spi9", "spi12", "spi24"]
+climate_list  = ["std_t", "stdm_t", "spi1", "spi3", "spi6", "spi9", "spi12", "spi24", "hd35", "hd40", "fd", "id"]
 time_list = [
     "inutero_1m3m", "inutero_4m6m", "inutero_6m9m",
     "born_1m3m",    "born_3m6m",    "born_6m9m", "born_9m12m",
@@ -73,9 +73,9 @@ for var in tqdm(climate_list):
 
 # mother covariates
 for v in ('mother_ageb', 'mother_eduy'):
-    s = births[v].copy()
-    newcols[f'{v}_squ'] = s * s
-    newcols[f'{v}_cub'] = s * s * s
+    s = pd.Series(births[v], dtype="UInt32").copy()
+    newcols[f'{v}_squ'] = s ** 2
+    newcols[f'{v}_cub'] = s ** 3
 
 newcols = pd.DataFrame(newcols, index=births.index)
 
@@ -122,11 +122,13 @@ for lab in labels:
 
 # ---------- 5.  Location & household controls ----------
 print("Creating location and time fixed effects...")
-# 0.1° (original), 0.25°, 0.5°, 1° and 2° aggregations
-lat, lon = births["LATNUM"], births["LONGNUM"]
+## 0.1° (original), 0.25°, 0.5°, 1° and 2° aggregations
+# For 0.1°, we use the coordinates straight from the ERA5 cell where we extract climate data
+births["lat_climate_1"] = births["lat"]            # 0.1°
+births["lon_climate_1"] = births["lon"]
 
-births["lat_climate_1"] = lat                      # 0.1°
-births["lon_climate_1"] = lon
+# For 0.25° onwards, we group based on the DHS original coordinates (cell would work too...)
+lat, lon = births["LATNUM"], births["LONGNUM"]
 
 births["lat_climate_2"] = np.round(lat * 4) / 4    # 0.25°
 births["lon_climate_2"] = np.round(lon * 4) / 4
@@ -162,7 +164,7 @@ climate_shocks = [
 controls = [
     "child_fem", "child_mulbirth", "birth_order", "rural",
     "d_weatlh_ind_2", "d_weatlh_ind_3", "d_weatlh_ind_4", "d_weatlh_ind_5",
-    "mother_age", "mother_ageb_squ", "mother_ageb_cub",
+    "mother_age", "mother_ageb", "mother_ageb_squ", "mother_ageb_cub",
     "mother_eduy", "mother_eduy_squ", "mother_eduy_cub",
     "chb_month", "chb_year", "chb_year_sq",
 ]
@@ -190,15 +192,21 @@ births.drop(columns=[
 
 # ---------- 7.  Cast floats to float32 to mimic Stata's 'recast float' -------
 print("Recasting categoricals...")
-for col in fixed_effects+mechanisms+heterogeneities:
+for col in tqdm(fixed_effects+mechanisms+heterogeneities):
     births[col] = pd.Categorical(births[col])
 
 print("Recasting floats...")
-float_cols = births.select_dtypes(include=["float64", "float32"]).columns
-if len(float_cols) > 0:
-    births[float_cols] = births[float_cols].astype("float16")
-
-births = births.reset_index(drop=True)
+float_cols = births.select_dtypes(include=["float64"]).columns
+for col in tqdm(float_cols):
+    
+    if births[col].max() < np.finfo(np.float16).max:
+        births[col] = births[col].astype("float16", errors="raise")
+    elif births[col].max() < np.finfo(np.float32).max:
+        births[col] = births[col].astype("float32", errors="raise")
+    else:
+        print(f"Column {col} too large for float32, skipping...")
+        
+# births = births.reset_index(drop=True)
 
 # ---------- 8.  Save outputs (.dta 118 and .csv) -----------------------------
 print("Writing files...")
