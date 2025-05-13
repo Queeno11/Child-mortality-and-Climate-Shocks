@@ -206,7 +206,7 @@ for col in tqdm(float_cols):
     else:
         print(f"Column {col} too large for float32, skipping...")
         
-# births = births.reset_index(drop=True)
+births = births.reset_index(drop=True)
 
 # ---------- 8.  Save outputs (.dta 118 and .csv) -----------------------------
 print("Writing files...")
