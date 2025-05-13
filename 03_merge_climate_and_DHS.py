@@ -196,7 +196,7 @@ for col in tqdm(fixed_effects+mechanisms+heterogeneities):
     births[col] = pd.Categorical(births[col])
 
 print("Recasting floats...")
-float_cols = births.select_dtypes(include=["float64"]).columns
+float_cols = births.select_dtypes(include=["float64", "float32"]).columns
 for col in tqdm(float_cols):
     
     if births[col].max() < np.finfo(np.float16).max:
