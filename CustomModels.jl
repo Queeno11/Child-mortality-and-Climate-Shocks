@@ -38,9 +38,9 @@ module CustomModels
         println("\rRunning Model: $(model_type) with dummies=$(with_dummies) - $(drought_ind)$(months)\r")
 
         outpath = "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
-        mkpath(outpath)
         outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe.txt" 
         outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe.tex"
+        mkpath(outpath)
 
         # if isfile(outtxt) && isfile(outtex)
         #     println("File exists, moving to next iteration.")
@@ -93,7 +93,7 @@ module CustomModels
                     Vcov.cluster(Symbol("ID_cell$i")), 
                     method=:CUDA
                 )
-                println(reg_model)
+                # println(reg_model)
                 push!(regs, reg_model)
             end
             append!(spi_previous, spi_actual)
