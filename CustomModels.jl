@@ -118,9 +118,9 @@ module CustomModels
             file=outtex,
             order=order,
         )
-        catch e
-            println("Error with ", outtex, e)
-        end
+        # catch e
+        #     println("Error with ", outtex, e)
+        # end
         
         # Garbage collection
         GC.gc()
