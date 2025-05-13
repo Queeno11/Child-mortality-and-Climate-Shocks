@@ -1,6 +1,7 @@
 module CustomModels
 
     using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter
+    using StatsModels: termvars
 
     function stepped_regression(df, months, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra; model_type="linear", with_dummies=false, fixed_effects="standard")
         """
@@ -33,6 +34,7 @@ module CustomModels
         # Output
         Saves regression results in both ASCII and LaTeX formats to the specified folder.
         """
+
         println("\rRunning Model: $(model_type) with dummies=$(with_dummies) - $(drought_ind)$(months)\r")
 
         outpath = "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
@@ -62,11 +64,11 @@ module CustomModels
             agedeath1 = replace(time1, "born_" => "child_agedeath_")
 
             # Get SPI and temperature symbols based on the model type and dummies
-            spi_actual, temp_actual = get_symbols(months, temp, drought_ind, time1, stat, sp_threshold, model_type, with_dummies)
+            spi_actual, temp_actual = get_symbols(df, months, temp, drought_ind, time1, stat, sp_threshold, model_type, with_dummies)
             if time == inutero_periods_number
                 # Get the SPI and temperature symbols for the first three periods (inutero_1m3m, inutero_4m6m, inutero_6m9m)
                 for i in 1:inutero_periods_number
-                    spi_start, temp_start = get_symbols(months, temp, drought_ind, times[i], stat, sp_threshold, model_type, with_dummies)
+                    spi_start, temp_start = get_symbols(df, months, temp, drought_ind, times[i], stat, sp_threshold, model_type, with_dummies)
                     append!(order_spi, spi_start)
                     append!(order_temp, temp_start)
                     append!(spi_previous, spi_start)
@@ -84,10 +86,10 @@ module CustomModels
                 elseif fixed_effects == "quadratic_time"
                     fixed_effects_term = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i")) & term(:chb_year_sq) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
                 end
-
+               
                 reg_model = reg(
                     df, 
-                    term(Symbol(agedeath1)) ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(term.(controls)) + fixed_effects_term, 
+                    term(Symbol(agedeath1))  ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(term.(controls)) + fixed_effects_term, 
                     Vcov.cluster(Symbol("ID_cell$i")), 
                     method=:CUDA
                 )
@@ -116,66 +118,98 @@ module CustomModels
             file=outtex,
             order=order,
         )
-        # catch e
-        #     println("Error with ", outtex, e)
-        # end
+        catch e
+            println("Error with ", outtex, e)
+        end
         
         # Garbage collection
         GC.gc()
     end
 
-    function get_symbols(months, temp, drought_ind, time, stat, sp_threshold, model_type, with_dummies)
+    function get_symbols(df::DataFrame, months, temp, drought_ind,
+        time, stat, sp_threshold, model_type, with_dummies)
         """
-            get_symbols(months, temp, drought_ind, time, stat, model_type, with_dummies)
-        
-        Generates the appropriate SPI and temperature symbols for the regression based on the model type and the presence of dummy variables.
-        
-        # Arguments
-        - `months`: String specifying the SPI time window (e.g., "1", "3", "6", "9", "12").
-        - `temp`: String specifying the temperature variable.
-        - `drought_ind`: String specifying the drought indicator variable
-        - `time`: Time period for which the symbols are generated.
-        - `stat`: Aggregation stat type for SPI and temperature (e.g., "avg" or "min").
-        - `sp_threshold`: Threshold for defining the points to divede the data for the spline model.
-        - `model_type`: Type of regression model to run. Options are `"linear"`, `"quadratic"` or `"spline"`.
-        - `with_dummies`: Boolean indicating whether to include dummy variables for positive and negative deviations.
-        
-        # Returns
-        A tuple containing:
-        - `spi_symbols`: Array of symbols for SPI variables.
-        - `temp_symbols`: Array of symbols for temperature variables.
+            get_symbols!(df, months, temp, drought_ind, time, stat, sp_threshold,
+                        model_type::AbstractString, with_dummies::Bool)
+    
+        Return the vectors of Symbols that should go into the regression **and**
+        (when `with_dummies == true`) make sure the corresponding interaction
+        columns exist in `df`.  The routine is idempotent, so it is safe to call
+        it many times inside a loop.
         """
-        spi_symbols = []
-        temp_symbols = []
-        
+
+        # Containers we will return
+        spi_syms  = Symbol[]
+        temp_syms = Symbol[]
+
+        # Helpers --------------------------------------------------------------
+        spi_base  = Symbol("$(drought_ind)$(months)_$(time)_$(stat)")
+        t_base    = Symbol("$(temp)_$(time)_$(stat)")
+
+        # ----------------------------------------------------------------------
         if model_type == "linear" && !with_dummies
-            spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_$(stat)")]
-            temp_symbols = [Symbol("$(temp)_$(time)_$(stat)")]
+            push!(spi_syms,  spi_base)
+            push!(temp_syms, t_base)
+
         elseif model_type == "quadratic" && !with_dummies
-            spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_$(stat)"), Symbol("$(drought_ind)$(months)_$(time)_$(stat)_sq")]
-            temp_symbols = [Symbol("$(temp)_$(time)_$(stat)"), Symbol("$(temp)_$(time)_$(stat)_sq")]
+            push!(spi_syms,  spi_base,  Symbol("$(spi_base)_sq"))
+            push!(temp_syms, t_base,    Symbol("$(t_base)_sq"))
+
         elseif model_type == "linear" && with_dummies
-            spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_$(stat)_neg"), Symbol("$(drought_ind)$(months)_$(time)_$(stat)_pos")]
-            temp_symbols = [Symbol("$(temp)_$(time)_$(stat)_neg"), Symbol("$(temp)_$(time)_$(stat)_pos")]
+            # ------------------------------------------------------------------
+            # 1.  Dummy indicators
+            spi_neg_d = Symbol("$(spi_base)_neg")
+            spi_pos_d = Symbol("$(spi_base)_pos")
+            t_neg_d   = Symbol("$(t_base)_neg")
+            t_pos_d   = Symbol("$(t_base)_pos")
+
+            # 2.  Build the interaction columns
+            spi_neg_x = Symbol("$(spi_base)_neg_int")   # continuous × neg-dummy
+            spi_pos_x = Symbol("$(spi_base)_pos_int")   # continuous × pos-dummy
+            t_neg_x   = Symbol("$(t_base)_neg_int")
+            t_pos_x   = Symbol("$(t_base)_pos_int")
+
+            df[!,  spi_neg_x] = df[!, spi_base] .* df[!, spi_neg_d]
+            df[!,  spi_pos_x] = df[!, spi_base] .* df[!, spi_pos_d]
+            df[!,  t_neg_x]   = df[!, t_base]   .* df[!, t_neg_d]
+            df[!,  t_pos_x]   = df[!, t_base]   .* df[!, t_pos_d]
+
+            append!(spi_syms,  (spi_neg_x,  spi_pos_x))
+            append!(temp_syms, (t_neg_x,    t_pos_x))
+
         elseif model_type == "quadratic" && with_dummies
-            spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_$(stat)_sq_neg"), Symbol("$(drought_ind)$(months)_$(time)_$(stat)_sq_pos")]
-            temp_symbols = [Symbol("$(temp)_$(time)_$(stat)_sq_neg"), Symbol("$(temp)_$(time)_$(stat)_sq_pos")]
+            # Same logic, just add the squared interactions ---------------
+
+            for (base, dest) in ((spi_base, spi_syms), (t_base, temp_syms))
+                neg_d = Symbol("$(base)_neg")
+                pos_d = Symbol("$(base)_pos")
+
+                neg_x = Symbol("$(base)_neg_int")
+                pos_x = Symbol("$(base)_pos_int")
+                neg_x_sq = Symbol("$(base)_sq_neg_int")
+                pos_x_sq = Symbol("$(base)_sq_pos_int")
+
+                if !haskey(df, neg_x)
+                    df[!, neg_x]     = df[!, base] .* df[!, neg_d]
+                    df[!, pos_x]     = df[!, base] .* df[!, pos_d]
+                    df[!, neg_x_sq]  = (df[!, base].^2) .* df[!, neg_d]
+                    df[!, pos_x_sq]  = (df[!, base].^2) .* df[!, pos_d]
+                end
+                push!(dest, neg_x, pos_x, neg_x_sq, pos_x_sq)
+            end
+
         elseif model_type == "spline"
-            spi_symbols = [
-                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_ltm$(sp_threshold)"), 
-                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_bt0m$(sp_threshold)"), 
-                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_bt0$(sp_threshold)"), 
-                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_gt$(sp_threshold)")
-            ]
-            temp_symbols = [
-                Symbol("$(temp)_$(time)_$(stat)_ltm$(sp_threshold)"),
-                Symbol("$(temp)_$(time)_$(stat)_bt0m$(sp_threshold)"),
-                Symbol("$(temp)_$(time)_$(stat)_bt0$(sp_threshold)"),
-                Symbol("$(temp)_$(time)_$(stat)_gt$(sp_threshold)")
-            ]            
+            for (base, dest) in ((spi_base, spi_syms), (t_base, temp_syms))
+                for tag in ("ltm$(sp_threshold)", "bt0m$(sp_threshold)",
+                            "bt0$(sp_threshold)", "gt$(sp_threshold)")
+                    push!(dest, Symbol("$(base)_$(tag)"))
+                end
+            end
+        else
+            error("Combination (model_type=$(model_type), with_dummies=$(with_dummies)) not yet implemented.")
         end
 
-        return spi_symbols, temp_symbols
+        return spi_syms, temp_syms
     end
 
     function run_models(df, controls, folder, extra, months; only_linear=false)
@@ -208,13 +242,13 @@ module CustomModels
 
                             extra_with_time = extra_original #* " - times$(i)"
                             # Linear and Quadratic models - all cases
-                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
-                            # if only_linear
-                            #     continue
-                            # end
-                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, fixed_effects="quadratic_time")
-                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic")
-                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic", fixed_effects="quadratic_time")
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
+                            if only_linear
+                                continue
+                            end
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, fixed_effects="quadratic_time")
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic")
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic", fixed_effects="quadratic_time")
 
                             # Spline models - only for standardized variables (std_t, stdm_t):
                             for sp_threshold in ["1", "2"]
