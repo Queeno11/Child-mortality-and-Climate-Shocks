@@ -4,6 +4,7 @@ using .CustomModels
 using DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, StatFiles, Arrow
 
 @assert CUDA.functional()
+println("Running script with ", Threads.nthreads(), " threads")
 
 ## Load the data
 controls1 = [:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_ind_2, :d_weatlh_ind_3, :d_weatlh_ind_4, :d_weatlh_ind_5, :mother_ageb, :mother_eduy]
@@ -12,8 +13,10 @@ controls3 = [:child_fem, :child_mulbirth, :birth_order, :rural, :mother_ageb, :m
 controls = controls2 # controls3, controls1
 
 path = "D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9d.feather"
-tbl = Arrow.Table(path)
-df = copy(DataFrame(tbl))
+df = Arrow.Table(path)
+println("Current dataset:")
+println(df)
+df = copy(DataFrame(df))
 
 print("Dataset cargado!")
 
@@ -21,13 +24,12 @@ print("Dataset cargado!")
 ###  Pooled all countries into regression
 #################################################################
 m=1
-termcontrols = term.(controls)
-CustomModels.run_models(df, termcontrols, "", "", [m])
+CustomModels.run_models(df, term.(controls), "", "", [m])
 
-if m != "1"
-    # Only run heterogeneity for SPI1
-    continue
-end
+# if m != "1"
+#     # Only run heterogeneity for SPI1
+#     continue
+# end
 # # #################################################################
 # # ###  heterogeneity
 # # #################################################################
