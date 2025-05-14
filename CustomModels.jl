@@ -77,7 +77,8 @@ module CustomModels
 
             else
                 # Filter out children that did not survive the previous time period
-                df = filter(row -> row[Symbol(agedeath0)] == 0, df)
+                mask = df[!, Symbol(agedeath0)] .== 0
+                df = @view df[mask, :]
             end
 
             for i in 1:3
@@ -93,7 +94,7 @@ module CustomModels
                     Vcov.cluster(Symbol("ID_cell$i")), 
                     method=:CUDA
                 )
-                # println(reg_model)
+                println(reg_model)
                 push!(regs, reg_model)
             end
             append!(spi_previous, spi_actual)
@@ -169,10 +170,10 @@ module CustomModels
             t_neg_x   = Symbol("$(t_base)_neg_int")
             t_pos_x   = Symbol("$(t_base)_pos_int")
 
-            df[!,  spi_neg_x] = df[!, spi_base] .* df[!, spi_neg_d]
-            df[!,  spi_pos_x] = df[!, spi_base] .* df[!, spi_pos_d]
-            df[!,  t_neg_x]   = df[!, t_base]   .* df[!, t_neg_d]
-            df[!,  t_pos_x]   = df[!, t_base]   .* df[!, t_pos_d]
+            df[!,  spi_neg_x] = passmissing(Float16).(df[!, spi_base] .* df[!, spi_neg_d])
+            df[!,  spi_pos_x] = passmissing(Float16).(df[!, spi_base] .* df[!, spi_pos_d])
+            df[!,  t_neg_x]   = passmissing(Float16).(df[!, t_base]   .* df[!, t_neg_d])
+            df[!,  t_pos_x]   = passmissing(Float16).(df[!, t_base]   .* df[!, t_pos_d])
 
             append!(spi_syms,  (spi_neg_x,  spi_pos_x))
             append!(temp_syms, (t_neg_x,    t_pos_x))
