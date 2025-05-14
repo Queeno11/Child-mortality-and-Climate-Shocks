@@ -191,6 +191,9 @@ births.drop(columns=[
 ], errors="ignore", inplace=True)
 
 # ---------- 7.  Cast floats to float32 to mimic Stata's 'recast float' -------
+print("Recasting categoricals...")
+for col in tqdm(fixed_effects+mechanisms+heterogeneities):
+    births[col] = pd.Categorical(births[col])
 
 print("Recasting floats...")
 float_cols = births.select_dtypes(include=["float64", "float32"]).columns
