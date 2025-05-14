@@ -164,7 +164,7 @@ climate_shocks = [
 controls = [
     "child_fem", "child_mulbirth", "birth_order", "rural",
     "d_weatlh_ind_2", "d_weatlh_ind_3", "d_weatlh_ind_4", "d_weatlh_ind_5",
-    "mother_age", "mother_ageb", "mother_ageb_squ", "mother_ageb_cub",
+    "mother_ageb", "mother_ageb_squ", "mother_ageb_cub",
     "mother_eduy", "mother_eduy_squ", "mother_eduy_cub",
     "chb_month", "chb_year", "chb_year_sq",
 ]
