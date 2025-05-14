@@ -93,7 +93,7 @@ module CustomModels
                     Vcov.cluster(Symbol("ID_cell$i")), 
                     method=:CUDA
                 )
-                println(reg_model)
+                # println(reg_model)
                 push!(regs, reg_model)
             end
             append!(spi_previous, spi_actual)
