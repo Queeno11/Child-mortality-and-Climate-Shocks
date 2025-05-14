@@ -72,10 +72,13 @@ for var in tqdm(climate_list):
             newcols[f'{base}_ltm{k}']  = (s <  thr_neg).astype(bool)
 
 # mother covariates
-for v in ('mother_ageb', 'mother_eduy'):
-    s = pd.Series(births[v], dtype="UInt32").copy()
-    newcols[f'{v}_squ'] = s ** 2
-    newcols[f'{v}_cub'] = s ** 3
+s = births['mother_ageb'].copy()
+newcols['mother_ageb_squ'] = pd.to_numeric(s**2, downcast="float") # to_numeric compresses to the smallest possible dtype
+newcols['mother_ageb_cub'] = pd.to_numeric(s**3, downcast="float")
+s = births['mother_eduy'].copy()
+newcols['mother_eduy_squ'] = pd.to_numeric(s**2, downcast="integer")
+newcols['mother_eduy_cub'] = pd.to_numeric(s**3, downcast="integer")
+s = None
 
 newcols = pd.DataFrame(newcols, index=births.index)
 
@@ -85,24 +88,27 @@ births = pd.concat(
     copy=False                   # avoid an extra copy here
 )
 
-# immediately defragment so later ops stay fast & small
-births = births.copy()
+# # immediately defragment so later ops stay fast & small
+# births = births.copy()
 
-# Birth order within mother (Stata: by ID_R: gen birth_order = _n)
-# use NumPy’s lightweight lexsort to get the permutation
-order = np.lexsort((
-    births['chb_month'].values,   # 3rd key (minor)
-    births['chb_year'].values,    # 2nd
-    births['ID_R'].values         # 1st (major)
-))
+## Birth Order
+# build a “months since year 0” key
+months = births["chb_year"].astype(int) * 12 + births["chb_month"].astype(int)
 
-# reorder the frame in-place (take() is a *view*, not a copy)
-births = births.take(order)
+# rank that key within each mother by ascending value
+births["birth_order"] = (
+    months
+    .groupby(births["ID_R"])
+    .rank(method="first", ascending=True)
+    .astype("int16")
+)
 
-# now rows are already grouped + sorted, so cumcount is O(n) & cheap
-births['birth_order'] = births.groupby('ID_R', sort=False).cumcount().astype('int16') + 1
-
+## Year sq and dummies
 births["chb_year_sq"] = births["chb_year"] ** 2
+
+# Correct categorical variables to dummy
+for col in ["hhaircon", "hhfan"]:
+    births[col] = births[col].map(lambda x: 1 if x == "Yes" else 0).astype(bool)
 
 
 # ---------- 4.  Child age-at-death dummies (per 1 000 births) ----------
@@ -155,7 +161,7 @@ births["IDsurvey_country"] = births.groupby("v000").ngroup()
 births["time"]     = births["chb_year"] - 1989 # Start in 1990 = 1
 births["time_sq"]  = births["time"] ** 2
 
-# ---------- 6.  Keep/Drop variables exactly as in Stata ----------
+# ---------- 6.  Set final dataset  ----------
 print("Dropping variables...")
 IDs = ["ID", "ID_R", "ID_CB", "ID_HH",]
 climate_shocks = [
@@ -175,10 +181,10 @@ fixed_effects = [
     col for col in births.columns if col.startswith("ID_cell")
 ]
 mechanisms = [
-    "pipedw", "helec", "href", "hhaircon", "hhfan", "hhelectemp", "wbincomegroup",
+    "pipedw", "helec", "href", "hhaircon", "hhfan", "hhelectemp", 
 ]
 heterogeneities = [
-    "climate_band_3", "climate_band_2", "climate_band_1", "southern"
+    "climate_band_3", "climate_band_2", "climate_band_1", "southern", "wbincomegroup",
 ]
 
 keep_vars = IDs + climate_shocks + controls + death_vars + fixed_effects + mechanisms + heterogeneities
@@ -190,23 +196,28 @@ births.drop(columns=[
     "child_agedeath_6m12m", "child_agedeath_12m"
 ], errors="ignore", inplace=True)
 
-# ---------- 7.  Cast floats to float32 to mimic Stata's 'recast float' -------
+# ---------- 7.  Compress dataframe  ----------------------------------------
 print("Recasting categoricals...")
-for col in tqdm(fixed_effects+mechanisms+heterogeneities):
+for col in tqdm(heterogeneities):
     births[col] = pd.Categorical(births[col])
 
 print("Recasting floats...")
 float_cols = births.select_dtypes(include=["float64", "float32"]).columns
 for col in tqdm(float_cols):
-    
+    births[col] = pd.to_numeric(births[col], downcast="float")
     if births[col].max() < np.finfo(np.float16).max:
         births[col] = births[col].astype("float16", errors="raise")
     elif births[col].max() < np.finfo(np.float32).max:
         births[col] = births[col].astype("float32", errors="raise")
     else:
         print(f"Column {col} too large for float32, skipping...")
-        
-births = births.reset_index(drop=True)
+
+print("Recasting ints...")
+int_cols = births.select_dtypes(include=["int64", "int32"]).columns
+for col in tqdm(int_cols):
+    births[col] = pd.to_numeric(births[col], downcast="integer") # to_numeric compresses to the smallest possible dtype
+
+# births = births.reset_index(drop=True)
 
 # ---------- 8.  Save outputs (.dta 118 and .csv) -----------------------------
 print("Writing files...")
