@@ -26,6 +26,7 @@ print("Dataset cargado!")
 m=1
 CustomModels.run_models(df, term.(controls), "", "", [m])
 
+exit()
 # if m != "1"
 #     # Only run heterogeneity for SPI1
 #     continue
