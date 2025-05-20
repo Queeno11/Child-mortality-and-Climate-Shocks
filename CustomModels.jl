@@ -366,11 +366,30 @@ module CustomModels
         spi_syms  = Symbol[] 
         temp_syms = Symbol[]
 
+        #### ---------- Hot & frost days as dummies -------------------------------
+        hd40_col = Symbol("hd40_$(time)_$(stat)")
+        id_col   = Symbol("id_$(time)_$(stat)")
+    
+        # Helper to build the three dummies for one source column
+        function add_binned_dummies!(df, src::Symbol; prefix::String)
+            bins = ((1,10), (10,20), (20,30))   # (lower, upper) bounds
+            syms = Symbol[]
+            for (i, (lo, hi)) in enumerate(bins)
+                new_sym = Symbol("$(prefix)_bin$(hi)")
+                if with_dummies
+                    df[!, new_sym] .= passmissing(x -> (lo ≤ x < hi) ? 1 : 0).(df[!, src])
+                end
+                push!(syms, new_sym)
+            end
+            return syms
+        end
+    
+        append!(temp_syms, add_binned_dummies!(df, hd40_col; prefix = string(hd40_col)))
+        append!(temp_syms, add_binned_dummies!(df, id_col;   prefix = string(id_col)))
+    
+        #### ---------- Compute the interactions for the SPI
         spi_base  = Symbol("$(drought_ind)$(months)_$(time)_$(stat)")
-        t_base_pos    = Symbol("hd40_$(time)_$(stat)")
-        t_base_neg    = Symbol("id_$(time)_$(stat)")
 
-        ## Compute the interactions for the SPI
         # 1.  Dummy indicators
         spi_neg_d = Symbol("$(spi_base)_neg")
         spi_pos_d = Symbol("$(spi_base)_pos")
@@ -385,7 +404,6 @@ module CustomModels
         ## Indicators of temperature
 
         append!(spi_syms,  (spi_neg_x,  spi_pos_x))
-        append!(temp_syms, (t_base_pos, t_base_neg))
 
         return spi_syms, temp_syms
     end
@@ -461,10 +479,10 @@ module CustomModels
                             extra_with_time = extra_original #* " - times$(i)"
                             # Linear and Quadratic models - all cases
                             # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
-                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35fd", cells=[1])
+                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35fd", cells=[1])
                             # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35id", cells=[1])
                             # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40fd", cells=[1])
-                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40id", cells=[1])
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40id", cells=[1])
 
                             # if only_linear
                             #     continue
