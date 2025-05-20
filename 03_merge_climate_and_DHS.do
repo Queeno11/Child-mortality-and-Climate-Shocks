@@ -25,7 +25,7 @@ save "${DATA_IN}/Income level.dta", replace
 
 use "${DATA_IN}/DHS/DHSBirthsGlobalAnalysis_11072024", clear
 gen ID = _n - 1
-merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v9c" // Add climate variables
+merge 1:1 ID using "${DATA_PROC}/ClimateShocks_assigned_v9d" // Add climate variables
 keep if _merge==3
 drop _merge
 merge m:1  code_iso3 using "${DATA_IN}/Income Level.dta" // Add income group
@@ -219,8 +219,8 @@ foreach var of varlist _all {
     }
 }
 
-save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9c.dta", replace
-export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9c.csv", replace quote
+save "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9d.dta", replace
+export delimited using "$DATA_OUT/DHSBirthsGlobal&ClimateShocks_v9d.csv", replace quote
 
 
 

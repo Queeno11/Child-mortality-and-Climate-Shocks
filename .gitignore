@@ -18,6 +18,7 @@
 *.xml
 *.png
 *.parquet
+*.feather
 *.rar
 *.zip
 *.m4a
