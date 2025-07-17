@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import xarray as xr
 import pandas as pd
@@ -5,6 +6,8 @@ import geopandas as gpd
 from geocube.vector import vectorize
 import matplotlib.pyplot as plt
 
+print("Cargando y procesando bases...")
+##### CLIMATIC BANDS #####
 da = xr.open_dataset(r"D:\Datasets\Köppen-Geiger Climate Classification\KG_1986-2010.grd", engine="rasterio").band_data.sel(band=1)
 
 # To geopandas
@@ -54,25 +57,55 @@ for band in ["climate_band_1", "climate_band_2", "climate_band_3"]:
     f = gdf.plot(column=band, legend=True)
     plt.savefig(fr"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_out\{band}.png", dpi=300)
     print(f"Se creó la figura Data_out\{band}")
+
+##### META SPATIAL RELATIVE WEALTH INDEX #####
+
+path = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_in\relative-wealth-index-april-2021"
+files = os.listdir(path)
+
+dfs = []
+for file in files:
+    if file.endswith(".csv"):
+        file_path = os.path.join(path, file)
+        df = pd.read_csv(file_path)
+    dfs += [df]
+df = pd.concat(dfs, ignore_index=True)
+
+gdf_rwi = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df["longitude"], df["latitude"])).drop(columns=["longitude", "latitude"])
+gdf_rwi = gdf_rwi.set_crs("EPSG:4326")
+
+dfs = None
+df = None
+
+
+##### LOAD DHS DATA #####
     
-## Load DHS data
 print("Procesando base de DHS... Esto puede tardar unos minutos")
 df = pd.read_stata(r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_in\DHS\DHSBirthsGlobalAnalysis_11072024.dta")
 gdf_dhs = df[["ID_HH","LATNUM","LONGNUM"]].drop_duplicates(subset="ID_HH")
 gdf_dhs = gpd.GeoDataFrame(gdf_dhs, geometry=gpd.points_from_xy(gdf_dhs["LONGNUM"], gdf_dhs["LATNUM"]))
 
+
+##### SPATIAL MERGES #####
+print("Realizando merges espaciales...")
+
 # Merge DHS and climate bands
 gdf_dhs = gdf_dhs.set_crs("epsg:4326", allow_override=True)
 gdf = gdf.set_crs("epsg:4326", allow_override=True)
-gdf_dhs_climatebands = gdf_dhs.sjoin(gdf)
+gdf_dhs = gdf_dhs.sjoin(gdf)
+gdf_dhs = gdf_dhs.drop(columns="index_right")
 
+# Merge DHS and RWI
+gdf_dhs = gdf_dhs.sjoin_nearest(gdf_rwi, how="left", max_distance=.1, distance_col="distance")
+gdf_dhs = gdf_dhs.rename(columns={"distance":"rwi_distance"})
 
 ## Create southern hemisphere dummy 
-gdf_dhs_climatebands["southern"] = (gdf_dhs_climatebands["LATNUM"]<0)
+gdf_dhs["southern"] = (gdf_dhs["LATNUM"]<0)
 
-# Export
+
+##### EXPORT #####
 print("Exportando archivo...")
 outpath = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_proc\DHSBirthsGlobalAnalysis_11072024_climate_bands_assigned.dta"
-gdf_dhs_climatebands = gdf_dhs_climatebands[["ID_HH", "climate_band_3", "climate_band_2", "climate_band_1", "southern"]].drop_duplicates("ID_HH")
-gdf_dhs_climatebands.to_stata(outpath)
+gdf_dhs = gdf_dhs[["ID_HH", "climate_band_3", "climate_band_2", "climate_band_1", "southern", "rwi", "rwi_distance"]].drop_duplicates("ID_HH")
+gdf_dhs.to_stata(outpath)
 print(f"Se creó el archivo {outpath}")
