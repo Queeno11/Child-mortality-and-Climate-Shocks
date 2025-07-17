@@ -1,0 +1,570 @@
+\documentclass[a4paper]{article}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\setlength{\parskip}{8pt}%
+% \usepackage{biblatex}
+\usepackage[backend=biber,style=authoryear]{biblatex}
+\addbibresource{biblio.bib}
+\renewbibmacro{in:}{}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{adjustbox}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage[left=1.25in, right=1.25in, top=1.5in, bottom=1.5in]{geometry}
+\usepackage{breqn}
+
+\title{The Unequal Burden of a Changing Climate: Extreme Weather Shocks and Infant Mortality}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This paper investigates the causal impact of extreme weather shocks on infant mortality across 60 low- and middle-income countries from 1998 to 2021. Leveraging household-level data from the Demographic and Health Surveys (DHS) and high-resolution gridded satellite climatic data from ERA5, we examine how exposure to extreme temperature and precipitation anomalies during pregnancy and the first year of life affects infant survival.  Employing a fixed effects framework that controls for spatiotemporal confounders and individual-level characteristics, our findings reveal significant and heterogeneous relationships between weather shocks and mortality rates. pecifically, we find that both precipitation and temperature shocks are strongly associated with increased infant mortality, with temperature shocks having a greater impact. Furthermore, we explore potential mechanisms, finding evidence that the impact of extreme weather is amplified for vulnerable populations lacking access to basic infrastructure like food refrigeration and piped water.  These results underscore the disproportionate burden of climate variability on infant health in resource-constrained settings and highlight the urgent need for targeted interventions to build climate resilience and protect the most vulnerable.
+\end{abstract}
+
+\newpage
+
+\section{Introduction}
+
+Climate change is increasingly recognized as a major threat to global health, with its impacts already being felt worldwide \cite{watts2018lancet}.  Infants in low- and middle-income countries (LMICs) are disproportionately vulnerable to these impacts due to a combination of biological factors, limited access to resources, and reliance on climate-sensitive livelihoods \cite{UNICEF2015}. Exposure to extreme weather events during critical developmental windows, such as pregnancy and the first year of life, can have severe and lasting consequences for child health and survival \cite{adger2006fair}.  In this study, we define weather shocks as standardized deviations from long-term historical averages.
+
+While a growing body of research has examined the link between climate variability and child health, many studies have focused on specific regions or outcomes, and few have rigorously estimated the causal impact of distinct extreme weather events on infant mortality across a large, multi-country sample \cite{burgess2017,deschenes2009}.  This paper contributes to the literature by leveraging high-resolution climate data, a rich dataset of geo-referenced household surveys, and a robust fixed-effects identification strategy to isolate the causal effects of temperature and precipitation anomalies on infant survival, addressing potential confounding factors.
+
+Specifically, we make several key contributions. First, we analyze a large, multi-country sample of 60 LMICs, providing a more comprehensive assessment of the climate-infant mortality relationship than previous studies that often focus on single countries or regions.  Second, we use high-resolution (0.5° x 0.5°) gridded climate data, allowing for a more precise measurement of weather exposure at the local level. Third, we employ a rigorous fixed-effects approach that controls for unobserved time-invariant heterogeneity at the cell-month level and cell-specific linear time trends, strengthening the causal interpretation of our estimates.  Fourth, we distinguish between positive and negative temperature and precipitation shocks, allowing us to separately estimate the impacts of heatwaves, cold spells, droughts, and floods. Finally, and perhaps most importantly, we explore key mechanisms driving these impacts, focusing on the role of access to basic infrastructure (piped water and refrigeration) in moderating vulnerability.  To our knowledge, this is one of the first studies to comprehensively examine the heterogeneous impacts of both temperature and precipitation shocks on infant mortality across such a wide range of developing countries, while explicitly investigating the mediating role of household-level resources.
+
+The remainder of this paper is organized as follows. Section 2 reviews the relevant literature. Section 3 and 4 describe the data and our empirical strategy, respectively. Section 5 presents the main results and the heterogeneity analyzes. Section 6 discusses robustness checks. Section 7 evaluates, based on the mortality estimates, how a changing climate change could increase infant mortality in the future. Section 8 concludes with policy implications.
+
+
+\section{Literature Review}
+A growing body of research has explored the intersection between climate change and health and wellbeing. Prenatally and during their early years, children are biologically and psychologically most vulnerable to weather shock's direct effects on health, wellbeing, and nutrition. The impacts of weather shocks include increased malnutrition, increased rates of infectious and respiratory diseases, heat stress, morbidity and mortality, and psychological trauma from extreme weather-related disasters \cite{caruso2024}.  
+
+Pregnancy is a time when women are particularly susceptible to various environmental risks, such as extreme temperatures \cite{strand2012} and diseases like malaria and those transmitted through food. For instance, unusual weather patterns during pregnancy and early infancy can heighten the likelihood of under nutrition in children \cite{dimitrova2020}. Additionally, exposure to drought conditions during fetal development is linked to adverse health effects in early childhood \cite{nguyen2022}.
+
+
+Numerous studies have documented the negative impact of climate shocks on child health, demonstrating a direct relationship between extreme weather conditions and various physical development indicators in children. Using data from Guatemala, \cite{portner2010} have found significant effects of climate shocks on children's health proxied by height for age, weight for age, and weight for height, most of them negative and large. They found that heavy rains accounted for the largest effect, where each shock led to a decline in height for age of close to 0.15 standard deviations. \cite{borjean2012} estimated the impacts of weather related income shocks on child health in rural Burkina Faso, demonstrating a strong relationship between rainfall shocks during the prenatal period and child health. According to these results, when rainfall in the prenatal period is one percent higher than normal, the height for age z-score of children under five increases by 0.442. Consistent with \cite{akresh2012}, negative shocks occurring at the age lower than 12 months are considered as having a permanent effect. For rural Nigeria, \cite{rabassa2014} found a negative relationship between current rainfall shocks and weight-for-height z-scores, although above normal precipitation during the last completed rainy season has a positive impact on both child weight-for-height and height-for-age, suggesting that the positive income effect of higher rains during the last agricultural season is larger than the negative effect. Their results also evidence a positive and significant impact of rainfall shocks in diarrhoea, the second leading cause of death for young children.
+
+A more limited body of literature has focused on estimating the impact of climate change in child mortality rates. Maternal heat exposure is also a risk factor for several adverse maternal, in-utero, and neonatal outcomes. These include changes in gestation length, birth weight, stillbirth, and neonatal stress due to exposure to unusually hot temperatures (Kuehn and McCormick, 2017; Strand et al., 2012; Sun et al., 2020).  \cite{ponnusamy2022} studied the effects of rainfall shocks on child mortality for a set of developing countries, finding that negative rainfall shocks lead to an increase on child deaths. Similarly, \cite{han2013} analyzed how climate shocks affected child mortality rates in Mali, finding a negative effect of excessive rain on the probability of a child's survival. \cite{meierrieks2021} examined the effects of short-run weather shocks and long-run climate change on health outcomes in 170 countries between 1960 and 2016, finding that a 1°C increase in temperature has been associated with an increase in under-one child mortality by 16.56 children per 1000 live births.
+
+It is worth noting, though, that increases in the average rainfall (rather than extremes) are potentially beneficial. In Indonesia, Maccini and Yang (2008) found that higher aggregate amounts of seasonal rainfall in regions relying on agriculture correlate positively with a person's subjective health status, their lung capacity, and their height. 
+
+\section{Data} \label{sec:data}
+
+This study combines individual-level data from the Demographic and Health Surveys (DHS) with high-resolution climate data from ERA5.
+
+\subsection{Demographic and Health Surveys (DHS)}
+
+The primary source of data on infant mortality and household characteristics is the DHS program.  DHS are nationally representative household surveys conducted in low- and middle-income counties, providing rich demographic and health information. We utilize data from 60 countries spanning the period 1998-2021. The DHS employs a stratified two-stage cluster sampling design, and data are geo-referenced, with spatial displacement (up to 2 km in urban areas and 5 km in rural areas) to ensure respondent anonymity.
+
+For each woman of reproductive age, DHS collects a detailed birth history, including the date of birth and survival status of each child. This retrospective information allows us to construct infant mortality outcomes for children born.  We define infant mortality as death within the first year of life. We restrict our analysis to births occurring within 10 years prior to the survey date and to surveys conducted from 2003 onwards, since the DHS spatial displacement algorithm has been consistently implemented since 2003.  We impute the mother's location at the time of birth as the survey location, acknowledging potential limitations due to migration. Nevertheless, we expect these issues to be less of a concern due to the 10-year timeframe restriction.
+
+Figure \ref{fig:distr_DHS} illustrates the resulting DHS sample, which spans most low- and middle-income countries and thereby enhances the external validity of our results relative to typical country-level studies. Notably, nearly every African country has been surveyed at least once in our sample, with many undergoing multiple rounds of surveys.
+
+In addition to birth history data, DHS provides extensive information on household characteristics, including maternal education, wealth index quintile (constructed using principal component analysis of asset ownership), rural/urban residence, and access to basic infrastructure such as piped water and food refrigeration (refrigerator ownership). These variables serve as important controls and are also used to explore heterogeneity in climate shock impacts.
+
+
+\begin{figure}[t!]
+    \centering
+    \caption{Global Coverage of DHS Data Used for Infant Mortality Analysis, 2003-2023}
+    \label{fig:distr_DHS}
+    \includegraphics[width=\linewidth]{Figures/dist_DHS.png}
+\end{figure}
+
+WE SHOULD SPEAK A BIT MORE ABOUT THE HUGE DATA PROCESSING WORK THIS PAPER INVOLVED. PAULA/JED COULD BRING THE KEYPOINTS ON THIS!
+
+\subsection{Climate Data}
+
+We utilize climate data on temperature and precipitation from ERA5 reanalysis. The ERA5 dataset, produced by the European Centre for Medium-Range Weather Forecasts (ECMWF), is a state-of-the-art climate reanalysis dataset providing hourly estimates of various atmospheric, land, and oceanic climate variables from 1940 to present. ERA5 combines vast amounts of observational data with a sophisticated weather model to generate a globally complete and consistent dataset on a 0.5° x 0.5° grid (approximately 50 km x 50 km at the equator). We use monthly aggregates of temperature (monthly average temperature) and precipitation (monthly accumulated precipitation) from ERA5.
+
+To capture extreme weather shocks, we construct standardized variables for both temperature and precipitation:
+
+\textbf{Standardized Temperature Anomaly:} For each ERA5 grid cell and month of the year, we calculate the 30-year average monthly temperature and the 30-year standard deviation of monthly temperature using the period 1969-1998 as the baseline.  The standardized temperature anomaly for a given month \(m\) in year \(y\) and cell \(c\) is calculated as:
+
+\[ T_{cym} = \frac{t_{cym} - \overline{t}_{cm}}{\sigma_{cm}} \]
+
+where \(T_{cym}\) is the standardized temperature anomaly, \(t_{cym}\) is the monthly average temperature, \(\overline{t}_{cm}\) is the 30-year average monthly temperature for month \(m\) in cell \(c\), and \(\sigma_{cm}\) is the 30-year standard deviation of monthly temperature for month \(m\) in cell \(c\).  Standardizing anomalies is crucial for comparing temperature shocks across climatically diverse regions.  A positive T indicates a warmer-than-average month, while a negative T indicates a cooler-than-average month, relative to the historical distribution for that specific month and location. Furthermore, compared to 
+
+The rationale for this indicator is twofold. First, standardizing temperature anomalies is especially useful when dealing with diverse climates. For instance, a 2°C increase in a region with an average summer temperature of 34°C (a very hot climate) can have different consequences compared to the same increase in a region with an average temperature of 24°C (a moderate climate). Second, by focusing on standardized monthly anomalies instead of deviations from the annual average, we effectively eliminate the inherent seasonal patterns.  This method identifies unexpected climate shocks—--those deviations from what households and communities have historically come to expect for a given month.
+
+\textbf{Standardized Precipitation Index:}  To measure precipitation shocks, particularly droughts and extreme rainfall, we use the Standardized Precipitation Index (SPI) \cite{mckee1993}.  The SPI is a widely accepted drought index that quantifies precipitation deficits or surpluses relative to the long-term historical precipitation distribution.  We calculate the 1-month SPI (SPI-1) using monthly precipitation data.  SPI-1 reflects short-term precipitation anomalies and is sensitive to monthly-scale droughts and extreme rainfall events.  The SPI is calculated by fitting a probability distribution (typically gamma distribution) to the long-term precipitation record for each location and then transforming the cumulative probability to a standard normal distribution.  An SPI of zero indicates median precipitation, positive SPI values indicate wetter-than-median conditions, and negative SPI values indicate drier-than-median conditions.  We use SPI-1 as our primary measure of precipitation shocks, but also consider longer-term SPIs (3-, 6-, 9-, 12- and 24- months) in robustness checks.
+
+For both standardized temperature anomalies and 1-month standardized precipitation index (from now on, temperature and precipitation indicators), we create separate variables to capture positive and negative shocks.  For example, for temperature, we define \(T^+_{cym} = \max(STA_{cym}, 0)\) and \(T^-_{cym} = \min(STA_{cym}, 0)\).  Similarly, we define \(P^+_{cym} = \max(SPI1_{cym}, 0)\) and \(P^-_{cym} = \min(SPI1_{cym}, 0)\). This allows us to separately estimate the effects of positive and negative temperature and precipitation shocks.
+
+\subsection{Linking Climate Data to Children}
+
+\begin{figure}[t!]
+    \centering
+    \caption{Distribution of Precipitation and Temperature Aggregates}
+    \label{fig:distributions}
+    \includegraphics[width=0.9\linewidth]{Figures/stdm_t/histograms.png}
+\end{figure}
+
+We link climate shock variables to individual births using the mother's DHS cluster location and the child's birth date. For each child, we extract monthly temperature and precipitation data for the gestation period (including up to three months prior to birth) and for the first year of life. These monthly data are then aggregated into composite indicators that summarize the average climatic conditions over each period.
+
+For our analysis, the aggregation process involves computing the average of the temperature and precipitation indicators over three distinct intervals: the in-utero period (nine months), the first month of life (one month, requiring no further aggregation), and the period from the second to the twelfth month of life (eleven months). ADD CITATIONS TO JUSTIFY THE LEGNTH OF THIS PERIODS. 
+
+This method makes direct comparisons between effects harder, as extreme values—such as a high SPI-1 or a pronounced standardized temperature anomaly—are more likely to occur over shorter periods. In other words, the variance of the aggregated indicators is smaller the larger the aggregation period. Therefore, understanding the distribution of temperature and precipitation values within each period is crucial for accurately interpreting the regression coefficients.
+
+Figure \ref{fig:distributions} illustrates the distributions of the variables used in the main regression: standardized temperature and precipitation across three different aggregation periods. The larger variance observed in the in-utero distributions highlights the effect of aggregation, resulting in different deviations from zero for each timeframe. For reference, each distribution includes a pair of dotted lines that mark one standard deviation above and below the mean of each aggregated standardized indicator. These boundaries will later be used to define the thresholds for the spline regression model.
+
+
+
+\section{Empirical Identification Strategy}
+Our empirical strategy aims to isolate the causal impact of climate shocks on infant mortality, addressing potential confounding factors through a fixed effects approach. We estimate a discrete-time hazard model, focusing on the probability of death in each period of infancy, conditional on survival to the previous period.  This framework is well-suited for analyzing infant mortality, which is concentrated in the first few months of life.
+
+Because both temperature and precipitation measures are standardized, deviations further from zero—whether positive or negative—are expected to have a larger impact. To maintain parsimony and ease of interpretation, our primary specification models only linear effects of these deviations. This approach enables us to separately estimate the effects of high and low temperature shocks, as well as high and low precipitation shocks. In addition, we conduct robustness checks using quadratic models to verify that our findings are not driven by the linearity assumption.
+
+Our baseline regression model is specified as follows:
+\begin{equation}
+\begin{split}
+  D_{icym}^p = \alpha &+ \sum_{\rho = -3}^{p} \left( \beta^{P^+}_{\rho} P^+_{\rho cym} + \beta^{P^-}_{\rho} P^-_{\rho cym} + \beta^{T^+}_{\rho} T^+_{\rho cym} + \beta^{T^-}_{\rho} T^-_{\rho cym} \right) \\
+  &+ \theta X_{icym} + \delta_{cm} + \gamma_{c}y + \varepsilon_{icym}
+\end{split}
+  \label{originalmodel}
+\end{equation}
+
+
+where $D$ is a dummy variable equal to 1 if the child $i$, living in cell $c$, born in year $y$ and in month $m$ died. This dummy is multiplied by 1,000 to reflect mortality rates per 1,000 children instead of probability in the estimates. $P$ and $T$ are the precipitation and temperature variables of the cell at the period $\rho$ (each quarter in utero and until the first age). $P^+$ ($T^+$) represents positive precipitation (temperature) shocks, meaning we set to zero all the variable negative values. We do the same with negative values, so we can  $X$ is a set of controls including child gender, multiple birth indicator, birth order, age of mother (cubic), years of maternal education (cubic), rural indicator and wealth index quintile. $\delta_{cm}$ represents fixed effects for cell-month and $\gamma_{cy}$ represents linear trends on every cell.
+
+\(X_{icym}\) is a vector of individual-level and household-level control variables, including child gender, multiple birth indicator, birth order, maternal age (cubic), maternal education (cubic), rural/urban residence indicator, and wealth index quintile dummies. These controls account for observed factors that may influence infant mortality and be correlated with climate shocks.
+
+We include cell-month fixed effects (\(\delta_{cm}\)) and cell-year linear trends (\(\gamma_{c}y\)).  Cell-month fixed effects control for time-invariant characteristics within each ERA5 grid cell that are specific to each month of the year, such as baseline climatic conditions, seasonal patterns in disease prevalence, and agricultural cycles.  These fixed effects absorb any time-invariant differences across cells and any common seasonal patterns in mortality.  Cell-year linear trends allow for differential time trends in infant mortality across cells, controlling for spatially heterogeneous long-term trends in health improvements or deteriorations that might be correlated with climate change.  By including these fixed effects, we aim to identify the within-cell, within-month, and deviations-from-trend effects of climate shocks on infant mortality, strengthening the causal interpretation of our estimates. Standard errors are clustered at the ERA5 grid cell level to account for spatial autocorrelation and potential serial correlation within cells.
+
+
+\subsection{Spline Specification}
+
+To explore potential non-linear effects of climate shocks, we also estimate a spline specification.  For each climate variable (temperature and precipitation) and each period \(\rho\), we create categorical variables based on the magnitude of the shock. We define cut-offs at \(\pm 1\) standard deviation from zero. The standard deviation is computed from the full sample of the DHS, therefore allowing us to divide each indicator-period in a similar way. This results in four categories for each climate variable in each period: large negative shocks (\(\leq -1 std\)), moderate negative shock (between \(-1\) and \(0std\)) standard deviations, moderate positive shock (between \(0\) and \(1std\)) and large positive shock (\(\geq 1std \)). 
+
+We then include indicator variables for each category in the regression model, allowing us to estimate separate coefficients for different magnitudes of positive and negative shocks.  This spline specification provides a more flexible approach to capturing the dose-response relationship between climate shocks and infant mortality.
+
+\begin{equation}
+\begin{split}
+D_{icym}^p = \alpha &+ \sum_{\rho = -3}^{p} \sum_{k=1}^{4} \Bigl( \beta^{P}_{k\rho}  I(P_{\rho cym} \in C_k) P_{\rho cym} + \beta^{T}_{k\rho} I(T_{\rho cym} \in C_k) T_{\rho cym} \Bigr) \\
+&+ \theta X_{icym} + \delta_{cm} + \gamma_{cy} + \varepsilon_{icym}
+\end{split}
+\label{splinemodel}
+\end{equation}
+
+where \(D_{icym}^p\) is a dummy variable equal to 1 if child *i* in cell *c*, born in year *y* and month *m*, died (multiplied by 1,000 for deaths per 1,000 live births); \(\alpha\) is the intercept; \(\rho\) indexes the time periods (in-utero, first month, months 2-12); *k* indexes the four categories for each climate variable:  Large Negative (\(C_1: \leq -1\) std), Moderate Negative (\(C_2: -1\) to \(0\) std), Moderate Positive (\(C_3: 0\) to \(+1\) std), and Large Positive (\(C_4: \geq +1\) std); \(I(P_{\rho cym} \in C_k)\) is an indicator function that equals 1 if the precipitation anomaly \(P_{\rho cym}\) falls within category \(C_k\), and 0 otherwise;  \(I(T_{\rho cym} \in C_k)\) is the analogous indicator function for temperature; \(\beta^{P}_{k\rho}\) is the coefficient for precipitation category *k* in period \(\rho\), representing the effect on infant mortality on a 1-point shock if the magnitude of the shock lies within the interval \(C_k\); \(\beta^{T}_{k\rho}\) is the coefficient for temperature category *k* in period \(\rho\); and \(X_{icym}\), \(\delta_{cm}\), \(\gamma_{cy}\), and \(\varepsilon_{icym}\) represent the same control variables, cell-month fixed effects, cell-specific linear time trends, and error term, respectively, as in Equation \ref{originalmodel}.
+
+
+\subsection{Heterogeneity Analysis}
+
+We investigate potential heterogeneity in climate shock impacts across different subgroups. These heterogeneity analyses provide insights into the mechanisms through which climate shocks affect infant mortality and identify populations that are particularly vulnerable. We examine heterogeneity based on:
+
+\begin{figure}[t!]
+    \caption{Geographic Distribution of Climate Zones and Income Groups}
+    \begin{center}        
+        \begin{subfigure}[b]{.8\linewidth}
+            \includegraphics[width=\linewidth]{Figures/KG_1986-2010.png}
+            \caption{Köppen-Geiger Climatic Bands}
+            \label{fig:distr_KG} 
+        \end{subfigure}
+        \begin{subfigure}[b]{.8\linewidth}
+            \includegraphics[width=\linewidth]{Figures/Income Groups.png}
+            \caption{World Bank Income Groups}
+            \label{fig:distr_wbincomegroup} 
+        \end{subfigure}
+    \end{center}
+\end{figure}
+
+
+\noindent \textbf{Climate Zones:} We classify DHS clusters based on the Köppen-Geiger climate classification \cite{kottek2006,rubel2010} into broad climate zones (e.g., tropical, arid, temperate). The spatial distribution of each climatic band can be seen in Figure \ref{fig:distr_KG}. We estimate separate regressions for each climate zone to assess whether the impacts of climate shocks vary across different climatic regions.
+
+\noindent \textbf{Country Income Level:} We categorize countries based on World Bank income classifications (low-income, lower-middle-income, upper-middle-income, high-income). The country-level classification of income groups is presented in Figure \ref{fig:distr_wbincomegroup}. We estimate separate regressions for each income group to examine whether the vulnerability to climate shocks differs across countries with varying levels of economic development and public health infrastructure.
+
+\noindent \textbf{Access to Food Refrigeration:}  We interact climate shock variables with an indicator for whether the household owns a refrigerator.  Refrigeration can mitigate the impacts of high temperature by reducing food spoilage and the risk of foodborne illnesses.
+
+\noindent \textbf{Access to Piped Water:}  We interact climate shock variables with an indicator for whether the household has access to piped water. Piped water can provide a safer water source, reducing vulnerability to waterborne diseases, especially during periods of heavy rainfall or drought that can contaminate surface water sources.
+
+% \begin{equation}
+% D^{v}_{icym} = \alpha + \sum_{\rho = -3}^{p} \left( \beta^{P+}_{\rho} P^{+}_{pcym} + \beta^{T+}_{\rho} T^{+}_{pcym} + \beta^{P-}_{\rho} P^{-}_{pcym} + \beta^{T-}_{\rho} T^{-}_{pcym} \right) + \ldots + \epsilon_{icym}
+% \label{linearmodel}
+% \end{equation}
+
+% \begin{equation}
+%     y_{ijt} = \alpha + \sum_{q} \beta_q (T_{ij} \cdot Q_{iq}) + \theta X_{ijt} + \delta_j + \gamma_t + u_{ijt}
+% \label{eq1}
+% \end{equation}
+% where $y$ is a dummy variable equal to 1 if the child $i$ living in district $j$ born in year $t$ died, $T$ indicates whether the household  was affected by a climate shock, $Q$ are seven dummy variables representing the age of the child (each quarter in utero and until the first age). $X$ is a set of controls, and $\delta$ and $\gamma$ are fixed effects for district and year of birth.
+
+
+\section{Results}
+\subsection{Main Specification}
+
+Figure \ref{fig:linear_coefplot} present the results from the estimation of the linear probability model (Equation \ref{originalmodel}), using 1-month standardized precipitation index as a precipitation indicator and monthly standardized temperature anomalies as a temperature indicator. Figure \ref{fig:linear_coefplot} provides a graphical representation of the coefficients that represent the impact of shocks (in-utero, the first 30-days of life and between the seconds to the twelve month) increasing children mortality during different timeframes (first month and the rest of the first year). These results indicate a complex relationship between weather shocks and infant mortality.  We find statistically significant effects for both temperature and precipitation shocks, but the direction and timing of the effects vary.
+
+Specifically, focusing on temperature shocks (Figure \ref{fig:linear_coefplot}, left panel), we observe that both high-temperature shocks and low-temperature shocks during the in-utero period are associated with a statistically significant increase in infant mortality.  A one-point decrease in standardized temperature anomaly during gestation is associated with 1.37 additional deaths per 1,000 live births ($p < 0.01$). This could be induced by maternal health and nutrition detriments due to cold shocks during pregnancy, or the increase the risk of respiratory infections in newborns, ultimately increasing infant mortality.  Similarly, a one-point increase in standardized temperature anomaly during gestation is associated with 1.30 additional deaths per 1,000 live births ($p < 0.01$).
+
+For precipitation shocks (Figure \ref{fig:linear_coefplot}, right panel), we find evidence that high precipitation shocks are associated with increased infant mortality, particularly in the post-neonatal period (1st month and months 2-12).  A one-point increase in the average standardized precipitation index during months 2-12 is associated with 1.16 additional deaths per 1,000 live births ($p < 0.01$).  This suggests that excessive rainfall, potentially leading to flooding and water contamination, may increase the risk of waterborne diseases and contribute to infant mortality in the post-neonatal period.  Negative precipitation shocks (droughts) do not show statistically significant effects in the linear model.
+
+Overall, the linear model suggests that both temperature and precipitation shocks have a large and significant impact on infant mortality, but the effects are not uniform across shock types and exposure periods.  Shocks in the post-neonatal period, in particular temperature shocks, are the most detrimental to infant survival.
+
+\begin{figure}[t]
+    \caption{Estimated Impacts of Linear Climate Shocks on Infant Mortality}
+    \label{fig:linear_coefplot}
+    \begin{center}
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/coefplot_temp.png}
+        % \caption{Temperature Shocks}
+    \end{subfigure}%
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/coefplot_spi.png}
+        % \caption{Precipitation Shocks}
+    \end{subfigure}
+    \end{center}
+    \footnotesize{Notes: This figure displays the coefficient estimates and 95\% confidence intervals from the linear probability model (Equation \ref{originalmodel}).  The dependent variable is infant mortality (deaths per 1,000 live births).  Coefficients represent the change in infant mortality associated with a one-point change in the average climate shock indicator during each period (In-utero, First Month, 2-12 Months).  Standard errors are clustered at the ERA5 grid cell level.  Controls include child gender, multiple birth, birth order, maternal age (cubic), maternal education (cubic), rural residence, and wealth index quintiles. Cell-month and cell-year linear trends are included.}
+
+\end{figure}
+
+
+% \input{table1}
+
+\subsection{Spline Estimates}
+
+
+Figure \ref{fig:spline_coefplot} displays the results from the spline specification (Equation \ref{splinemodel}), allowing for non-linear effects of climate shocks.  For each climate variable and period, we estimate a slope for moderate positive shocks (0 to +1 std), large positive shocks (> +1 std), and large negative shocks (< -1 std), and moderate negative shocks (-1 to 0 std). The panels on the first column depict the spline effects of temperature shocks, while the panels on the right column depict the effects of precipitation shocks.
+
+The spline estimates provide a more nuanced picture of the relationship between climate shocks and infant mortality.  For in-utero temperature shocks, we observe evidence of non-linearity both in the first 30 days and in between month 2 to 12.  While moderate positive and negative temperature shocks during gestation do not show statistically significant effects, large negative ($<-1std$) and large positive ($>1 std$) temperature shocks are associated with a substantial and statistically significant increase in infant mortality. For example, large negative temperature shocks during gestation are associated with approximately 1.21 additional deaths per 1,000 live births per point decrease in the indicator ($p < 0.01$). Temperature shocks in the first month do not show statistically significant effects in the spline model for any shock magnitude, consistent with Figure \ref{fig:linear_coefplot}. On the contrary, contemporaneous shocks during months 2-12 have similar slopes for large and small positive and negative shocks, highlighting the validity of the linear estimate for this shocks and periods.
+
+For precipitation shocks, the spline estimates reveal a similar pattern than Figure \ref{fig:linear_coefplot}. No significant effects, neither linear nor non-linear, are found for in-utero and first month shocks. Nevertheless Figure \ref{fig:spline_coefplot}, panel (f), suggests that contemporaneous high precipitation shocks might have a non-linear effect, as only large positive shocks have statistical significance. Simiarlly to the coefficient found in the previous section,  a one-point increase in the average standardized precipitation index during months 2-12 is associated with 1.03 additional deaths per 1,000 live births ($p < 0.1$).
+
+Overall, the spline estimates confirm the importance of both temperature and precipitation shocks for infant mortality and highlight potential non-linearities and threshold effects.  Large temperature shocks during gestation appear to have non-linear patterns.
+
+\begin{figure}[p!]
+    \begin{center}
+    \caption{Spline Estimates of Climate Shock Impacts on Infant Mortality}
+    \label{fig:spline_coefplot}
+    \begin{subfigure}{0.43\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/coefplot_spline_temp_inutero_1.png}
+        \caption{In-utero temperature shock}
+    \end{subfigure}%
+    \begin{subfigure}{0.43\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/coefplot_spline_spi_inutero_1.png}
+        \caption{In-utero precipitation shock}
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.43\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/coefplot_spline_temp_30d_1.png}
+        \caption{First month temperature shock}
+    \end{subfigure}% 
+    \begin{subfigure}{0.43\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/coefplot_spline_spi_30d_1.png}
+        \caption{First month precipitation shock}
+    \end{subfigure}\hfill%    
+    \begin{subfigure}{0.43\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/coefplot_spline_temp_1m-12m_1.png}
+        \caption{2-12 month temperature shock}
+    \end{subfigure}%
+    \begin{subfigure}{0.43\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/coefplot_spline_spi_1m-12m_1.png}
+        \caption{2-12 month precipitation shock}
+    \end{subfigure}\hfill%
+    \end{center}
+    \footnotesize{Notes: This figure displays the coefficient estimates and 95\% confidence intervals from the spline regression model. The dependent variable is infant mortality (deaths per 1,000 live births). Coefficients represent the change in infant mortality associated with the average climate shock indicator falling within each defined category (Large Negative: <= -1 std, Moderate Negative: -1 to 0 std, Moderate Positive: 0 to +1 std, Large Positive: >= +1 std) during each period (In-utero, First Month, 2-12 Months). Standard errors are clustered at the ERA5 grid cell level. Controls include child gender, multiple birth, birth order, maternal age (cubic), maternal education (cubic), rural residence, and wealth index quintiles. Cell-month and cell-year linear trends are included.}
+\end{figure}
+
+
+
+% \input{table5}
+
+
+
+
+
+% \subsubsection{Electric Temperature Regulation}
+% Finally, when dealing with climate shocks, the fact of a household having access to electricity, fan, air conditioning and fridge can be crucial to mitigate or enforce the transmission of the negative effects. Thus, we estimate the linear model differentiating those households with access to these appliances. 
+% Table 6 shows the estimated results for households with access electrical temperature regulation (fan or air conditioning). It suggests that the effects disappear when electric temperature regulation is available. In the same direction, Table 7 evidence that temperature and precipitation shocks do not have significant effects on child mortality when fridge is available.
+
+
+
+\subsection{Climate zones and vulnerability}
+Most of the existent literature on the effects of climate change on mortality rates are country or region-specific, partially because there are big climate heterogeneities across countries. Thus, estimating a general model for 60 different countries might cover significant disparities between countries. This motivates a different model, in which we identify climatic bands (i.e. groups based on patterns of seasonal precipitation and temperature), based on the Köppen-Geiger climate classification published by Kottek et al. (2006), Rubel and Kottek (2010), and Rubel et al. (2017).
+
+Figure \ref{fig:climate_zones_heterogeneity} presents the estimated impacts of linear climate shocks on infant mortality, stratified by Köppen-Geiger climate zones: Temperate, Arid, and Tropical.  The results reveal significant heterogeneity in the vulnerability to climate shocks across different climate zones.
+
+In \textbf{Temperate zones}, we find limited evidence of significant impacts of climate shocks on infant mortality.  Most coefficients are close to zero and statistically insignificant, suggesting that temperate regions in our sample may be relatively resilient to the types of climate shocks considered.  This could be due to less extreme climate variability in general, better infrastructure, or adaptation mechanisms in place.
+
+In \textbf{Arid zones}, both temperature and precipitation shocks appear to have significant impacts.  Low-temperature shocks, particularly during the in-utero period, are associated with increased infant mortality in the first year of life.  High-temperature shocks also show some positive associations, although less consistently significant.  Precipitation shocks (extreme rainfall and droughts) do not show consistent significant effects in arid zones.
+
+In \textbf{Tropical zones}, we observe a distinct pattern of vulnerability.  High-temperature and Low-temperature shocks, especially during the 2 to 12 months period, are associated with a large increased infant mortality, significantly higher than the other climate areas.  Similarly, tropical zones are the only ones to be affected by high precipitation shocks (extreme rainfall).  These findings suggest that tropical regions are particularly vulnerable to both heat stress and excessive rainfall, potentially due to a combination of factors including higher baseline temperatures, greater prevalence of vector-borne and waterborne diseases, and infrastructure limitations.
+\begin{figure}[t!]
+    \caption{Climate shocks impacts on different climate zones}
+    \label{fig:climate_zones_heterogeneity}
+    \begin{center}    
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - climate_band_1 - temp linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low Temperature shocks}
+    \end{subfigure}%
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - climate_band_1 - spi linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low precipitation shocks}
+    \end{subfigure} \hfill
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - climate_band_1 - temp linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High temperature shocks}    
+    \end{subfigure}
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - climate_band_1 - spi linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High precipitation shocks}    
+    \end{subfigure} \hfill
+    \end{center}
+
+    \footnotesize{Notes: This figure displays the coefficient estimates and 95\% confidence intervals from the linear probability model (Equation \ref{originalmodel}), estimated separately for each Köppen-Geiger climate zone.  The dependent variable is infant mortality (deaths per 1,000 live births).  Coefficients represent the change in infant mortality associated with a one point change in the average climate shock indicator during each period (In-utero, First Month, 2-12 Months).  Standard errors are clustered at the ERA5 grid cell level.  Controls include child gender, multiple birth, birth order, maternal age (cubic), maternal education (cubic), rural residence, and wealth index quintiles. Cell-month and cell-year linear trends are included.}
+
+\end{figure}
+
+
+
+\subsection{Low income countries are the most vulnerable}
+
+A second source of heterogeneity that may affect the results is the general income level of the country people live in. This is relevant because richer countries have better public services, including not only water and electricity access, but also better assistance on households when shocks occur. Furthermore, these countries tend to have more developed markets, enabling households to access coping mechanisms such as credit and mitigation assets, which can reduce the harmful effects of shocks. Thus, we estimate the linear model for different income levels according to the World Bank income classification (high-income, upper-middle income, lower-middle income, low income).
+
+Figure \ref{fig:income_heterogeneity} presents the heterogeneity analysis by World Bank income groups.  We compare the impacts of linear climate shocks across Low-Income, Lower-Middle-Income, and Upper-Middle-Income countries (High-Income countries are not included due to the limited DHS data availability in high-income settings).
+
+The results suggest that low-income countries are the most vulnerable to climate shocks, particularly to positive temperature shocks (heat shocks).  Figure \ref{fig:income_heterogeneity} shows that high-temperature shocks across have larger and more consistently statistically significant positive impacts on infant mortality in low-income countries compared to middle-income countries.  For example, an additional point in the standardized anomalies indicator during the in-utero period are associated with approximately 4.68 additional deaths per 1,000 live births (p < 0.05) during months 2 to 12 of the first year in low-income countries, while the effects are smaller and less significant in middle-income countries (a statistically significant effect of 1.22 in lower-middle income and statistically insignificant effect of 1.47 in upper-middle income).  Positive precipitation shocks (extreme rainfall) also appear to have a larger impact in low-income countries, particularly during the first month of life, although the effects are less consistently significant than for temperature.
+
+\begin{figure}[t!]
+    \caption{Climate shocks impacts on different income groups}
+    \label{fig:income_heterogeneity}
+    \begin{center}
+        
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - wbincomegroup - temp linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low Temperature shocks}
+    \end{subfigure}%
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - wbincomegroup - spi linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low precipitation shocks}
+    \end{subfigure} \hfill
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - wbincomegroup - temp linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High temperature shocks}    
+    \end{subfigure}
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - wbincomegroup - spi linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High precipitation shocks}    
+    \end{subfigure}
+    \end{center}
+    \footnotesize{Notes: This figure displays the coefficient estimates and 95\% confidence intervals from the linear probability model (Equation \ref{originalmodel}), estimated separately for each World Bank income group.  The dependent variable is infant mortality (deaths per 1,000 live births).  Coefficients represent the change in infant mortality associated with a one point change in the average climate shock indicator during each period (In-utero, First Month, 2-12 Months).  Standard errors are clustered at the ERA5 grid cell level.  Controls include child gender, multiple birth, birth order, maternal age (cubic), maternal education (cubic), rural residence, and wealth index quintiles. Cell-month and cell-year linear trends are included.}
+
+\end{figure}
+
+\subsection{The relevance of food- and water-borne diseases}
+
+Figures \ref{fig:pipedwater_heterogeneity} and \ref{fig:refrigeration_heterogeneity} examine the role of household access to piped water and food refrigeration in moderating the impact of climate shocks.  We interact the linear climate shock variables with indicators for piped water access and refrigerator ownership, respectively.
+
+Figure \ref{fig:pipedwater_heterogeneity} highlights a significant moderating effect of household access to piped water on the impact of climate shocks during the post-neonatal period (months 2–12). Specifically, households with piped water experience substantially reduced detrimental effects from high-precipitation shocks. In contrast, households without piped water face a marked increase in infant mortality during this period. Quantitatively, a one-point increase in high-precipitation shocks is associated with an estimated rise of 1.77 infant deaths per 1,000 live births in these households. Similarly, a one-point increase in high-temperature shocks corresponds to an estimated increase of 2.16 infant deaths per 1,000 live births among households lacking piped water. Overall, these findings suggest that the absence of reliable piped water heightens the risks of water contamination and dehydration in environments characterized by high temperatures and humidity.
+
+Interestingly, while low-temperature and low-precipitation shocks generally do not show differentiated effects between households with and without piped water, the first month of life is an exception. During this neonatal period, both low-temperature and low-precipitation shocks produce significant adverse effects for households lacking piped water. One plausible hypothesis for this finding is that neonates are particularly vulnerable to environmental stressors and may rely more critically on safe water for hydration and hygiene immediately after birth. In the absence of piped water, the combined effects of water scarcity and potential contamination during these early, formative days could amplify health risks, leading to higher infant mortality rates.
+
+Overall, these results underscore the importance of piped water as a key adaptive asset in mitigating climate-sensitive health risks, particularly those associated with heavy precipitation and its subsequent impacts on water quality and infant hydration.
+
+\begin{figure}[t!]
+    \caption{Piped Water prevents mortal diseases}
+    \label{fig:pipedwater_heterogeneity}
+    \begin{center}
+    \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - pipedw - temp linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low Temperature shocks}
+    \end{subfigure}%
+    \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - pipedw - spi linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low precipitation shocks}
+    \end{subfigure} \hfill
+    \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - pipedw - temp linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High temperature shocks}    
+    \end{subfigure}
+    \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - pipedw - spi linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High precipitation shocks}    
+    \end{subfigure}
+    \end{center}
+    \footnotesize{Notes: This figure displays the coefficient estimates and 95\% confidence intervals from the linear probability model (Equation \ref{originalmodel}), interacted with an indicator for household access to piped water. The dependent variable is infant mortality (deaths per 1,000 live births). Coefficients represent the change in infant mortality associated with a one-point change in the average climate shock indicator during each period (In-utero, First Month, 2-12 Months), separately for households with and without piped water. Standard errors are clustered at the ERA5 grid cell level. Controls include child gender, multiple birth, birth order, maternal age (cubic), maternal education (cubic), rural residence, and wealth index quintiles. Cell-month and cell-year linear trends are included.}
+\end{figure}
+
+Figure \ref{fig:refrigeration_heterogeneity} reveal a significant moderating effect of household refrigeration on the impact of contemporaneous high-temperature shocks during the post-neonatal period (months 2-12). Specifically, for households with access to refrigeration, the detrimental effects of elevated temperatures during this developmental window are substantially attenuated, rendering the observed impacts statistically non-significant. Conversely, in households without refrigeration infrastructure, exposure to high-temperature anomalies during months 2-12 is associated with a statistically significant increase in infant mortality. Quantitatively, a one-point increment in high-temperature shocks corresponds to an estimated increase of 2.05 infant deaths per 1,000 live births within this vulnerable population. Similarly, these households lacking refrigeration exhibit heightened susceptibility to high-precipitation shocks, with a one-point increase in precipitation anomalies resulting in a statistically significant elevation of the infant mortality rate by 1.65 deaths per 1,000 live births. However, for households possessing refrigeration capacity, the mortality impacts of both temperature and precipitation extremes are markedly diminished and statistically indistinguishable from a null effect. 
+
+\begin{figure}[t!]
+    \caption{Preserving food is key}
+    \begin{center}
+    \label{fig:refrigeration_heterogeneity}
+    \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - href - temp linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low Temperature shocks}
+    \end{subfigure}%
+    \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - href - spi linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low precipitation shocks}
+    \end{subfigure} \hfill
+    \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - href - temp linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High temperature shocks}    
+    \end{subfigure}
+    \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - href - spi linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High precipitation shocks}    
+    \end{subfigure}
+    \end{center}
+    \footnotesize{Notes: This figure displays the coefficient estimates and 95\% confidence intervals from the linear probability model (Equation \ref{originalmodel}), interacted with an indicator for household refrigerator ownership. The dependent variable is infant mortality (deaths per 1,000 live births). Coefficients represent the change in infant mortality associated with a one-point change in the average climate shock indicator during each period (In-utero, First Month, 2-12 Months), separately for households with and without a refrigerator. Standard errors are clustered at the ERA5 grid cell level. Controls include child gender, multiple birth, birth order, maternal age (cubic), maternal education (cubic), rural residence, and wealth index quintiles. Cell-month and cell-year linear trends are included.}
+\end{figure}
+
+Interestingly, there is also a mitigating effect of food refrigeration on contemporaneous low-temperature shocks. A one-point increment in low-temperature shocks corresponds to an estimated increase of 1.68 infant deaths per 1,000 live births within this vulnerable population. Households with refrigeration affected by low-precipitation shocks did not have statistically different mortality than those without refrigeration.
+
+These results strongly suggest that household refrigeration serves as a critical protective factor against climate-sensitive health risks affecting infant survival. The plausible mechanisms underlying this observed heterogeneity are likely multifaceted. Refrigeration exerts a protective effect through the preservation of food quality by maintaining reduced temperatures, thereby inhibiting microbial proliferation and mitigating food spoilage, a factor of heightened importance during periods of thermal extremes. This, in turn, is expected to reduce the incidence of foodborne illnesses, a recognized determinant of infant morbidity and mortality, particularly in resource-limited settings. Furthermore, this challenge is exacerbated in humid environments, where elevated moisture levels compound the risk of rapid food degradation and pathogen growth, making effective preservation even more crucial. These findings underscore the importance of household refrigeration as a key adaptive strategy for mitigating the adverse consequences of climate variability on infant mortality, especially within vulnerable populations characterized by limited access to essential infrastructure.
+
+
+
+
+
+
+\section{Robustess Checks}
+
+To ensure the robustness of our findings, we conduct a series of sensitivity analyses. These checks address potential concerns related to the functional form of the climate variables, the spatial resolution of the climate data, and the construction of the fixed effects.
+
+First, we test the sensitivity of our results to the inclusion of a quadratic time trend for each grid cell, rather than just a linear trend.  Climate change could induce an acceleration in temperature and precipitation changes in recent years. If our main results are driven by those accelerated trends, the inclusion of quadratic time trends could reduce or eliminate the estimated effects.  Figure \ref{fig:quad_time_trend} shows the coefficient estimates from models that include either linear cell-specific time trends (as in our main specification) or quadratic cell-specific time trends.  The estimates and confidence intervals are remarkably similar across both specifications, suggesting that our findings are not driven by a non-linear trend in climate change over the study period.
+
+\begin{figure}[t!]
+    \caption{Does different fixed effects change the results?}
+    \label{fig:quad_time_trend}
+    \begin{center}
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/coefplot_fe_temp.png}
+        % \caption{Temperature Shocks}
+    \end{subfigure}%
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/coefplot_fe_spi.png}
+        % \caption{Precipitation Shocks}
+    \end{subfigure}
+    \end{center}
+    \footnotesize{Notes: This figure displays the coefficient estimates and 95\% confidence intervals from the linear probability model (Equation \ref{originalmodel}), comparing models with cell-month and cell-year linear trends versus cell-month and cell-year quadratic trends. The dependent variable is infant mortality (deaths per 1,000 live births). Coefficients represent the change in infant mortality associated with a one-point change in the average climate shock indicator during each period (In-utero, First Month, 2-12 Months). Standard errors are clustered at the ERA5 grid cell level. Controls include child gender, multiple birth, birth order, maternal age (cubic), maternal education (cubic), rural residence, and wealth index quintiles.}
+\end{figure}
+
+Similarly, we investigate the potential impact of the definition of the cell fixed effects.  In our main specification, we use grid cells with a resolution of 0.5° x 0.5° (approximately 50km x 50km at the equator).  To test whether our results are sensitive to this choice, we re-estimate the model using coarser grid resolutions: 1° x 1° (approximately 100km x 100km) and 2° x 2° (approximately 200km x 200km).  This affects both the calculation of the climate anomalies and the level at which the fixed effects are defined.
+
+Table \ref{tab:cell_sizes} presents the results for the linear specification, using the different grid cell sizes.  As is evident, the estimated coefficients and their statistical significance remain remarkably consistent across the different resolutions. This indicates that our findings are not sensitive to the specific choice of grid cell size for defining the fixed effects and calculating the climate anomalies.
+
+\begin{table}[t!]
+\centering
+\caption{Robustness to Cell Size in Linear Fixed Effects Regression}
+\label{tab:cell_sizes}
+\begin{adjustbox}{max width=\linewidth}
+\input{Tables/table_dummy_cellsize.tex}
+\end{adjustbox}
+\end{table}
+
+Table \ref{tab:cell_sizes_sq} further extends this analysis by incorporating quadratic terms for both temperature and precipitation anomalies, while simultaneously varying the spatial resolution of the grid cells. Columns (1) and (4) replicate the quadratic specification using the original 0.5° x 0.5° grid.  The results show highly significant positive coefficients for the squared terms of in-utero temperature and temperature from month 2 to 12, and also for precipitation during months 2 to 12, confirming the non-linear effects suggested by the spline specification. Columns (2), (3), (5), and (6) then re-estimate the quadratic model using the coarser 1° x 1° and 2° x 2° grid resolutions. Crucially, the key coefficients on the quadratic temperature terms remain statistically significant and of similar magnitude across all grid sizes. This reinforces the conclusion that our findings on non-linear effects are not driven by the specific spatial resolution of the data.
+
+
+\begin{table}[t!]
+\centering
+\caption{Robustness to Cell Size in Quadratic Fixed Effects Regression}
+\label{tab:cell_sizes_sq}
+\begin{adjustbox}{max width=\linewidth}
+\input{Tables/table_quadratic_cellsize}
+\end{adjustbox}
+\end{table}
+
+
+In summary, these robustness checks provide strong support for our main findings. The results are robust to the inclusion of quadratic time trends, and the estimated effects, including the non-linearities captured by the quadratic terms, remain consistent across different spatial resolutions of the climate data and fixed effects. Further robustness checks, SHOULD WE ADD SOMETHING HERE?, are presented in the Appendix (Tables A3-A5) and consistently support our main conclusions.
+
+
+\section{Simulations}
+
+Use data from climate forecasts to measure how child mortality could increase in low-income and tropical countries based on our estimates
+
+\section{Conclusion}
+
+\printbibliography
+
+\clearpage
+\appendix
+
+\section{APPENDIX: Non significant heterogeneities}
+
+ONLY FOR INTERNAL DISCUSSION:
+Finally, we explore heterogeneities between urban and rural areas. Similarlly to income groups, these results could highlight the differential impact of public assets such as electricity and piped water on child mortality due to climate shocks. Figure X shows the estimated results from the linear model by urban and rural areas. According to the results, there are no significant differences on the effects of temperature and precipitation shocks between urban and rural areas. 
+
+\begin{figure}[h!]
+    \caption{Climate shocks impacts on different income groups}
+    \centering
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - rural - temp linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low Temperature shocks}
+    \end{subfigure}%
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - rural - spi linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low precipitation shocks}
+    \end{subfigure} \hfill
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - rural - temp linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High temperature shocks}    
+    \end{subfigure}
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - rural - spi linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High precipitation shocks}    
+    \end{subfigure}
+\end{figure}
+
+In terms of gender, Table 5 shows that in-utero shocks affect male children more severely than female, although females seem to be more vulnerable from month 2 to 12. This is consistent with the findings in \cite{borjean2012}, which show that girls appear less affected by shocks than boys in Burkina Faso. 
+
+\begin{figure}[h!]
+    \caption{Climate shocks impacts on gender}
+    \centering
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - child_fem - temp linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low Temperature shocks}
+    \end{subfigure}%
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - child_fem - spi linear_dummies_true_spi1_avg_stdm_t neg.png}
+        \caption{Low precipitation shocks}
+    \end{subfigure} \hfill
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - child_fem - temp linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High temperature shocks}    
+    \end{subfigure}
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/stdm_t/heterogeneity - child_fem - spi linear_dummies_true_spi1_avg_stdm_t pos.png}
+        \caption{High precipitation shocks}    
+    \end{subfigure}
+\end{figure}
+
+
+\end{document}

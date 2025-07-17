@@ -24,9 +24,8 @@ print("Dataset cargado!")
 ###  Pooled all countries into regression
 #################################################################
 m=1
-CustomModels.run_models(df, term.(controls), "", "", [m])
+# CustomModels.run_models(df, term.(controls), "", "", [m])
 
-exit()
 # if m != "1"
 #     # Only run heterogeneity for SPI1
 #     continue
@@ -38,7 +37,7 @@ exit()
 
 # # Climate Bands (3 classifications)
 CustomModels.run_heterogeneity(df, controls, "climate_band_1", [m])
-CustomModels.run_heterogeneity(df, controls, "climate_band_2", [m])
+# CustomModels.run_heterogeneity(df, controls, "climate_band_2", [m])
 
 # Northern & Southern Hemisphere
 CustomModels.run_heterogeneity_dummy(df, controls, "southern", [m])

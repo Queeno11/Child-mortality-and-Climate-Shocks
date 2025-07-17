@@ -252,17 +252,17 @@ def plot_regression_coefficients(
     import os
 
     title_labels = {
-        "inutero_1m3m_avg_pos": "1st In-Utero Quarter",
-        "inutero_4m6m_avg_pos": "2nd In-Utero Quarter",
-        "inutero_6m9m_avg_pos": "3rd In-Utero Quarter",
-        "born_1m3m_avg_pos": "1st Born Quarter",
-        "born_3m6m_avg_pos": "2nd Born Quarter",
-        "born_6m9m_avg_pos": "3rd Born Quarter",
-        "born_9m12m_avg_pos": "4th Born Quarter",
-        "born_12m15m_avg_pos": "5th Born Quarter",
-        "born_15m18m_avg_pos": "6th Born Quarter",
-        "born_18m21m_avg_pos": "7th Born Quarter",
-        "born_21m24m_avg_pos": "8th Born Quarter",
+        "inutero_1m3m_avg_pos_int": "1st In-Utero Quarter",
+        "inutero_4m6m_avg_pos_int": "2nd In-Utero Quarter",
+        "inutero_6m9m_avg_pos_int": "3rd In-Utero Quarter",
+        "born_1m3m_avg_pos_int": "1st Born Quarter",
+        "born_3m6m_avg_pos_int": "2nd Born Quarter",
+        "born_6m9m_avg_pos_int": "3rd Born Quarter",
+        "born_9m12m_avg_pos_int": "4th Born Quarter",
+        "born_12m15m_avg_pos_int": "5th Born Quarter",
+        "born_15m18m_avg_pos_int": "6th Born Quarter",
+        "born_18m21m_avg_pos_int": "7th Born Quarter",
+        "born_21m24m_avg_pos_int": "8th Born Quarter",
     }
     
     data = data[shock]["cell1"]
@@ -411,6 +411,9 @@ def plot_spline_coefficients(
         if pos == 3:
             ax.set_title(title_labels[key.split(f"_{stat}")[0]])
         
+        print(xvalues)
+        print(coefs)
+        print(yerr)
         ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
 
         # Now call our helper function to highlight points with a lower CI bound > 0.
@@ -511,17 +514,17 @@ def plot_heterogeneity(
             n_heterogeneity = len(data[f"inutero_1m3m_avg{sign}"].keys())
 
             title_labels = {
-                f"inutero_1m3m_avg{sign}": "1st In-Utero Quarter",
-                f"inutero_4m6m_avg{sign}": "2nd In-Utero Quarter",
-                f"inutero_6m9m_avg{sign}": "3rd In-Utero Quarter",
-                f"born_1m3m_avg{sign}": "1st Born Quarter",
-                f"born_3m6m_avg{sign}": "2nd Born Quarter",
-                f"born_6m9m_avg{sign}": "3rd Born Quarter",
-                f"born_9m12m_avg{sign}": "4th Born Quarter",
-                f"born_12m15m_avg{sign}": "5th Born Quarter",
-                f"born_15m18m_avg{sign}": "6th Born Quarter",
-                f"born_18m21m_avg{sign}": "7th Born Quarter",
-                f"born_21m24m_avg{sign}": "8th Born Quarter",
+                f"inutero_1m3m_avg{sign}_int": "1st In-Utero Quarter",
+                f"inutero_4m6m_avg{sign}_int": "2nd In-Utero Quarter",
+                f"inutero_6m9m_avg{sign}_int": "3rd In-Utero Quarter",
+                f"born_1m3m_avg{sign}_int": "1st Born Quarter",
+                f"born_3m6m_avg{sign}_int": "2nd Born Quarter",
+                f"born_6m9m_avg{sign}_int": "3rd Born Quarter",
+                f"born_9m12m_avg{sign}_int": "4th Born Quarter",
+                f"born_12m15m_avg{sign}_int": "5th Born Quarter",
+                f"born_15m18m_avg{sign}_int": "6th Born Quarter",
+                f"born_18m21m_avg{sign}_int": "7th Born Quarter",
+                f"born_21m24m_avg{sign}_int": "8th Born Quarter",
             }
             fig, axs = plt.subplots(3, 4, figsize=(20, 12))
             xvalues_clean = [0,1,2,3,4,5,6,7]
