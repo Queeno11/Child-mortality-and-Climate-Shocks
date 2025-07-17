@@ -1,108 +1,66 @@
 include("D:\\World Bank\\Paper - Child mortality and Climate Shocks\\CustomModels.jl")
 
 using .CustomModels
-using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, StatFiles
-@assert CUDA.functional()
+using DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, StatFiles, Arrow
 
+@assert CUDA.functional()
 println("Running script with ", Threads.nthreads(), " threads")
 
 ## Load the data
-controls1 = [:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_ind_2, :d_weatlh_ind_3, :d_weatlh_ind_4, :d_weatlh_ind_5, :mother_age, :mother_eduy]
-controls2 = [:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_ind_2, :d_weatlh_ind_3, :d_weatlh_ind_4, :d_weatlh_ind_5, :mother_age, :mother_ageb_squ, :mother_ageb_cub, :mother_eduy, :mother_eduy_squ, :mother_eduy_cub]
-controls3 = [:child_fem, :child_mulbirth, :birth_order, :rural, :mother_age, :mother_eduy]
+controls1 = [:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_ind_2, :d_weatlh_ind_3, :d_weatlh_ind_4, :d_weatlh_ind_5, :mother_ageb, :mother_eduy]
+controls2 = [:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_ind_2, :d_weatlh_ind_3, :d_weatlh_ind_4, :d_weatlh_ind_5, :mother_ageb, :mother_ageb_squ, :mother_ageb_cub, :mother_eduy, :mother_eduy_squ, :mother_eduy_cub]
+controls3 = [:child_fem, :child_mulbirth, :birth_order, :rural, :mother_ageb, :mother_eduy]
 controls = controls2 # controls3, controls1
 
-# # Read the file schema without loading data
-file = CSV.File(
-    "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9c.csv"; limit=100
-)
+path = "D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9d.feather"
+df = Arrow.Table(path)
+println("Current dataset:")
+println(df)
+df = copy(DataFrame(df))
 
-## Loop over months to avoid overloading memory, only load the necessary columns
-for m in ["1", "3", "6", "9", "12", "24"]
+print("Dataset cargado!")
 
-    # Define columns to exclude
-    local columns_to_include
-    columns_to_include = [
-        name for name in file.names 
-        if any(occursin(string(including), string(name)) for including in [Symbol("spi$(m)_"), "std_t_", "stdm_t_", "ID_cell", "child_agedeath_"]) #   "absdifm_t_", "absdif_t_", "t_",])
-    ]
-    # columns_to_include = [
-    #     col for col in columns_to_include
-    #     if any(occursin(string(including), string(col)) for including in ["avg_pos", "avg_neg", "ID_cell", "child_agedeath_"]) #   "absdifm_t_", "absdif_t_", "t_",])
-    # ]
+#################################################################
+###  Pooled all countries into regression
+#################################################################
+m=1
+# CustomModels.run_models(df, term.(controls), "", "", [m])
 
-    
-    columns_to_include = vcat(columns_to_include, controls, [:chb_month, :chb_year, :chb_year_sq, :rural, :pipedw, :helec, :href, :hhaircon, :hhfan, :hhelectemp, :wbincomegroup, :climate_band_1, :climate_band_2, :climate_band_3, :southern])
-    
-    # Remove columns with minmax string in the name
-    columns_to_include = [name for name in columns_to_include if !occursin("minmax", string(name))]
+# if m != "1"
+#     # Only run heterogeneity for SPI1
+#     continue
+# end
+# # #################################################################
+# # ###  heterogeneity
+# # #################################################################
 
-    # Build a dictionary mapping column names to types based on their prefixes
-    col_types = Dict{Symbol, DataType}()
-    for col in columns_to_include
-        col_str = string(col)
-        if startswith(col_str, "spi$(m)") || startswith(col_str, "std_t_") || startswith(col_str, "stdm_t_")
-            col_types[col] = Float32
-        elseif startswith(col_str, "child_agedeath_")
-            col_types[col] = Int32
-        end
-    end
 
-    println("Cargando dataset...")
-    println("Columns to include: ", columns_to_include)
+# # Climate Bands (3 classifications)
+CustomModels.run_heterogeneity(df, controls, "climate_band_1", [m])
+# CustomModels.run_heterogeneity(df, controls, "climate_band_2", [m])
 
-    local df
-    df = CSV.read(
-        "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9c.csv", DataFrame;
-        select=columns_to_include,
-        types = col_types,
-        # limit=1000,
-    )
-    print("Dataset cargado!")
+# Northern & Southern Hemisphere
+CustomModels.run_heterogeneity_dummy(df, controls, "southern", [m])
 
-    #################################################################
-    ###  Pooled all countries into regression
-    #################################################################
+# Income Group
+CustomModels.run_heterogeneity(df, controls, "wbincomegroup", [m])
 
-    termcontrols = term.(controls)
-    CustomModels.run_models(df, termcontrols, "", "", [m])
+# #################################################################
+# ###  Mechanisms
+# #################################################################
 
-    if m != "1"
-        # Only run heterogeneity for SPI1
-        continue
-    end
-    # # #################################################################
-    # # ###  heterogeneity
-    # # #################################################################
-    
-    
-    # # Climate Bands (3 classifications)
-    CustomModels.run_heterogeneity(df, controls, "climate_band_1", [m])
-    CustomModels.run_heterogeneity(df, controls, "climate_band_2", [m])
-    
-    # Northern & Southern Hemisphere
-    CustomModels.run_heterogeneity_dummy(df, controls, "southern", [m])
-    
-    # Income Group
-    CustomModels.run_heterogeneity(df, controls, "wbincomegroup", [m])
+# Urban & Rural
+CustomModels.run_heterogeneity_dummy(df, controls, "rural", [m])
 
-    # #################################################################
-    # ###  Mechanisms
-    # #################################################################
+# Mechanisms
 
-    # Urban & Rural
-    CustomModels.run_heterogeneity_dummy(df, controls, "rural", [m])
+CustomModels.run_heterogeneity_dummy(df, controls, "pipedw", [m])
+CustomModels.run_heterogeneity_dummy(df, controls, "href", [m])
+CustomModels.run_heterogeneity_dummy(df, controls, "hhelectemp", [m])
+CustomModels.run_heterogeneity_dummy(df, controls, "hhfan", [m])
+CustomModels.run_heterogeneity_dummy(df, controls, "hhaircon", [m])
+CustomModels.run_heterogeneity_dummy(df, controls, "helec", [m])
 
-    # Mechanisms
+# Gender
+CustomModels.run_heterogeneity_dummy(df, controls, "child_fem", [m])
 
-    CustomModels.run_heterogeneity_dummy(df, controls, "pipedw", [m])
-    CustomModels.run_heterogeneity_dummy(df, controls, "href", [m])
-    CustomModels.run_heterogeneity_dummy(df, controls, "hhelectemp", [m])
-    CustomModels.run_heterogeneity_dummy(df, controls, "hhfan", [m])
-    CustomModels.run_heterogeneity_dummy(df, controls, "hhaircon", [m])
-    CustomModels.run_heterogeneity_dummy(df, controls, "helec", [m])
-
-    # Gender
-    CustomModels.run_heterogeneity_dummy(df, controls, "child_fem", [m])
-
-end

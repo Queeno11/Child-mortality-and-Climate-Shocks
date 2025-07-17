@@ -38,7 +38,7 @@ os.makedirs(rf"{OUT_FIGS}", exist_ok=True)
 # plot_tools.plot_shocks_histogram(df, cols, outpath=outpath)
 
 ###### Figure 2: Main coefficients dummies true
-file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp}  standard_fe.tex"  # Replace with the actual path to your LaTeX file.
+file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp}  standard_fe standard_sym.tex"  # Replace with the actual path to your LaTeX file.
 outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
 
 plot_tools.plot_regression_coefficients(
@@ -68,7 +68,7 @@ plot_tools.plot_regression_coefficients(
 )
 
 ### Figure 3: Main coefficients Spline
-file_path = rf"{OUTPUTS}\spline_dummies_false_{spi}_{stat}_{temp}  - spthreshold1 standard_fe.tex"  # Replace with the actual path to your LaTeX file.
+file_path = rf"{OUTPUTS}\spline_dummies_false_{spi}_{stat}_{temp}  - spthreshold1 standard_fe standard_sym.tex"  # Replace with the actual path to your LaTeX file.
 outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
 
 plot_tools.plot_spline_coefficients(

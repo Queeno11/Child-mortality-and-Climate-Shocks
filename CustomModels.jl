@@ -1,8 +1,15 @@
 module CustomModels
 
     using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter
+    using StatsModels: termvars
 
-    function stepped_regression(df, months, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra; model_type="linear", with_dummies=false, fixed_effects="standard")
+    function stepped_regression(df, months, temp, drought_ind, controls,
+        times, stat, sp_threshold, folder, extra;
+        model_type      = "linear",
+        with_dummies    = false,
+        fixed_effects   = "standard",
+        symbols         = "standard",
+        cells           = [1,2,3]) 
         """
             run_regression(df, months, controls, times, folder, extra; model_type="linear", with_dummies=false)
         
@@ -33,13 +40,28 @@ module CustomModels
         # Output
         Saves regression results in both ASCII and LaTeX formats to the specified folder.
         """
-        println("\rRunning Model: $(model_type) with dummies=$(with_dummies) - $(drought_ind)$(months)\r")
+
+        println("\rRunning Model: $(model_type) with dummies=$(with_dummies), symbols=$(symbols) ($(drought_ind)$(months)), fe=$(fixed_effects) \r")
 
         outpath = "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
+        outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe $(symbols)_sym.txt" 
+        outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe $(symbols)_sym.tex"
         mkpath(outpath)
-        outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe.txt" 
-        outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)$(months)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe.tex"
 
+        # Set the symbols that will be used in the regression. If use_hd_symbols is true, use the HD symbols, else use the standard ones.
+        if symbols=="standard"
+            get_symbols = get_symbols_standard
+        elseif symbols=="hd35fd"
+            get_symbols = get_symbols_hd35fd
+        elseif symbols=="hd40fd"
+            get_symbols = get_symbols_hd40fd
+        elseif symbols=="hd35id"
+            get_symbols = get_symbols_hd35id
+        elseif symbols=="hd40id"
+            get_symbols = get_symbols_hd40id
+        else
+            throw("Invalid symbols option: $(symbols). Use 'standard', 'hd35fd', 'hd40fd', 'hd35id' or 'hd40id'.")
+        end
         # if isfile(outtxt) && isfile(outtex)
         #     println("File exists, moving to next iteration.")
         #     return
@@ -62,11 +84,11 @@ module CustomModels
             agedeath1 = replace(time1, "born_" => "child_agedeath_")
 
             # Get SPI and temperature symbols based on the model type and dummies
-            spi_actual, temp_actual = get_symbols(months, temp, drought_ind, time1, stat, sp_threshold, model_type, with_dummies)
+            spi_actual, temp_actual = get_symbols(df, months, temp, drought_ind, time1, stat, sp_threshold, model_type, with_dummies)
             if time == inutero_periods_number
                 # Get the SPI and temperature symbols for the first three periods (inutero_1m3m, inutero_4m6m, inutero_6m9m)
                 for i in 1:inutero_periods_number
-                    spi_start, temp_start = get_symbols(months, temp, drought_ind, times[i], stat, sp_threshold, model_type, with_dummies)
+                    spi_start, temp_start = get_symbols(df, months, temp, drought_ind, times[i], stat, sp_threshold, model_type, with_dummies)
                     append!(order_spi, spi_start)
                     append!(order_temp, temp_start)
                     append!(spi_previous, spi_start)
@@ -75,19 +97,20 @@ module CustomModels
 
             else
                 # Filter out children that did not survive the previous time period
-                df = filter(row -> row[Symbol(agedeath0)] == 0, df)
+                mask = df[!, Symbol(agedeath0)] .== 0
+                df = @view df[mask, :]
             end
 
-            for i in 1:3
+            for i in cells
                 if fixed_effects == "standard"
                     fixed_effects_term = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
                 elseif fixed_effects == "quadratic_time"
                     fixed_effects_term = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i")) & term(:chb_year_sq) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
                 end
-
+               
                 reg_model = reg(
                     df, 
-                    term(Symbol(agedeath1)) ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(term.(controls)) + fixed_effects_term, 
+                    term(Symbol(agedeath1))  ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(term.(controls)) + fixed_effects_term, 
                     Vcov.cluster(Symbol("ID_cell$i")), 
                     method=:CUDA
                 )
@@ -124,58 +147,305 @@ module CustomModels
         GC.gc()
     end
 
-    function get_symbols(months, temp, drought_ind, time, stat, sp_threshold, model_type, with_dummies)
+    function get_symbols_standard(df, months, temp, drought_ind,
+        time, stat, sp_threshold, model_type, with_dummies)
         """
-            get_symbols(months, temp, drought_ind, time, stat, model_type, with_dummies)
-        
-        Generates the appropriate SPI and temperature symbols for the regression based on the model type and the presence of dummy variables.
-        
-        # Arguments
-        - `months`: String specifying the SPI time window (e.g., "1", "3", "6", "9", "12").
-        - `temp`: String specifying the temperature variable.
-        - `drought_ind`: String specifying the drought indicator variable
-        - `time`: Time period for which the symbols are generated.
-        - `stat`: Aggregation stat type for SPI and temperature (e.g., "avg" or "min").
-        - `sp_threshold`: Threshold for defining the points to divede the data for the spline model.
-        - `model_type`: Type of regression model to run. Options are `"linear"`, `"quadratic"` or `"spline"`.
-        - `with_dummies`: Boolean indicating whether to include dummy variables for positive and negative deviations.
-        
-        # Returns
-        A tuple containing:
-        - `spi_symbols`: Array of symbols for SPI variables.
-        - `temp_symbols`: Array of symbols for temperature variables.
+            get_symbols_standard!(df, months, temp, drought_ind, time, stat, sp_threshold,
+                        model_type::AbstractString, with_dummies::Bool)
+    
+        Return the vectors of Symbols that should go into the regression **and**
+        (when `with_dummies == true`) make sure the corresponding interaction
+        columns exist in `df`.  The routine is idempotent, so it is safe to call
+        it many times inside a loop.
         """
-        spi_symbols = []
-        temp_symbols = []
-        
-        if model_type == "linear" && !with_dummies
-            spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_$(stat)")]
-            temp_symbols = [Symbol("$(temp)_$(time)_$(stat)")]
-        elseif model_type == "quadratic" && !with_dummies
-            spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_$(stat)"), Symbol("$(drought_ind)$(months)_$(time)_$(stat)_sq")]
-            temp_symbols = [Symbol("$(temp)_$(time)_$(stat)"), Symbol("$(temp)_$(time)_$(stat)_sq")]
-        elseif model_type == "linear" && with_dummies
-            spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_$(stat)_neg"), Symbol("$(drought_ind)$(months)_$(time)_$(stat)_pos")]
-            temp_symbols = [Symbol("$(temp)_$(time)_$(stat)_neg"), Symbol("$(temp)_$(time)_$(stat)_pos")]
-        elseif model_type == "quadratic" && with_dummies
-            spi_symbols = [Symbol("$(drought_ind)$(months)_$(time)_$(stat)_sq_neg"), Symbol("$(drought_ind)$(months)_$(time)_$(stat)_sq_pos")]
-            temp_symbols = [Symbol("$(temp)_$(time)_$(stat)_sq_neg"), Symbol("$(temp)_$(time)_$(stat)_sq_pos")]
-        elseif model_type == "spline"
-            spi_symbols = [
-                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_ltm$(sp_threshold)"), 
-                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_bt0m$(sp_threshold)"), 
-                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_bt0$(sp_threshold)"), 
-                Symbol("$(drought_ind)$(months)_$(time)_$(stat)_gt$(sp_threshold)")
-            ]
-            temp_symbols = [
-                Symbol("$(temp)_$(time)_$(stat)_ltm$(sp_threshold)"),
-                Symbol("$(temp)_$(time)_$(stat)_bt0m$(sp_threshold)"),
-                Symbol("$(temp)_$(time)_$(stat)_bt0$(sp_threshold)"),
-                Symbol("$(temp)_$(time)_$(stat)_gt$(sp_threshold)")
-            ]            
-        end
 
-        return spi_symbols, temp_symbols
+        # Containers we will return
+        spi_syms  = Symbol[]
+        temp_syms = Symbol[]
+
+        spi_base  = Symbol("$(drought_ind)$(months)_$(time)_$(stat)")
+        t_base    = Symbol("$(temp)_$(time)_$(stat)")
+
+        
+        for (ind, syms) in ((spi_base, spi_syms), (t_base, temp_syms))
+            if model_type == "linear" && !with_dummies
+                push!(syms,  ind)
+            
+            elseif model_type == "quadratic" && !with_dummies
+                push!(syms,  ind, Symbol("$(ind)_sq"))
+
+            elseif model_type == "linear" && with_dummies
+                # 1.  Dummy indicators
+                ind_neg_d = Symbol("$(ind)_neg")
+                ind_pos_d = Symbol("$(ind)_pos")
+
+                # 2.  Build the interaction columns
+                ind_neg_x = Symbol("$(ind)_neg_int")   # continuous × neg-dummy
+                ind_pos_x = Symbol("$(ind)_pos_int")   # continuous × pos-dummy
+
+                df[!,  ind_neg_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_neg_d])
+                df[!,  ind_pos_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_pos_d])
+
+                append!(syms,  (ind_neg_x,  ind_pos_x))
+
+            elseif model_type == "quadratic" && with_dummies
+                # 1.  Dummy indicators & squared indicators
+                ind_neg_d = Symbol("$(ind)_neg")
+                ind_pos_d = Symbol("$(ind)_pos")
+                ind_sq = Symbol("$(ind)_sq")
+
+                # 2.  Build the interaction columns
+                ind_neg_x = Symbol("$(ind)_neg_int")   # continuous × neg-dummy
+                ind_pos_x = Symbol("$(ind)_pos_int")   # continuous × pos-dummy
+                ind_neg_x_sq = Symbol("$(ind)_sq_neg_int")   # continuous × neg-dummy
+                ind_pos_x_sq = Symbol("$(ind)_sq_pos_int")   # continuous × pos-dummy
+
+                df[!,  ind_neg_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_neg_d])
+                df[!,  ind_pos_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_pos_d])
+                df[!,  ind_neg_x_sq] = passmissing(Float16).(df[!, ind_sq] .* df[!, ind_neg_d])
+                df[!,  ind_pos_x_sq] = passmissing(Float16).(df[!, ind_sq] .* df[!, ind_pos_d])
+
+                append!(syms,  (ind_neg_x,  ind_pos_x, ind_neg_x_sq, ind_pos_x_sq))
+
+            elseif model_type == "spline"
+                # 1.  Dummy indicators
+                ind_gtk = Symbol("$(ind)_gt$(sp_threshold)")
+                ind_bt0k = Symbol("$(ind)_bt0$(sp_threshold)")
+                ind_bt0mk = Symbol("$(ind)_bt0m$(sp_threshold)")
+                ind_ltk = Symbol("$(ind)_ltm$(sp_threshold)")
+
+                # 2.  Build the interaction columns
+                ind_gtk_x = Symbol("$(ind)_gt$(sp_threshold)_int")   # interaction
+                ind_bt0k_x = Symbol("$(ind)_bt0$(sp_threshold)_int")   
+                ind_bt0mk_x = Symbol("$(ind)_bt0m$(sp_threshold)_int")   
+                ind_ltk_x = Symbol("$(ind)_ltm$(sp_threshold)_int")   
+                
+                df[!,  ind_gtk_x  ] = passmissing(Float16).(df[!, ind] .* df[!, ind_gtk  ])
+                df[!,  ind_bt0k_x ] = passmissing(Float16).(df[!, ind] .* df[!, ind_bt0k ])
+                df[!,  ind_bt0mk_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_bt0mk])
+                df[!,  ind_ltk_x  ] = passmissing(Float16).(df[!, ind] .* df[!, ind_ltk  ])
+                
+                append!(syms,  (ind_gtk_x,  ind_bt0k_x, ind_bt0mk_x, ind_ltk_x))
+                
+            else
+                error("Combination (model_type=$(model_type), with_dummies=$(with_dummies)) not yet implemented.")
+            end
+        end
+        return spi_syms, temp_syms
+    end
+
+    function get_symbols_hd40fd(df, months, temp, drought_ind,
+        time, stat, sp_threshold, model_type, with_dummies)
+        """
+            get_symbols_hotfrostdays(df, months, temp, drought_ind, time, stat, sp_threshold,
+                        model_type::AbstractString, with_dummies::Bool)
+    
+        Return the vectors of Symbols that should go into the regression **and**
+        (when `with_dummies == true`) make sure the corresponding interaction
+        columns exist in `df`.  The routine is idempotent, so it is safe to call
+        it many times inside a loop.
+        """
+
+        # Containers we will return
+        spi_syms  = Symbol[] 
+        temp_syms = Symbol[]
+
+        #### ---------- Hot & frost days as dummies -------------------------------
+        hd40_col = Symbol("hd40_$(time)_$(stat)")
+        fd_col   = Symbol("fd_$(time)_$(stat)")
+    
+        # Helper to build the three dummies for one source column
+        function add_binned_dummies!(df, src::Symbol; prefix::String)
+            bins = ((1,10), (10,20), (20,30))   # (lower, upper) bounds
+            syms = Symbol[]
+            for (i, (lo, hi)) in enumerate(bins)
+                new_sym = Symbol("$(prefix)_bin$(hi)")
+                if with_dummies
+                    df[!, new_sym] .= passmissing(x -> (lo ≤ x < hi) ? 1 : 0).(df[!, src])
+                end
+                push!(syms, new_sym)
+            end
+            return syms
+        end
+    
+        append!(temp_syms, add_binned_dummies!(df, hd40_col; prefix = string(hd40_col)))
+        append!(temp_syms, add_binned_dummies!(df, fd_col;   prefix = string(fd_col)))
+    
+        #### ---------- Compute the interactions for the SPI
+        spi_base  = Symbol("$(drought_ind)$(months)_$(time)_$(stat)")
+
+        # 1.  Dummy indicators
+        spi_neg_d = Symbol("$(spi_base)_neg")
+        spi_pos_d = Symbol("$(spi_base)_pos")
+
+        # 2.  Build the interaction columns
+        spi_neg_x = Symbol("$(spi_base)_neg_int")   # continuous × neg-dummy
+        spi_pos_x = Symbol("$(spi_base)_pos_int")   # continuous × pos-dummy
+
+        df[!,  spi_neg_x] = passmissing(Float16).(df[!, spi_base] .* df[!, spi_neg_d])
+        df[!,  spi_pos_x] = passmissing(Float16).(df[!, spi_base] .* df[!, spi_pos_d])
+
+        ## Indicators of temperature
+
+        append!(spi_syms,  (spi_neg_x,  spi_pos_x))
+
+        return spi_syms, temp_syms
+    end
+
+    function get_symbols_hd35fd(df, months, temp, drought_ind,
+        time, stat, sp_threshold, model_type, with_dummies)
+        """
+            get_symbols_hotfrostdays(df, months, temp, drought_ind, time, stat, sp_threshold,
+                        model_type::AbstractString, with_dummies::Bool)
+    
+        Return the vectors of Symbols that should go into the regression **and**
+        (when `with_dummies == true`) make sure the corresponding interaction
+        columns exist in `df`.  The routine is idempotent, so it is safe to call
+        it many times inside a loop.
+        """
+
+        # Containers we will return
+        spi_syms  = Symbol[] 
+        temp_syms = Symbol[]
+
+        #### ---------- Hot & frost days as dummies -------------------------------
+        hd35_col = Symbol("hd35_$(time)_$(stat)")
+        fd_col   = Symbol("fd_$(time)_$(stat)")
+    
+        # Helper to build the three dummies for one source column
+        function add_binned_dummies!(df, src::Symbol; prefix::String)
+            bins = ((1,10), (10,20), (20,30))   # (lower, upper) bounds
+            syms = Symbol[]
+            for (i, (lo, hi)) in enumerate(bins)
+                new_sym = Symbol("$(prefix)_bin$(hi)")
+                if with_dummies
+                    df[!, new_sym] .= passmissing(x -> (lo ≤ x < hi) ? 1 : 0).(df[!, src])
+                end
+                push!(syms, new_sym)
+            end
+            return syms
+        end
+    
+        append!(temp_syms, add_binned_dummies!(df, hd35_col; prefix = string(hd35_col)))
+        append!(temp_syms, add_binned_dummies!(df, fd_col;   prefix = string(fd_col)))
+    
+        #### ---------- Compute the interactions for the SPI
+        spi_base  = Symbol("$(drought_ind)$(months)_$(time)_$(stat)")
+
+        # 1.  Dummy indicators
+        spi_neg_d = Symbol("$(spi_base)_neg")
+        spi_pos_d = Symbol("$(spi_base)_pos")
+
+        # 2.  Build the interaction columns
+        spi_neg_x = Symbol("$(spi_base)_neg_int")   # continuous × neg-dummy
+        spi_pos_x = Symbol("$(spi_base)_pos_int")   # continuous × pos-dummy
+
+        df[!,  spi_neg_x] = passmissing(Float16).(df[!, spi_base] .* df[!, spi_neg_d])
+        df[!,  spi_pos_x] = passmissing(Float16).(df[!, spi_base] .* df[!, spi_pos_d])
+
+        ## Indicators of temperature
+
+        append!(spi_syms,  (spi_neg_x,  spi_pos_x))
+
+        return spi_syms, temp_syms
+    end
+
+    function get_symbols_hd40id(df, months, temp, drought_ind,
+        time, stat, sp_threshold, model_type, with_dummies)
+        """
+            get_symbols_hotfrostdays(df, months, temp, drought_ind, time, stat, sp_threshold,
+                        model_type::AbstractString, with_dummies::Bool)
+    
+        Return the vectors of Symbols that should go into the regression **and**
+        (when `with_dummies == true`) make sure the corresponding interaction
+        columns exist in `df`.  The routine is idempotent, so it is safe to call
+        it many times inside a loop.
+        """
+
+        # Containers we will return
+        spi_syms  = Symbol[] 
+        temp_syms = Symbol[]
+
+        #### ---------- Hot & frost days as dummies -------------------------------
+        hd40_col = Symbol("hd40_$(time)_$(stat)")
+        id_col   = Symbol("id_$(time)_$(stat)")
+    
+        # Helper to build the three dummies for one source column
+        function add_binned_dummies!(df, src::Symbol; prefix::String)
+            bins = ((1,10), (10,20), (20,30))   # (lower, upper) bounds
+            syms = Symbol[]
+            for (i, (lo, hi)) in enumerate(bins)
+                new_sym = Symbol("$(prefix)_bin$(hi)")
+                if with_dummies
+                    df[!, new_sym] .= passmissing(x -> (lo ≤ x < hi) ? 1 : 0).(df[!, src])
+                end
+                push!(syms, new_sym)
+            end
+            return syms
+        end
+    
+        append!(temp_syms, add_binned_dummies!(df, hd40_col; prefix = string(hd40_col)))
+        append!(temp_syms, add_binned_dummies!(df, id_col;   prefix = string(id_col)))
+    
+        #### ---------- Compute the interactions for the SPI
+        spi_base  = Symbol("$(drought_ind)$(months)_$(time)_$(stat)")
+
+        # 1.  Dummy indicators
+        spi_neg_d = Symbol("$(spi_base)_neg")
+        spi_pos_d = Symbol("$(spi_base)_pos")
+
+        # 2.  Build the interaction columns
+        spi_neg_x = Symbol("$(spi_base)_neg_int")   # continuous × neg-dummy
+        spi_pos_x = Symbol("$(spi_base)_pos_int")   # continuous × pos-dummy
+
+        df[!,  spi_neg_x] = passmissing(Float16).(df[!, spi_base] .* df[!, spi_neg_d])
+        df[!,  spi_pos_x] = passmissing(Float16).(df[!, spi_base] .* df[!, spi_pos_d])
+
+        ## Indicators of temperature
+
+        append!(spi_syms,  (spi_neg_x,  spi_pos_x))
+
+        return spi_syms, temp_syms
+    end
+
+    function get_symbols_hd35id(df, months, temp, drought_ind,
+        time, stat, sp_threshold, model_type, with_dummies)
+        """
+            get_symbols_hotfrostdays(df, months, temp, drought_ind, time, stat, sp_threshold,
+                        model_type::AbstractString, with_dummies::Bool)
+    
+        Return the vectors of Symbols that should go into the regression **and**
+        (when `with_dummies == true`) make sure the corresponding interaction
+        columns exist in `df`.  The routine is idempotent, so it is safe to call
+        it many times inside a loop.
+        """
+
+        # Containers we will return
+        spi_syms  = Symbol[] 
+        temp_syms = Symbol[]
+
+        spi_base  = Symbol("$(drought_ind)$(months)_$(time)_$(stat)")
+        t_base_pos    = Symbol("hd35_$(time)_$(stat)")
+        t_base_neg    = Symbol("id_$(time)_$(stat)")
+
+        ## Compute the interactions for the SPI
+        # 1.  Dummy indicators
+        spi_neg_d = Symbol("$(spi_base)_neg")
+        spi_pos_d = Symbol("$(spi_base)_pos")
+
+        # 2.  Build the interaction columns
+        spi_neg_x = Symbol("$(spi_base)_neg_int")   # continuous × neg-dummy
+        spi_pos_x = Symbol("$(spi_base)_pos_int")   # continuous × pos-dummy
+
+        df[!,  spi_neg_x] = passmissing(Float16).(df[!, spi_base] .* df[!, spi_neg_d])
+        df[!,  spi_pos_x] = passmissing(Float16).(df[!, spi_base] .* df[!, spi_pos_d])
+
+        ## Indicators of temperature
+
+        append!(spi_syms,  (spi_neg_x,  spi_pos_x))
+        append!(temp_syms, (t_base_pos, t_base_neg))
+
+        return spi_syms, temp_syms
     end
 
     function run_models(df, controls, folder, extra, months; only_linear=false)
@@ -202,13 +472,18 @@ module CustomModels
             sp_threshold = 0.5 # Set default value to avoid breaking the function when this parameter is not used
             for times in (["inutero_1m3m", "inutero_4m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m", "born_12m15m", "born_15m18m", "born_18m21m", "born_21m24m"], )
                 i = 1
-                for temp in ["stdm_t", "std_t",]#, "absdifm_t", "absdif_t",  "t"]
+                for temp in ["stdm_t", "std_t"]#, "absdifm_t", "absdif_t",  "t"]
                     for drought_ind in ["spi"]#, "spei"]        
                         for stat in ["avg"]#, "minmax"]
 
                             extra_with_time = extra_original #* " - times$(i)"
                             # Linear and Quadratic models - all cases
-                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
+                            stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
+                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35fd", cells=[1])
+                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35id", cells=[1])
+                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40fd", cells=[1])
+                            # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40id", cells=[1])
+
                             # if only_linear
                             #     continue
                             # end
@@ -217,10 +492,10 @@ module CustomModels
                             # stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic", fixed_effects="quadratic_time")
 
                             # Spline models - only for standardized variables (std_t, stdm_t):
-                            for sp_threshold in ["1", "2"]
-                                extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
-                                stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
-                            end
+                            # for sp_threshold in ["1"]#, "2"]
+                            #     extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
+                            #     stepped_regression(df, month, temp, drought_ind, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
+                            # end
                         end
                     end
                 end
