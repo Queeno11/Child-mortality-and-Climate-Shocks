@@ -102,7 +102,6 @@ gdf_dhs = gdf_dhs.rename(columns={"distance":"rwi_distance"})
 ## Create southern hemisphere dummy 
 gdf_dhs["southern"] = (gdf_dhs["LATNUM"]<0)
 
-
 ##### EXPORT #####
 print("Exportando archivo...")
 outpath = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_proc\DHSBirthsGlobalAnalysis_11072024_climate_bands_assigned.dta"

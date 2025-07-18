@@ -4,27 +4,24 @@ using .CustomModels
 using DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, StatFiles, Arrow
 
 @assert CUDA.functional()
-println("Running script with ", Threads.nthreads(), " threads")
 
 ## Load the data
 controls1 = [:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_ind_2, :d_weatlh_ind_3, :d_weatlh_ind_4, :d_weatlh_ind_5, :mother_ageb, :mother_eduy]
 controls2 = [:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_ind_2, :d_weatlh_ind_3, :d_weatlh_ind_4, :d_weatlh_ind_5, :mother_ageb, :mother_ageb_squ, :mother_ageb_cub, :mother_eduy, :mother_eduy_squ, :mother_eduy_cub]
+controls2b = [:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_ind_2, :d_weatlh_ind_3, :d_weatlh_ind_4, :d_weatlh_ind_5, :rwi, :mother_ageb, :mother_ageb_squ, :mother_ageb_cub, :mother_eduy, :mother_eduy_squ, :mother_eduy_cub]
 controls3 = [:child_fem, :child_mulbirth, :birth_order, :rural, :mother_ageb, :mother_eduy]
-controls = controls2 # controls3, controls1
+controls4 = [:child_fem, :child_mulbirth, :birth_order, :rural, :rwi, :mother_ageb, :mother_ageb_squ, :mother_ageb_cub, :mother_eduy, :mother_eduy_squ, :mother_eduy_cub]
+controls = term.(controls2b) # controls3, controls1
 
-path = "D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9d.feather"
-df = Arrow.Table(path)
-println("Current dataset:")
-println(df)
-df = copy(DataFrame(df))
-
-print("Dataset cargado!")
+path = "D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v10.feather"
+tbl = Arrow.Table(path)
+df_lazy = DataFrame(tbl) 
 
 #################################################################
 ###  Pooled all countries into regression
 #################################################################
 m=1
-# CustomModels.run_models(df, term.(controls), "", "", [m])
+CustomModels.run_models(df_lazy, controls, "", "controls2", [m])
 
 # if m != "1"
 #     # Only run heterogeneity for SPI1
@@ -36,31 +33,28 @@ m=1
 
 
 # # Climate Bands (3 classifications)
-CustomModels.run_heterogeneity(df, controls, "climate_band_1", [m])
-# CustomModels.run_heterogeneity(df, controls, "climate_band_2", [m])
-
-# Northern & Southern Hemisphere
-CustomModels.run_heterogeneity_dummy(df, controls, "southern", [m])
+CustomModels.run_heterogeneity(df_lazy, controls, :climate_band_1, [m])
+# CustomModels.run_heterogeneity(df_lazy, controls, :climate_band_2, [m])
 
 # Income Group
-CustomModels.run_heterogeneity(df, controls, "wbincomegroup", [m])
+CustomModels.run_heterogeneity(df_lazy, controls, :wbincomegroup, [m])
 
 # #################################################################
 # ###  Mechanisms
 # #################################################################
 
 # Urban & Rural
-CustomModels.run_heterogeneity_dummy(df, controls, "rural", [m])
+CustomModels.run_heterogeneity(df_lazy, controls, :rural, [m])
 
 # Mechanisms
 
-CustomModels.run_heterogeneity_dummy(df, controls, "pipedw", [m])
-CustomModels.run_heterogeneity_dummy(df, controls, "href", [m])
-CustomModels.run_heterogeneity_dummy(df, controls, "hhelectemp", [m])
-CustomModels.run_heterogeneity_dummy(df, controls, "hhfan", [m])
-CustomModels.run_heterogeneity_dummy(df, controls, "hhaircon", [m])
-CustomModels.run_heterogeneity_dummy(df, controls, "helec", [m])
+CustomModels.run_heterogeneity(df_lazy, controls, :pipedw, [m])
+CustomModels.run_heterogeneity(df_lazy, controls, :href , [m])
+CustomModels.run_heterogeneity(df_lazy, controls, :hhelectemp, [m])
+CustomModels.run_heterogeneity(df_lazy, controls, :hhfan, [m])
+CustomModels.run_heterogeneity(df_lazy, controls, :hhaircon, [m])
+CustomModels.run_heterogeneity(df_lazy, controls, :helec, [m])
 
 # Gender
-CustomModels.run_heterogeneity_dummy(df, controls, "child_fem", [m])
+CustomModels.run_heterogeneity(df_lazy, controls, :child_fem, [m])
 

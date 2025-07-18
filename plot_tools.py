@@ -97,6 +97,7 @@ def extract_coefficients_and_CI_latex(file_path):
     or a valid temperature prefix (e.g., "stdm_t_", "absdifm_t_", etc.). The function removes these prefixes 
     to derive a key.
     """
+    
     # Set dictionary to export results
     results = {}
     
@@ -142,7 +143,7 @@ def extract_coefficients_and_CI_latex(file_path):
         # Split the row by ampersand to extract coefficient tokens.
         coeff_tokens = [t.replace("\\", "").strip() for t in line.split("&")]
         err_tokens = [t.replace("\\", "").strip() for t in err_line.split("&")]
-        
+
         if len_tokens==0:
             len_tokens = len(coeff_tokens)
         assert len_tokens == len(coeff_tokens), f"Length mismatch: {len_tokens} vs {len(coeff_tokens)}"
@@ -193,15 +194,14 @@ def extract_coefficients_and_CI_latex_heterogeneity(heterogeneity, shock, spi, t
     f_name = f"linear_dummies_true_{spi}_{stat}_{temp}  -"
     files = os.listdir(rf"{OUTPUTS}\heterogeneity\{heterogeneity}")
     files = [f for f in files if f_name in f]
-    files = [f for f in files if "standard_fe.tex" in f]
-    bands = [f.replace(f"linear_dummies_true_{spi}_{stat}_{temp}  - ", "").replace(" standard_fe.tex", "") for f in files] 
+    files = [f for f in files if "standard_fe standard_sym.tex" in f]
+    bands = [f.replace(f"linear_dummies_true_{spi}_{stat}_{temp}  - ", "").replace(" standard_fe standard_sym.tex", "") for f in files] 
 
     plotdata = {}
     for i, band in enumerate(bands):
 
         file_path = rf"{OUTPUTS}\heterogeneity\\{heterogeneity}\{files[i]}"
         n = extract_sample_size(file_path)
-
         if n < 100_000:
             continue
         
@@ -411,9 +411,6 @@ def plot_spline_coefficients(
         if pos == 3:
             ax.set_title(title_labels[key.split(f"_{stat}")[0]])
         
-        print(xvalues)
-        print(coefs)
-        print(yerr)
         ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
 
         # Now call our helper function to highlight points with a lower CI bound > 0.
@@ -456,7 +453,6 @@ def extract_sample_size(filepath):
             if n is None:
                 n = re.search(r'(\d+,\d+)', line)
                 if n is None:
-                    print(n)
                     n = re.search(r'(\d+)', line).group()
                 else:
                     n = n.group().replace(",","")
@@ -506,12 +502,11 @@ def plot_heterogeneity(
         full_data = extract_coefficients_and_CI_latex_heterogeneity(
             heterogeneity, shock, spi, temp, stat
         )            
-
         for sign in ["_neg", "_pos"]:
             
             # Keep only keys that contain the specified sign
             data = {k: v for k, v in full_data.items() if sign in k}
-            n_heterogeneity = len(data[f"inutero_1m3m_avg{sign}"].keys())
+            n_heterogeneity = len(data[f"inutero_1m3m_avg{sign}_int"].keys())
 
             title_labels = {
                 f"inutero_1m3m_avg{sign}_int": "1st In-Utero Quarter",
@@ -544,7 +539,7 @@ def plot_heterogeneity(
                     coefs = np.array(heterogeneity_data[case]["coef"][:8])
                     lower = np.array(heterogeneity_data[case]["lower"][:8])
                     upper = np.array(heterogeneity_data[case]["upper"][:8])
-                    
+
                     is_neg = "_neg" in key
                     sign = "_neg" if is_neg else "_pos"
                     

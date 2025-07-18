@@ -34,7 +34,7 @@ births = births.merge(climate, on="ID", how="inner")
 # 2.2 add income group --------------------------------------------------------
 births = births.merge(df_iso[["code_iso3", "wbincomegroup"]], on="code_iso3", how="inner")
 
-# 2.3 add climate bands & south-hemisphere dummy ------------------------------
+# 2.3 add climate bands, south-hemisphere dummy and RWI ------------------------------
 bands = pd.read_stata(
     rf"{DATA_PROC}/DHSBirthsGlobalAnalysis_11072024_climate_bands_assigned.dta"
 )
@@ -172,7 +172,7 @@ controls = [
     "d_weatlh_ind_2", "d_weatlh_ind_3", "d_weatlh_ind_4", "d_weatlh_ind_5",
     "mother_ageb", "mother_ageb_squ", "mother_ageb_cub",
     "mother_eduy", "mother_eduy_squ", "mother_eduy_cub",
-    "chb_month", "chb_year", "chb_year_sq",
+    "chb_month", "chb_year", "chb_year_sq", "rwi", 
 ]
 death_vars = [
     col for col in births.columns if col.startswith("child_agedeath_")
@@ -221,7 +221,7 @@ for col in tqdm(int_cols):
 
 # ---------- 8.  Save outputs (.dta 118 and .csv) -----------------------------
 print("Writing files...")
-out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v9d.feather"
+out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v10.feather"
 
 # `df` is your pandas DataFrame
 feather.write_feather(

@@ -67,53 +67,53 @@ plot_tools.plot_regression_coefficients(
     add_line=True,
 )
 
-### Figure 3: Main coefficients Spline
-file_path = rf"{OUTPUTS}\spline_dummies_false_{spi}_{stat}_{temp}  - spthreshold1 standard_fe standard_sym.tex"  # Replace with the actual path to your LaTeX file.
-outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
+# ### Figure 3: Main coefficients Spline
+# file_path = rf"{OUTPUTS}\spline_dummies_false_{spi}_{stat}_{temp}  - spthreshold1 standard_fe standard_sym.tex"  # Replace with the actual path to your LaTeX file.
+# outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
 
-plot_tools.plot_spline_coefficients(
-    data=outdata, 
-    shock="spi",
-    spi=spi,
-    temp=temp,
-    stat=stat,
-    margin=0.15,
-    colors = [
-        "#ff5100",  # Very high temperature
-        "#ff9a40",  # High temperature
-        "#76b7e5",  # Low temperature
-        "#3e9fe1",   # Very low temperature
-    ],
-    labels=[
-        "Very high precipitation shocks", 
-        "High precipitation shocks",
-        "Low precipitation shocks", 
-        "Very low precipitation shocks",
-    ],
-    outpath=rf"{OUT_FIGS}"
-)
+# plot_tools.plot_spline_coefficients(
+#     data=outdata, 
+#     shock="spi",
+#     spi=spi,
+#     temp=temp,
+#     stat=stat,
+#     margin=0.15,
+#     colors = [
+#         "#ff5100",  # Very high temperature
+#         "#ff9a40",  # High temperature
+#         "#76b7e5",  # Low temperature
+#         "#3e9fe1",   # Very low temperature
+#     ],
+#     labels=[
+#         "Very high precipitation shocks", 
+#         "High precipitation shocks",
+#         "Low precipitation shocks", 
+#         "Very low precipitation shocks",
+#     ],
+#     outpath=rf"{OUT_FIGS}"
+# )
 
-plot_tools.plot_spline_coefficients(
-    data=outdata, 
-    shock="temp",
-    spi=spi,
-    temp=temp,
-    stat=stat,
-    margin=0.15,
-    colors = [
-        "#3e9fe1",   # Very low temperature
-        "#76b7e5",  # Low temperature
-        "#ff9a40",  # High temperature
-        "#ff5100",  # Very high temperature
-    ],
-    labels=[
-        "Very low temperature shocks",
-        "Low temperature shocks", 
-        "High temperature shocks",
-        "Very high temperature shocks", 
-    ],
-    outpath=rf"{OUT_FIGS}"
-)
+# plot_tools.plot_spline_coefficients(
+#     data=outdata, 
+#     shock="temp",
+#     spi=spi,
+#     temp=temp,
+#     stat=stat,
+#     margin=0.15,
+#     colors = [
+#         "#3e9fe1",   # Very low temperature
+#         "#76b7e5",  # Low temperature
+#         "#ff9a40",  # High temperature
+#         "#ff5100",  # Very high temperature
+#     ],
+#     labels=[
+#         "Very low temperature shocks",
+#         "Low temperature shocks", 
+#         "High temperature shocks",
+#         "Very high temperature shocks", 
+#     ],
+#     outpath=rf"{OUT_FIGS}"
+# )
     
     
 ### Figure 4: Climate bands 1 heterogeneity
@@ -130,37 +130,37 @@ plot_tools.plot_heterogeneity(
     outpath=OUT_FIGS, 
 )    
 
-### FIgure 4.5: Climate bands 2 heterogeneity
-colors = [
-    "#EDC9AF",  # Arid desert (Desert Sand)
-    "#C2B280",  # Semi-Arid steppe (Light Khaki)
-    "#87CEFA",  # Temperate (Dry summer) (Light Sky Blue)
-    "#4682B4",  # Temperate (Dry winter) (Steel Blue)
-    "#9ACD32",  # Temperate (No dry season) (YellowGreen)
-    "#32CD32",  # Tropical (Monsoon) (Lime Green)
-    "#006400",  # Tropical (Rainforest) (Dark Green)
-    "#DAA520"   # Tropical Savanna (Goldenrod)
-]
-labels = [
-    "Arid desert",
-    "Semi-Arid steppe",
-    "Temp. Dry summer",
-    "Temp. Dry winter",
-    "Temp. No dry season",
-    "Trop. Monsoon",
-    "Trop. Rainforest",
-    "Trop. Savanna"
-]
+# ### FIgure 4.5: Climate bands 2 heterogeneity
+# colors = [
+#     "#EDC9AF",  # Arid desert (Desert Sand)
+#     "#C2B280",  # Semi-Arid steppe (Light Khaki)
+#     "#87CEFA",  # Temperate (Dry summer) (Light Sky Blue)
+#     "#4682B4",  # Temperate (Dry winter) (Steel Blue)
+#     "#9ACD32",  # Temperate (No dry season) (YellowGreen)
+#     "#32CD32",  # Tropical (Monsoon) (Lime Green)
+#     "#006400",  # Tropical (Rainforest) (Dark Green)
+#     "#DAA520"   # Tropical Savanna (Goldenrod)
+# ]
+# labels = [
+#     "Arid desert",
+#     "Semi-Arid steppe",
+#     "Temp. Dry summer",
+#     "Temp. Dry winter",
+#     "Temp. No dry season",
+#     "Trop. Monsoon",
+#     "Trop. Rainforest",
+#     "Trop. Savanna"
+# ]
         
-plot_tools.plot_heterogeneity(
-    "climate_band_2",
-    spi=spi,
-    temp=temp,
-    stat=stat,
-    colors=colors, 
-    labels=labels,
-    outpath=OUT_FIGS, 
-)        
+# plot_tools.plot_heterogeneity(
+#     "climate_band_2",
+#     spi=spi,
+#     temp=temp,
+#     stat=stat,
+#     colors=colors, 
+#     labels=labels,
+#     outpath=OUT_FIGS, 
+# )        
     
 ### Figure 5: Income groups heterogeneity
 
@@ -177,39 +177,39 @@ plot_tools.plot_heterogeneity(
     outpath=OUT_FIGS, 
 )    
 
-### Figure 6: Northern/southern heterogeneity
-f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
-colors = [
-    "#1f77b4",  # Northern Hemisphere (Bold Blue)
-    "#ff7f0e",   # Southern Hemisphere (Vivid Orange)
-]
-labels=["Northern Hemisphere","Southern Hemisphere"]
-plot_tools.plot_heterogeneity(
-    "southern",
-    spi=spi,
-    temp=temp,
-    stat=stat,
-    colors=colors, 
-    labels=labels,
-    outpath=OUT_FIGS, 
-)    
+# ### Figure 6: Northern/southern heterogeneity
+# f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
+# colors = [
+#     "#1f77b4",  # Northern Hemisphere (Bold Blue)
+#     "#ff7f0e",   # Southern Hemisphere (Vivid Orange)
+# ]
+# labels=["Northern Hemisphere","Southern Hemisphere"]
+# plot_tools.plot_heterogeneity(
+#     "southern",
+#     spi=spi,
+#     temp=temp,
+#     stat=stat,
+#     colors=colors, 
+#     labels=labels,
+#     outpath=OUT_FIGS, 
+# )    
 
-### Figure 7: Rural/Urban heterogeneity
-f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
-colors = [
-    "#808080",  # Urban (Gray)
-    "#228B22"   # Rural (Forest Green)
-]
-labels=["Urban","Rural"]
-plot_tools.plot_heterogeneity(
-    "rural",
-    spi=spi,
-    temp=temp,
-    stat=stat,
-    colors=colors, 
-    labels=labels,
-    outpath=OUT_FIGS, 
-)    
+# ### Figure 7: Rural/Urban heterogeneity
+# f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
+# colors = [
+#     "#808080",  # Urban (Gray)
+#     "#228B22"   # Rural (Forest Green)
+# ]
+# labels=["Urban","Rural"]
+# plot_tools.plot_heterogeneity(
+#     "rural",
+#     spi=spi,
+#     temp=temp,
+#     stat=stat,
+#     colors=colors, 
+#     labels=labels,
+#     outpath=OUT_FIGS, 
+# )    
 
 ### Figure 8: Piped water heterogeneity
 f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
@@ -311,22 +311,22 @@ plot_tools.plot_heterogeneity(
 )
 
 
-### Figure 9: Gender heterogeneity
-f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
-colors = [
-    "#b25dfe",  
-    "#fdb714",  
-]
-labels=["Male", "Female",]
-plot_tools.plot_heterogeneity(
-    "child_fem",
-    spi=spi,
-    temp=temp,
-    stat=stat,
-    colors=colors, 
-    labels=labels,
-    outpath=OUT_FIGS, 
-)    
+# ### Figure 9: Gender heterogeneity
+# f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
+# colors = [
+#     "#b25dfe",  
+#     "#fdb714",  
+# ]
+# labels=["Male", "Female",]
+# plot_tools.plot_heterogeneity(
+#     "child_fem",
+#     spi=spi,
+#     temp=temp,
+#     stat=stat,
+#     colors=colors, 
+#     labels=labels,
+#     outpath=OUT_FIGS, 
+# )    
 
 ################## Descriptive statistcs
 ####### Plot DHS sample:
