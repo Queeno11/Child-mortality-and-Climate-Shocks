@@ -43,7 +43,7 @@ print(f"Data loaded! Number of observations: {births.shape[0]}")
 
 # ---------- 3.  Climate-shock feature engineering ----------
 print("Creating variables...")
-climate_list  = ["std_t", "stdm_t", "absdif_t", "absdifm_t", "spi1", "spi3", "spi6", "spi9", "spi12", "spi24", "hd35", "hd40", "fd", "id"]
+climate_list  = ["std_t", "stdm_t", "absdif_t", "absdifm_t", "spi1"]#, "spi3", "spi6", "spi9", "spi12", "spi24", "hd35", "hd40", "fd", "id"]
 time_list = [
     "inutero_1m3m", "inutero_4m6m", "inutero_6m9m",
     "born_1m3m",    "born_3m6m",    "born_6m9m", "born_9m12m",
@@ -187,7 +187,7 @@ mechanisms = [
     "pipedw", "helec", "href", "hhaircon", "hhfan", "hhelectemp", 
 ]
 heterogeneities = [
-    "climate_band_3", "climate_band_2", "climate_band_1", "southern", "wbincomegroup",
+    "climate_band_3", "climate_band_2", "climate_band_1", "southern", "wbincomegroup", "rwi_quintiles", "rwi_deciles",
 ]
 
 keep_vars = IDs + climate_shocks + controls + death_vars + fixed_effects + mechanisms + heterogeneities
@@ -224,7 +224,7 @@ for col in tqdm(int_cols):
 
 # ---------- 8.  Save outputs (.dta 118 and .csv) -----------------------------
 print("Writing files...")
-out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v10.feather"
+out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v10b.feather"
 
 # `df` is your pandas DataFrame
 feather.write_feather(

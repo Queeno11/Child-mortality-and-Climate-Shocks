@@ -559,7 +559,7 @@ module CustomModels
             sp_threshold = 0.5 # Set default value to avoid breaking the function when this parameter is not used
             for times in (["inutero_1m3m", "inutero_4m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m", "born_12m15m", "born_15m18m", "born_18m21m", "born_21m24m"], )
                 i = 1
-                for temp in ["stdm_t", "std_t"]#, "absdifm_t", "absdif_t"]#,  "t"]
+                for temp in ["stdm_t", "std_t", "absdifm_t", "absdif_t"]#,  "t"]
                     for drought in ["spi"]#, "spei"]        
                         for stat in ["avg"]#, "minmax"]
                             
