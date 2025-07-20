@@ -311,22 +311,22 @@ plot_tools.plot_heterogeneity(
 )
 
 
-# ### Figure 9: Gender heterogeneity
-# f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
-# colors = [
-#     "#b25dfe",  
-#     "#fdb714",  
-# ]
-# labels=["Male", "Female",]
-# plot_tools.plot_heterogeneity(
-#     "child_fem",
-#     spi=spi,
-#     temp=temp,
-#     stat=stat,
-#     colors=colors, 
-#     labels=labels,
-#     outpath=OUT_FIGS, 
-# )    
+### Figure 9: Gender heterogeneity
+f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
+colors = [
+    "#b25dfe",  
+    "#fdb714",  
+]
+labels=["Male", "Female",]
+plot_tools.plot_heterogeneity(
+    "child_fem",
+    spi=spi,
+    temp=temp,
+    stat=stat,
+    colors=colors, 
+    labels=labels,
+    outpath=OUT_FIGS, 
+)    
 
 ################## Descriptive statistcs
 ####### Plot DHS sample:
