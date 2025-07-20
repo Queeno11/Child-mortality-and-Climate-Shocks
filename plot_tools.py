@@ -267,7 +267,7 @@ def plot_regression_coefficients(
     
     data = data[shock]["cell1"]
 
-    fig, axs = plt.subplots(3, 4, figsize=(20, 12))
+    fig, axs = plt.subplots(2, 4, figsize=(16, 6))
     axs[0][0].spines['top'].set_visible(False)
     axs[0][0].spines['bottom'].set_visible(False)
     axs[0][0].spines['right'].set_visible(False)
@@ -275,18 +275,22 @@ def plot_regression_coefficients(
     axs[0][0].set_xticks([])
     axs[0][0].set_yticks([])
     
-    xvalues_clean = [0,1,2,3,4,5,6,7]
+    xvalues_clean = [0,1,2,3]#,4,5,6,7]
     for i, key in enumerate(data.keys()):
-
+        if i==2*(3+len(xvalues_clean)):
+            # Break the graph when we reach the expected number of plots.
+            break
+        
         if i/2==len(axs.flatten()):
             break
+        
         i_round = i // 2
         pos = int((i/2 - i_round)*2)
         plotdata = data[key]
 
-        coefs = np.array(plotdata["coef"][:8])
-        lower = np.array(plotdata["lower"][:8])
-        upper = np.array(plotdata["upper"][:8])
+        coefs = np.array(plotdata["coef"][:4])
+        lower = np.array(plotdata["lower"][:4])
+        upper = np.array(plotdata["upper"][:4])
         
         is_neg = "_neg" in key
         
@@ -323,13 +327,13 @@ def plot_regression_coefficients(
         ax.spines['top'].set_visible(False)
         ax.spines['bottom'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q", "5th Q", "6th Q", "7th Q", "8th Q"])
-        ax.set_xlim(-0.3, 7.6)
+        ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q"])
+        ax.set_xlim(-0.3, 3.6)
         if i<4*2: # Only the first row of plots
             ax.set_ylim(-0.8, 1.5)
         else:
             ax.set_ylim(-0.6, 0.8)
-            
+
     fig.tight_layout()
     plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.2), ncol=2, frameon=False)
     
@@ -368,7 +372,7 @@ def plot_spline_coefficients(
 
     data = data[shock]["cell1"]
 
-    fig, axs = plt.subplots(3, 4, figsize=(20, 12))
+    fig, axs = plt.subplots(2, 4, figsize=(16, 6))
     axs[0][0].spines['top'].set_visible(False)
     axs[0][0].spines['bottom'].set_visible(False)
     axs[0][0].spines['right'].set_visible(False)
@@ -376,9 +380,13 @@ def plot_spline_coefficients(
     axs[0][0].set_xticks([])
     axs[0][0].set_yticks([])
 
-    xvalues_clean = [0,1,2,3,4,5,6,7]
+    xvalues_clean = [0,1,2,3]#,4,5,6,7]
     line_values = []
     for i, key in enumerate(data.keys()):
+        if i==2*(3+len(xvalues_clean)):
+            # Break the graph when we reach the expected number of plots.
+            break
+
         if i/4==len(axs.flatten()):
             break
         i_round = i // 4
@@ -386,10 +394,10 @@ def plot_spline_coefficients(
         
         plotdata = data[key]
 
-        coefs = np.array(plotdata["coef"][:8])
-        lower = np.array(plotdata["lower"][:8])
-        upper = np.array(plotdata["upper"][:8])
-        
+        coefs = np.array(plotdata["coef"][:4])
+        lower = np.array(plotdata["lower"][:4])
+        upper = np.array(plotdata["upper"][:4])
+
         is_neg = ("ltm1" or "bt0m1") in key
         if is_neg:
             coefs = coefs*-1
@@ -422,11 +430,11 @@ def plot_spline_coefficients(
         ax.spines['top'].set_visible(False)
         ax.spines['bottom'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q", "5th Q", "6th Q", "7th Q", "8th Q"])
-        ax.set_xlim(-0.3, 7.6)
-        line_values += [coefs] 
-        
-            
+        ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q"])#, "5th Q", "6th Q", "7th Q", "8th Q"])
+        ax.set_xlim(-0.3, 3.6)
+        line_values += [coefs]
+
+
     fig.tight_layout()
     plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.25), ncol=2, frameon=False)
 
@@ -521,8 +529,8 @@ def plot_heterogeneity(
                 f"born_18m21m_avg{sign}_int": "7th Born Quarter",
                 f"born_21m24m_avg{sign}_int": "8th Born Quarter",
             }
-            fig, axs = plt.subplots(3, 4, figsize=(20, 12))
-            xvalues_clean = [0,1,2,3,4,5,6,7]
+            fig, axs = plt.subplots(2, 4, figsize=(16, 6))
+            xvalues_clean = [0,1,2,3]#,4,5,6,7]
             axs[0][0].spines['top'].set_visible(False)
             axs[0][0].spines['bottom'].set_visible(False)
             axs[0][0].spines['right'].set_visible(False)
@@ -531,14 +539,16 @@ def plot_heterogeneity(
             axs[0][0].set_yticks([])
 
             for i, key in enumerate(data.keys()):
+                if i==(3+len(xvalues_clean)):
+                    # Break the graph when we reach the expected number of plots.
+                    break
                 if i==len(axs.flatten()):
                     break
                 heterogeneity_data = data[key]
                 for j, case in enumerate(heterogeneity_data.keys()):
-
-                    coefs = np.array(heterogeneity_data[case]["coef"][:8])
-                    lower = np.array(heterogeneity_data[case]["lower"][:8])
-                    upper = np.array(heterogeneity_data[case]["upper"][:8])
+                    coefs = np.array(heterogeneity_data[case]["coef"][:4])
+                    lower = np.array(heterogeneity_data[case]["lower"][:4])
+                    upper = np.array(heterogeneity_data[case]["upper"][:4])
 
                     is_neg = "_neg" in key
                     sign = "_neg" if is_neg else "_pos"
@@ -575,8 +585,8 @@ def plot_heterogeneity(
                 ax.spines['top'].set_visible(False)
                 ax.spines['bottom'].set_visible(False)
                 ax.spines['right'].set_visible(False)
-                ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q", "5th Q", "6th Q", "7th Q", "8th Q"])
-                ax.set_xlim(-0.3, 7.6)
+                ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q",])# "5th Q", "6th Q", "7th Q", "8th Q"])
+                ax.set_xlim(-0.3, 3.6)
 
             fig.tight_layout()
             plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.25), ncol=2, frameon=False)
