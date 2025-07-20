@@ -43,7 +43,7 @@ print(f"Data loaded! Number of observations: {births.shape[0]}")
 
 # ---------- 3.  Climate-shock feature engineering ----------
 print("Creating variables...")
-climate_list  = ["std_t", "stdm_t", "spi1", "spi3", "spi6", "spi9", "spi12", "spi24", "hd35", "hd40", "fd", "id"]
+climate_list  = ["std_t", "stdm_t", "absdif_t", "absdifm_t", "spi1", "spi3", "spi6", "spi9", "spi12", "spi24", "hd35", "hd40", "fd", "id"]
 time_list = [
     "inutero_1m3m", "inutero_4m6m", "inutero_6m9m",
     "born_1m3m",    "born_3m6m",    "born_6m9m", "born_9m12m",
@@ -59,10 +59,10 @@ for var in tqdm(climate_list):
             continue
 
         s = births[base].copy()       
-        newcols[f'{base}_sq']  = s * s            # ^2
+        # newcols[f'{base}_sq']  = s * s            # ^2
         newcols[f'{base}_pos'] = (s >= 0).astype(bool)
         newcols[f'{base}_neg'] = (s <= 0).astype(bool)
-
+    
         mu, sigma = float(s.mean()), float(s.std())
         for k in (1, 2):
             thr_pos, thr_neg = mu + k*sigma, mu - k*sigma
@@ -110,6 +110,9 @@ births["chb_year_sq"] = births["chb_year"] ** 2
 for col in ["hhaircon", "hhfan"]:
     births[col] = births[col].map(lambda x: 1 if x == "Yes" else 0).astype(bool)
 
+# Create relative wealth index (rwi) quintiles indicator
+births["rwi_quintiles"] = pd.qcut(births["rwi"], 5, labels=False, duplicates="drop") + 1
+births["rwi_deciles"] = pd.qcut(births["rwi"], 10, labels=False, duplicates="drop") + 1
 
 # ---------- 4.  Child age-at-death dummies (per 1 000 births) ----------
 bins   = [0, 3, 6, 9, 12, 15, 18, 21, 24]          # right-open intervals
