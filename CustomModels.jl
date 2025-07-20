@@ -67,7 +67,7 @@ module CustomModels
         variables = get_required_vars(df_lazy, temp, drought, stat, controls)
         
         # Ensure the filter column is included if not already present
-        if !isnothing(filter_on)
+        if !isnothing(filter_on) && !in(filter_on.first, variables)
             push!(variables, filter_on.first)
         end
 
@@ -557,9 +557,9 @@ module CustomModels
         for month in months
             extra_original = extra
             sp_threshold = 0.5 # Set default value to avoid breaking the function when this parameter is not used
-            for times in (["inutero_1m3m", "inutero_4m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m"], "born_12m15m", "born_15m18m", "born_18m21m", "born_21m24m"], )
+            for times in (["inutero_1m3m", "inutero_4m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m", "born_12m15m", "born_15m18m", "born_18m21m", "born_21m24m"], )
                 i = 1
-                for temp in ["stdm_t"]#, "std_t"]#, "absdifm_t", "absdif_t",  "t"]
+                for temp in ["stdm_t", "std_t"]#, "absdifm_t", "absdif_t"]#,  "t"]
                     for drought in ["spi"]#, "spei"]        
                         for stat in ["avg"]#, "minmax"]
                             
@@ -571,24 +571,24 @@ module CustomModels
                             df = load_dataset(df_lazy, temp, drought, stat, controls; verbose=false, filter_on=filter_on)
 
                             # Linear and Quadratic models - all cases
-                            stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
+                            # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
                             # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35fd", cells=[1])
                             # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35id", cells=[1])
                             # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40fd", cells=[1])
                             # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40id", cells=[1])
 
-                            # if only_linear
-                            #     continue
-                            # end
+                            if only_linear
+                                continue
+                            end
                             # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, fixed_effects="quadratic_time")
                             # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic")
                             # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic", fixed_effects="quadratic_time")
 
                             # Spline models - only for standardized variables (std_t, stdm_t):
-                            # for sp_threshold in ["1"]#, "2"]
-                            #     extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
-                            #     stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
-                            # end
+                            for sp_threshold in ["1", "2"]
+                                extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
+                            end
                         end
                     end
                 end
@@ -618,7 +618,7 @@ module CustomModels
     - `months`: Array of months to iterate through for the models.
     - `only_linear`: Boolean to run only linear models, typically for faster heterogeneity checks.
     """
-    function run_heterogeneity(df_lazy, controls, heterogeneity_var::Symbol, months; extra::String="", only_linear=true)
+    function run_heterogeneity(df_lazy, controls, heterogeneity_var::Symbol, months; extra::String="")
 
         # 1. Efficiently get the single column of interest from the lazy table.
         println("Finding unique groups in column: $(heterogeneity_var)...")
@@ -639,7 +639,7 @@ module CustomModels
             try
                 # Define folder and file suffix for this specific group.
                 folder = "heterogeneity\\$(heterogeneity_var)"
-                suffix = " - $(group) $(extra)"
+                suffix = " - $(group)$(extra)"
 
                 # Define the filter instruction for this group.
                 # This `Pair` will be passed down to `load_dataset`.
@@ -652,7 +652,7 @@ module CustomModels
                 # Call the main model runner with the specific filter for this subgroup.
                 # No data has been loaded or filtered yet. That happens inside run_models.
                 CustomModels.run_models(df_lazy, controls, folder, suffix, months;
-                                        only_linear=only_linear,
+                                        only_linear=true,
                                         filter_on=filter_instruction,
                 )
             catch e
