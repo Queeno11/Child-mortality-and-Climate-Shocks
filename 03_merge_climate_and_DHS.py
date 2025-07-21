@@ -111,6 +111,7 @@ for col in ["hhaircon", "hhfan"]:
     births[col] = births[col].map(lambda x: 1 if x == "Yes" else 0).astype(bool)
 
 # Create relative wealth index (rwi) quintiles indicator
+births["rwi_tertiles"] = pd.qcut(births["rwi"], 3, labels=False, duplicates="drop") + 1
 births["rwi_quintiles"] = pd.qcut(births["rwi"], 5, labels=False, duplicates="drop") + 1
 births["rwi_deciles"] = pd.qcut(births["rwi"], 10, labels=False, duplicates="drop") + 1
 
@@ -187,7 +188,7 @@ mechanisms = [
     "pipedw", "helec", "href", "hhaircon", "hhfan", "hhelectemp", 
 ]
 heterogeneities = [
-    "climate_band_3", "climate_band_2", "climate_band_1", "southern", "wbincomegroup", "rwi_quintiles", "rwi_deciles",
+    "climate_band_3", "climate_band_2", "climate_band_1", "southern", "wbincomegroup", "rwi_tertiles", "rwi_quintiles", "rwi_deciles",
 ]
 
 keep_vars = IDs + climate_shocks + controls + death_vars + fixed_effects + mechanisms + heterogeneities
