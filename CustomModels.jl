@@ -557,7 +557,7 @@ module CustomModels
         for month in months
             extra_original = extra
             sp_threshold = 0.5 # Set default value to avoid breaking the function when this parameter is not used
-            for times in (["inutero_1m3m", "inutero_4m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m", "born_12m15m", "born_15m18m", "born_18m21m", "born_21m24m"], )
+            for times in (["inutero_1m", "inutero_2m", "inutero_3m", "inutero_4m", "inutero_5m", "inutero_6m", "inutero_7m", "inutero_8m", "inutero_9m", "born_1m", "born_2m", "born_3m", "born_4m", "born_5m", "born_6m",],)
                 i = 1
                 for temp in ["stdm_t", "std_t", "absdifm_t", "absdif_t"]#,  "t"]
                     for drought in ["spi"]#, "spei"]        
@@ -570,20 +570,20 @@ module CustomModels
                             # Load dataset
                             df = load_dataset(df_lazy, temp, drought, stat, controls; verbose=false, filter_on=filter_on)
 
-                            # Linear and Quadratic models - all cases
-                            # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
+                            # Linear models - all cases
+                            stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
+                            # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, fixed_effects="quadratic_time")
+                            
+                            if only_linear
+                                continue
+                            end
+                            
+                            ## Hot days and cold days models
                             # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35fd", cells=[1])
                             # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35id", cells=[1])
                             # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40fd", cells=[1])
                             # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40id", cells=[1])
-
-                            if only_linear
-                                continue
-                            end
-                            # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, fixed_effects="quadratic_time")
-                            # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic")
-                            # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="quadratic", fixed_effects="quadratic_time")
-
+                            
                             # Spline models - only for standardized variables (std_t, stdm_t):
                             for sp_threshold in ["1", "2"]
                                 extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"

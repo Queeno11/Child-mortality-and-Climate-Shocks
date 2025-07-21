@@ -28,7 +28,7 @@ df_iso = df_iso.rename(columns={"wbcode": "code_iso3"})
 births = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_11072024.dta")
 births["ID"] = np.arange(len(births))
 
-climate = pd.read_stata(rf"{DATA_PROC}/ClimateShocks_assigned_v9d.dta")
+climate = pd.read_stata(rf"{DATA_PROC}/ClimateShocks_assigned_v9e_months.dta")
 births = births.merge(climate, on="ID", how="inner")
 
 # 2.2 add income group --------------------------------------------------------
@@ -45,9 +45,11 @@ print(f"Data loaded! Number of observations: {births.shape[0]}")
 print("Creating variables...")
 climate_list  = ["std_t", "stdm_t", "absdif_t", "absdifm_t", "spi1"]#, "spi3", "spi6", "spi9", "spi12", "spi24", "hd35", "hd40", "fd", "id"]
 time_list = [
-    "inutero_1m3m", "inutero_4m6m", "inutero_6m9m",
-    "born_1m3m",    "born_3m6m",    "born_6m9m", "born_9m12m",
-    "born_12m15m",  "born_15m18m",  "born_18m21m", "born_21m24m"
+    "inutero_1m", "inutero_2m", "inutero_3m", 
+    "inutero_4m", "inutero_5m", "inutero_6m", 
+    "inutero_7m", "inutero_8m", "inutero_9m", 
+    "born_1m", "born_2m", "born_3m", 
+    "born_4m", "born_5m", "born_6m"
 ]
 
 newcols = {}
@@ -115,19 +117,14 @@ births["rwi_quintiles"] = pd.qcut(births["rwi"], 5, labels=False, duplicates="dr
 births["rwi_deciles"] = pd.qcut(births["rwi"], 10, labels=False, duplicates="drop") + 1
 
 # ---------- 4.  Child age-at-death dummies (per 1 000 births) ----------
-bins   = [0, 3, 6, 9, 12, 15, 18, 21, 24]          # right-open intervals
 labels = [
-    "1m3m", "3m6m", "6m9m", "9m12m",
-    "12m15m", "15m18m", "18m21m", "21m24m"
+    "1m", "2m", "3m", "4m", "5m", "6m",
 ]
-agecol = "child_agedeath"                          # assumes months
 
-# Remove possibly pre-existing column
 births.drop(columns=[f"child_agedeath_{lab}" for lab in labels], errors="ignore", inplace=True)
-
-cat = pd.cut(births[agecol], bins=bins, labels=labels, right=False)
-for lab in labels:
-    births[f"child_agedeath_{lab}"] = ((cat == lab) * 1_000).astype("int16")  # per 1 000 births
+for month, lab in enumerate(labels):
+    # Remove possibly pre-existing column
+    births[f"child_agedeath_{lab}"] = ((births["child_agedeath"] == month) * 1_000).astype("int16")  # per 1 000 births
 
 # ---------- 5.  Location & household controls ----------
 print("Creating location and time fixed effects...")
@@ -224,7 +221,7 @@ for col in tqdm(int_cols):
 
 # ---------- 8.  Save outputs (.dta 118 and .csv) -----------------------------
 print("Writing files...")
-out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v10b.feather"
+out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v9e_months.feather"
 
 # `df` is your pandas DataFrame
 feather.write_feather(

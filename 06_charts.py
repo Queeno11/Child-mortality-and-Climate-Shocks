@@ -37,6 +37,37 @@ os.makedirs(rf"{OUT_FIGS}", exist_ok=True)
 # outpath = rf"{OUT_FIGS}\histograms.png"
 # plot_tools.plot_shocks_histogram(df, cols, outpath=outpath)
 
+###### Figure 2: Main coefficients months dummies true
+file_path = rf"{OUTPUTS}\month-by-month (v9e_months)\linear_dummies_true_{spi}_{stat}_{temp}  standard_fe standard_sym.tex"  # Replace with the actual path to your LaTeX file.
+outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
+
+plot_tools.plot_regression_coefficients_months(
+    data=outdata, 
+    shock="temp",
+    spi=spi,
+    temp=temp,
+    stat=stat,
+    margin=0.25,
+    colors=["#3e9fe1", "#ff5100"], 
+    labels=["Low temperature shocks", "High temperature shocks"],  
+    outpath=rf"{OUT_FIGS}",
+    add_line=True,
+)
+
+plot_tools.plot_regression_coefficients_months(
+    data=outdata, 
+    shock="spi",
+    spi=spi,
+    temp=temp,
+    stat=stat,
+    margin=0.25,
+    colors=["#ff5100", "#3e9fe1"], 
+    labels=["Low precipitation shocks", "High precipitation shocks"], 
+    outpath=rf"{OUT_FIGS}",
+    add_line=True,
+)
+stop
+
 ###### Figure 2: Main coefficients dummies true
 file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp}  standard_fe standard_sym.tex"  # Replace with the actual path to your LaTeX file.
 outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
@@ -114,6 +145,22 @@ plot_tools.plot_regression_coefficients(
 #     ],
 #     outpath=rf"{OUT_FIGS}"
 # )
+
+
+### Figure 4: RWI heterogeneity
+colors=["#fe3500", "#fc9936", "#ffd220", "#a5f450","#4bc569"]
+labels=["1","2","3","4","5"]
+        
+plot_tools.plot_heterogeneity(
+    "rwi_quintiles",
+    spi=spi,
+    temp=temp,
+    stat=stat,
+    colors=colors, 
+    labels=labels,
+    outpath=OUT_FIGS, 
+)    
+
     
     
 ### Figure 4: Climate bands 1 heterogeneity
