@@ -101,19 +101,14 @@ def extract_coefficients_and_CI_latex(file_path):
     # Set dictionary to export results
     results = {}
     
-    # Generate lists for monthly exposure windows
-    inutero_months = [f"inutero_{i}m" for i in range(1, 10)]  # For months 1-9
-    born_months = [f"born_{i}m" for i in range(1, 13)]     # For months 1-12
-    original_timeframes = [
+    # Define valid prefixes for each group.
+    valid_temps = ("stdm_t_", "absdifm_t_", "absdif_t_", "std_t_", "t_")
+    valid_spis = ("spi1_", "spi3_", "spi6_", "spi9_", "spi12_", "spi24_", "spi48_")
+    valid_timeframes = [
         "inutero_1m3m", "inutero_4m6m", "inutero_6m9m", 
         "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m", 
         "born_12m15m", "born_15m18m", "born_18m21m", "born_21m24m", 
     ]
-
-    # Define valid prefixes for each group.
-    valid_temps = ("stdm_t_", "absdifm_t_", "absdif_t_", "std_t_", "t_")
-    valid_spis = ("spi1_", "spi3_", "spi6_", "spi9_", "spi12_", "spi24_", "spi48_")
-    valid_timeframes = inutero_months + born_months + original_timeframes
     spi_data = {"cell1": {}, "cell2": {}, "cell3": {}}
     temp_data = {"cell1": {}, "cell2": {}, "cell3": {}}
 
@@ -641,146 +636,3 @@ def plot_shocks_histogram(df, cols, outpath):
     
     fig.savefig(outpath, dpi=300, bbox_inches='tight', pad_inches=0.2)
 
-def plot_regression_coefficients_months(
-        data, 
-        shock,
-        spi, 
-        temp, 
-        stat,
-        margin=0.2,
-        colors=["#ff5100", "#3e9fe1"], 
-        labels=["Negative Shock (Effect Inverted)", "Positive Shock"],
-        outpath=None,
-        add_line=False,
-    ):
-    """
-    Plots regression coefficients from month-by-month regression outputs
-    in a fixed 5x3 grid with a specific chronological order.
-
-    The first 9 panels show in-utero months (1-9), and the next 6 show
-    post-natal months (1-6).
-
-    Parameters:
-      data : dict
-          The data extracted by extract_coefficients_and_CI_latex.
-      shock : str
-          The shock type to plot ('spi' or 'temp').
-      ... other parameters for customization ...
-    """
-    import os
-    import math
-    import numpy as np
-    import matplotlib.pyplot as plt
-
-    # Select the data for the first set of fixed effects (cell1)
-    data = data[shock]["cell1"]
-
-    # --- Define the explicit, chronological order for the plots ---
-    # First 9 in-utero months, then the first 6 post-natal months.
-    ordered_keys = [f"inutero_{i}m" for i in range(1, 10)] + \
-                   [f"born_{i}m" for i in range(1, 7)]
-
-    # Get the base keys that are actually available in the extracted data
-    available_keys = set([
-        k.replace(f'_{stat}_neg_int', '').replace(f'_{stat}_pos_int', '') for k in data.keys()
-    ])
-    
-    # Filter our master ordered list to only plot keys that we have data for
-    plot_keys = [key for key in ordered_keys if key in available_keys]
-
-    # Create dynamic title labels from the base keys
-    title_labels = {
-        key: key.replace('_', ' ').replace('m', ' Month').replace('inutero', 'In-Utero').replace('born', 'Post-Natal').title()
-        for key in plot_keys
-    }
-    
-    # --- Set the fixed grid layout: 5 rows, 3 columns ---
-    nrows, ncols = 5, 3
-    fig, axs = plt.subplots(nrows, ncols, figsize=(16, 15), sharex=True, sharey=True)
-    axs_flat = axs.flatten()
-
-    if not plot_keys:
-        print(f"No data found for shock '{shock}' to plot.")
-        fig.clear()
-        plt.close(fig)
-        return
-        
-    # --- Loop through the chronologically ordered keys and plot ---
-    for i, base_key in enumerate(plot_keys):
-        # Ensure we don't try to plot more than the grid allows
-        if i >= len(axs_flat):
-            break
-            
-        ax = axs_flat[i]
-        
-        # --- Plot Positive Shocks ---
-        key_pos = f"{base_key}_{stat}_pos_int"
-        x_death_months = np.array([]) # Initialize to handle missing keys
-        if key_pos in data:
-            plotdata_pos = data[key_pos]
-            coefs_pos = np.array(plotdata_pos["coef"])
-            lower_pos = np.array(plotdata_pos["lower"])
-            upper_pos = np.array(plotdata_pos["upper"])
-            
-            yerr_pos = [np.subtract(coefs_pos, lower_pos), np.subtract(upper_pos, coefs_pos)]
-            
-            x_death_months = np.arange(len(coefs_pos))
-            xvalues_pos = distribute_x_values(x_death_months, 2, margin=margin)[0]
-
-            ax.errorbar(xvalues_pos, coefs_pos, yerr=yerr_pos, capsize=3, fmt="o", label=labels[1], color=colors[1])
-            if add_line:
-                ax.plot(xvalues_pos, coefs_pos, color=colors[1], alpha=0.7)
-            highlight_significant_points(ax, xvalues_pos, coefs_pos, lower_pos, color=colors[1])
-
-        # --- Plot Negative Shocks (with inverted effect for visualization) ---
-        key_neg = f"{base_key}_{stat}_neg_int"
-        if key_neg in data:
-            plotdata_neg = data[key_neg]
-            coefs_neg = np.array(plotdata_neg["coef"]) * -1
-            lower_neg = np.array(plotdata_neg["upper"]) * -1
-            upper_neg = np.array(plotdata_neg["lower"]) * -1
-
-            yerr_neg = [np.subtract(coefs_neg, lower_neg), np.subtract(upper_neg, coefs_neg)]
-            
-            # Use the same x-axis values if not already defined by positive shocks
-            if x_death_months.size == 0:
-                 x_death_months = np.arange(len(coefs_neg))
-            xvalues_neg = distribute_x_values(x_death_months, 2, margin=margin)[1]
-
-            ax.errorbar(xvalues_neg, coefs_neg, yerr=yerr_neg, capsize=3, fmt="o", label=labels[0], color=colors[0])
-            if add_line:
-                ax.plot(xvalues_neg, coefs_neg, color=colors[0], alpha=0.7)
-            highlight_significant_points(ax, xvalues_neg, coefs_neg, np.array(plotdata_neg["lower"]), color=colors[0])
-        
-        # --- Formatting ---
-        ax.set_title(title_labels.get(base_key, base_key))
-        ax.axhline(y=0, color="black", linewidth=0.8)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        
-        # Set x-ticks to represent months of age at death
-        if x_death_months.size > 0:
-            ax.set_xticks(x_death_months)
-            ax.set_xticklabels([f"{m+1}" for m in x_death_months])
-
-        # Add axis labels only to the outer plots
-        if i % ncols == 0:
-            ax.set_ylabel("Coefficient")
-        if i >= (nrows - 1) * ncols:
-            ax.set_xlabel("Month of Death")
-
-    # Hide any unused subplots in the grid
-    for j in range(len(plot_keys), len(axs_flat)):
-        axs_flat[j].set_visible(False)
-
-    # Add a single legend for the entire figure
-    handles, lbls = axs_flat[0].get_legend_handles_labels()
-    fig.legend(handles, lbls, loc='lower center', bbox_to_anchor=(0.5, -0.01), ncol=2, frameon=False)
-    
-    fig.tight_layout(rect=[0, 0.03, 1, 1])
-    
-    if outpath:
-        os.makedirs(outpath, exist_ok=True)
-        filename = fr"{outpath}\{shock}_coefficients_monthly_{spi}_{stat}_{temp}.png"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"Figure saved to {filename}")

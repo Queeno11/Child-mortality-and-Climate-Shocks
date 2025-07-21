@@ -12,7 +12,7 @@ controls3 = [:child_fem, :child_mulbirth, :birth_order, :rural, :mother_ageb, :m
 controls4 = [:child_fem, :child_mulbirth, :birth_order, :rural, :rwi, :mother_ageb, :mother_ageb_squ, :mother_ageb_cub, :mother_eduy, :mother_eduy_squ, :mother_eduy_cub]
 controls = term.(controls4) # controls3, controls1
 
-path = "D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9e_months.feather"
+path = "D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v10b.feather"
 tbl = Arrow.Table(path)
 df_lazy = DataFrame(tbl)
 
@@ -21,7 +21,7 @@ df_lazy = DataFrame(tbl)
 #################################################################
 for m in [1, 3, 6, 12, 24]
 
-    CustomModels.run_models(df_lazy, controls, "", "", [m])
+    # CustomModels.run_models(df_lazy, controls, "", "", [m])
 
     # Only run heterogeneity/mechanisms for SPI1
     if m == 1

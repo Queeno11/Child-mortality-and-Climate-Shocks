@@ -24,7 +24,7 @@ if __name__ == "__main__":
     print("Loading data...")
 
     ### CLIMATE DATA
-    climate_data = xr.open_dataset(rf"{DATA_PROC}/Climate_shocks_v9.nc") # 9d includes hd35, hd40, id and fd
+    climate_data = xr.open_dataset(rf"{DATA_PROC}/Climate_shocks_v9d.nc") # 9d includes hd35, hd40, id and fd
     
     ### DHS DATA
     full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_11072024.dta")
@@ -37,15 +37,15 @@ if __name__ == "__main__":
 
     climate_variables = [
         "spi1",
-        # "spi3",
-        # "spi6",
-        # "spi9",
-        # "spi12",
-        # "spi24",
-        # "spi48",
+        "spi3",
+        "spi6",
+        "spi9",
+        "spi12",
+        "spi24",
+        "spi48",
         "std_t",
         "stdm_t",
-        # "t",
+        "t",
         "absdif_t",
         "absdifm_t",
         "hd35", 
@@ -72,42 +72,24 @@ if __name__ == "__main__":
         results = {}
         
         # Define the time slices
-        # timeframes = {
-        #     "inutero_1m3m": slice(0, 3),
-        #     "inutero_4m6m": slice(3, 6),
-        #     "inutero_6m9m": slice(6, 9),
-        #     "born_1m3m": slice(9, 12),
-        #     "born_3m6m": slice(12, 15),
-        #     "born_6m9m": slice(15, 18),
-        #     "born_9m12m": slice(18, 21),
-        #     "born_12m15m": slice(21, 24),
-        #     "born_15m18m": slice(24, 27),
-        #     "born_18m21m": slice(27, 30),
-        #     "born_21m24m": slice(30, 33),
-        # }
         timeframes = {
-            "inutero_1m": 0,
-            "inutero_2m": 1,
-            "inutero_3m": 2,
-            "inutero_4m": 3,
-            "inutero_5m": 4,
-            "inutero_6m": 5,
-            "inutero_7m": 6,
-            "inutero_8m": 7,
-            "inutero_9m": 8,
-            "born_1m": 9,
-            "born_2m": 10,
-            "born_3m": 11,
-            "born_4m": 12,
-            "born_5m": 13,
-            "born_6m": 14,
+            "inutero_1m3m": slice(0, 3),
+            "inutero_4m6m": slice(3, 6),
+            "inutero_6m9m": slice(6, 9),
+            "born_1m3m": slice(9, 12),
+            "born_3m6m": slice(12, 15),
+            "born_6m9m": slice(15, 18),
+            "born_9m12m": slice(18, 21),
+            "born_12m15m": slice(21, 24),
+            "born_15m18m": slice(24, 27),
+            "born_18m21m": slice(27, 30),
+            "born_21m24m": slice(30, 33),
         }
-
         
         # # Process variables in ds_temp
         for timename, filter in timeframes.items():
             
-            data = ds.isel(time=filter)
+            data = ds.isel(time=filter).mean()
             
             for var in ds.data_vars:
 
@@ -203,61 +185,54 @@ if __name__ == "__main__":
     print(len(full_dhs))
     # print("Assigning climate shocks to DHS data...")
 
-    # Remove files from DHS_Climate
-    files = os.listdir(rf"{DATA_PROC}/DHS_Climate")
-    for file in files:
-        os.remove(rf"{DATA_PROC}/DHS_Climate/{file}")
-    print("Old files removed!")
-
     # Group by rounded latitude and longitude
-    grouped = df.groupby(["lat_round", "lon_round"])
-    results = []
-    for i, stuff in tqdm(enumerate(grouped), total=len(grouped)):
+    # grouped = df.groupby(["lat_round", "lon_round"])
+    # results = []
+    # for i, stuff in tqdm(enumerate(grouped), total=len(grouped)):
         
-        (lat, lon), group = stuff
-        # try:
+    #     (lat, lon), group = stuff
+    #     # try:
         
-        # Get the overall time range for this group
-        earliest_from_date = group["from_date"].min()
-        latest_to_date = group["to_date"].max()
+    #     # Get the overall time range for this group
+    #     earliest_from_date = group["from_date"].min()
+    #     latest_to_date = group["to_date"].max()
 
-        # Fetch the climate data once for this location and time range
-        point_data = climate_data.sel(
-            time=slice(earliest_from_date, latest_to_date),
-            lat=lat,
-            lon=lon,
-        ).load()
+    #     # Fetch the climate data once for this location and time range
+    #     point_data = climate_data.sel(
+    #         time=slice(earliest_from_date, latest_to_date),
+    #         lat=lat,
+    #         lon=lon,
+    #     ).load()
         
-        # Group observations by from_date and to_date
-        date_grouped = group.groupby(["from_date", "to_date"])
+    #     # Group observations by from_date and to_date
+    #     date_grouped = group.groupby(["from_date", "to_date"])
         
-        
-        for (from_date, to_date), date_group in tqdm(date_grouped, total=len(date_grouped), leave=False):
+    #     for (from_date, to_date), date_group in tqdm(date_grouped, total=len(date_grouped), leave=False):
 
-            # Select the data for the specific time range
-            data = point_data.sel(time=slice(from_date, to_date))
-            # assert data.time.shape[0] == (9+12+12), f"Time length is not right (must be {9+12+12}): {len(point_data.time)})"
+    #         # Select the data for the specific time range
+    #         data = point_data.sel(time=slice(from_date, to_date))
+    #         # assert data.time.shape[0] == (9+12+12), f"Time length is not right (must be {9+12+12}): {len(point_data.time)})"
 
-            # Compute statistics
-            stats = compute_stats(data)
+    #         # Compute statistics
+    #         stats = compute_stats(data)
 
-            stats["lat"] = lat
-            stats["lon"] = lon
+    #         stats["lat"] = lat
+    #         stats["lon"] = lon
 
-            # Assign the computed statistics to all observations in the date group
-            stats_df = pd.DataFrame([stats])
+    #         # Assign the computed statistics to all observations in the date group
+    #         stats_df = pd.DataFrame([stats])
 
-            stats_df["point_ID"] = date_group["point_ID"].iloc[0]
+    #         stats_df["point_ID"] = date_group["point_ID"].iloc[0]
 
-            results += [stats_df]
+    #         results += [stats_df]
             
             
-        if ((i-1)%1000 == 0) | (i == len(grouped)-1): # Save every 1000 groups  (or if its the last one) 
-            climate_results = pd.concat(results, ignore_index=True)
-            climate_results.to_parquet(f"{DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
-            print(f"File saved at {DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
-            results = []
-            climate_results = None
+    #     if ((i-1)%1000 == 0) | (i == len(grouped)-1): # Save every 1000 groups  (or if its the last one) 
+    #         climate_results = pd.concat(results, ignore_index=True)
+    #         climate_results.to_parquet(f"{DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
+    #         print(f"File saved at {DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
+    #         results = []
+    #         climate_results = None
                     
     files = os.listdir(rf"{DATA_PROC}/DHS_Climate")
     files = [f for f in files if f.startswith("births_climate_")]
@@ -297,12 +272,12 @@ if __name__ == "__main__":
 
     # Drop nans in spi/temp values
     df = df.dropna(subset=shock_cols, how="any")
-    df.to_parquet(rf"{DATA_PROC}\ClimateShocks_assigned_v9e_months.parquet")
+    df.to_parquet(rf"{DATA_PROC}\ClimateShocks_assigned_v9d.parquet")
 
     float16_cols = df.select_dtypes(include=["float16"]).columns
     if len(float16_cols) > 0:
         print(f"Converting float16 to float32: {float16_cols}")
         df[float16_cols] = df[float16_cols].astype("float32")
         
-    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v9e_months.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9e_months.dta")
+    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v9d.dta")
+    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9d.dta")
