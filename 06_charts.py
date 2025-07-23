@@ -52,6 +52,7 @@ plot_tools.plot_regression_coefficients(
     labels=["Low temperature shocks", "High temperature shocks"],  
     outpath=rf"{OUT_FIGS}",
     add_line=True,
+    start="main - ",
 )
 
 plot_tools.plot_regression_coefficients(
@@ -65,7 +66,106 @@ plot_tools.plot_regression_coefficients(
     labels=["Low precipitation shocks", "High precipitation shocks"], 
     outpath=rf"{OUT_FIGS}",
     add_line=True,
+    start="main - ",
 )
+
+### Figure 2b: Extreme temperatures
+labels = {
+    "fd": "# of days Tmin < 0°C",
+    "id": "# of days Tmax < 0°C",
+    35: "# of days Tmax ≥ 35°C",
+    40: "# of days Tmax ≥ 40°C"
+}
+for hot in [35, 40]:
+    for cold in ["fd", "id"]:
+        file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp}  standard_fe hd{hot}{cold}_sym.tex"  # Replace with the actual path to your LaTeX file.
+        outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
+        
+        plot_tools.plot_regression_coefficients(
+            data=outdata, 
+            shock="temp",
+            spi=spi,
+            temp=temp,
+            stat=stat,
+            margin=0.25,
+            colors=["#3e9fe1", "#ff5100"], 
+            labels=[labels[cold], labels[hot]], 
+            outpath=rf"{OUT_FIGS}",
+            add_line=True,
+            start="extremes - ",
+            extra=f" - hd{hot}{cold}",
+        )
+        plot_tools.plot_regression_coefficients(
+            data=outdata, 
+            shock="spi",
+            spi=spi,
+            temp=temp,
+            stat=stat,
+            margin=0.25,
+            colors=["#ff5100", "#3e9fe1"], 
+            labels=["Low precipitation shocks", "High precipitation shocks"], 
+            outpath=rf"{OUT_FIGS}",
+            add_line=True,
+            start="extremes - ",
+            extra=f" - hd{hot}{cold}",
+        )
+
+### Figure 2c: Horserace
+labels = {
+    "fd": "# of days Tmin < 0°C",
+    "id": "# of days Tmax < 0°C",
+    35: "# of days Tmax ≥ 35°C",
+    40: "# of days Tmax ≥ 40°C"
+}
+for hot in [35, 40]:
+    for cold in ["fd", "id"]:
+        file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp}  standard_fe horserace_hd{hot}{cold}_sym.tex"  # Replace with the actual path to your LaTeX file.
+        outdata = plot_tools.extract_coefficients_and_CI_latex_horserace(file_path)
+        
+        plot_tools.plot_regression_coefficients(
+            data=outdata["standard"], 
+            shock="temp",
+            spi=spi,
+            temp=temp,
+            stat=stat,
+            margin=0.25,
+            colors=["#3e9fe1", "#ff5100"], 
+            labels=["Low temperature shocks", "High temperature shocks"],  
+            outpath=rf"{OUT_FIGS}",
+            add_line=True,
+            start="horserace - ",
+            extra=f" - hd{hot}{cold}{temp}_monthly",
+        )
+        plot_tools.plot_regression_coefficients(
+            data=outdata["extreme"], 
+            shock="temp",
+            spi=spi,
+            temp=temp,
+            stat=stat,
+            margin=0.25,
+            colors=["#3e9fe1", "#ff5100"], 
+            labels=[labels[cold], labels[hot]], 
+            outpath=rf"{OUT_FIGS}",
+            add_line=True,
+            start="horserace - ",
+            extra=f" - hd{hot}{cold}{temp}_ndays",
+        )
+        plot_tools.plot_regression_coefficients(
+            data=outdata["standard"],  # Or extreme, they are the same!
+            shock="spi",
+            spi=spi,
+            temp=temp,
+            stat=stat,
+            margin=0.25,
+            colors=["#ff5100", "#3e9fe1"], 
+            labels=["Low precipitation shocks", "High precipitation shocks"], 
+            outpath=rf"{OUT_FIGS}",
+            add_line=True,
+            start="horserace - ",
+            extra=f" - hd{hot}{cold}{temp}_spi",
+        )
+
+
 
 # ### Figure 3: Main coefficients Spline
 # file_path = rf"{OUTPUTS}\spline_dummies_false_{spi}_{stat}_{temp}  - spthreshold1 standard_fe standard_sym.tex"  # Replace with the actual path to your LaTeX file.
@@ -114,8 +214,23 @@ plot_tools.plot_regression_coefficients(
 #     ],
 #     outpath=rf"{OUT_FIGS}"
 # )
-    
-    
+
+
+
+### Figure 4: RWI heterogeneity
+colors=["#fe3500", "#ffd220", "#79c78d"] 
+labels=["Low Income","Middle Income","High Income"]
+        
+plot_tools.plot_heterogeneity(
+    "rwi_tertiles",
+    spi=spi,
+    temp=temp,
+    stat=stat,
+    colors=colors, 
+    labels=labels,
+    outpath=OUT_FIGS, 
+)    
+
 ### Figure 4: Climate bands 1 heterogeneity
 colors=["#ffd220", "#79c78d", "#fe3500"] 
 labels=["Arid","Temperate", "Tropical"]
@@ -331,67 +446,67 @@ plot_tools.plot_heterogeneity(
 ################## Descriptive statistcs
 ####### Plot DHS sample:
 
-df = pd.read_stata(r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_in\DHS\DHSBirthsGlobalAnalysis_05142024.dta")
+# df = pd.read_stata(r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_in\DHS\DHSBirthsGlobalAnalysis_05142024.dta")
 
-df = df.dropna(subset=["v008", "chb_year", "chb_month"], how="any")
+# df = df.dropna(subset=["v008", "chb_year", "chb_month"], how="any")
 
-# Create datetime object from year and month
-df["day"] = 1
-df["month"] = df["chb_month"].astype(int)
-df["year"] = df["chb_year"].astype(int)
-df["birth_date"] = pd.to_datetime(df[["year", "month", "day"]]).to_numpy()
-df = df.drop(columns=["day", "month", "year"])
+# # Create datetime object from year and month
+# df["day"] = 1
+# df["month"] = df["chb_month"].astype(int)
+# df["year"] = df["chb_year"].astype(int)
+# df["birth_date"] = pd.to_datetime(df[["year", "month", "day"]]).to_numpy()
+# df = df.drop(columns=["day", "month", "year"])
 
-# Maximum range of dates
-df["from_date"] = df["birth_date"] + pd.DateOffset(
-    months=-9
-)  # From in utero (9 months before birth)
-df["to_date"] = df["birth_date"] + pd.DateOffset(
-    months=12
-)  # To the first year of life
+# # Maximum range of dates
+# df["from_date"] = df["birth_date"] + pd.DateOffset(
+#     months=-9
+# )  # From in utero (9 months before birth)
+# df["to_date"] = df["birth_date"] + pd.DateOffset(
+#     months=12
+# )  # To the first year of life
 
-# Filter children from_date greater than 1991 (we only have climate data from 1990)
-df = df[df["from_date"] > "1991-01-01"]
+# # Filter children from_date greater than 1991 (we only have climate data from 1990)
+# df = df[df["from_date"] > "1991-01-01"]
 
-# Filter children to_date smalle than 2021 (we only have climate data to 2020)
-df = df[df["to_date"] < "2021-01-01"]
+# # Filter children to_date smalle than 2021 (we only have climate data to 2020)
+# df = df[df["to_date"] < "2021-01-01"]
 
 
-# Date of interview
-df["year"] = 1900 + (df["v008"] - 1) // 12
-df["month"] = df["v008"] - 12 * (df["year"] - 1900)
-df["day"] = 1
-df["interview_date"] = pd.to_datetime(df[["year", "month", "day"]], dayfirst=False)
-df["interview_year"] = df["year"]
-df["interview_month"] = df["month"]
-df = df.drop(columns=["year", "month", "day"])
+# # Date of interview
+# df["year"] = 1900 + (df["v008"] - 1) // 12
+# df["month"] = df["v008"] - 12 * (df["year"] - 1900)
+# df["day"] = 1
+# df["interview_date"] = pd.to_datetime(df[["year", "month", "day"]], dayfirst=False)
+# df["interview_year"] = df["year"]
+# df["interview_month"] = df["month"]
+# df = df.drop(columns=["year", "month", "day"])
 
-# Number of days from interview
-df["days_from_interview"] = df["interview_date"] - df["birth_date"]
+# # Number of days from interview
+# df["days_from_interview"] = df["interview_date"] - df["birth_date"]
 
-# excluir del análisis a aquellos niños que nacieron 12 meses alrededor de la fecha de la encuesta y no más allá de 10 y 15 años del momento de la encuesta.
-# PREGUNTA PARA PAULA: ¿ella ya hizo el filtro de 15 años y 30 dias?
-df["last_15_years"] = (df["days_from_interview"] > np.timedelta64(30, "D")) & (
-    df["days_from_interview"] < np.timedelta64(15 * 365, "D")
-)
-df["last_10_years"] = (df["days_from_interview"] > np.timedelta64(30, "D")) & (
-    df["days_from_interview"] < np.timedelta64(10 * 365, "D")
-)
-df["since_2003"] = df["interview_year"] >= 2003
-df = df[df["last_15_years"] == True]
+# # excluir del análisis a aquellos niños que nacieron 12 meses alrededor de la fecha de la encuesta y no más allá de 10 y 15 años del momento de la encuesta.
+# # PREGUNTA PARA PAULA: ¿ella ya hizo el filtro de 15 años y 30 dias?
+# df["last_15_years"] = (df["days_from_interview"] > np.timedelta64(30, "D")) & (
+#     df["days_from_interview"] < np.timedelta64(15 * 365, "D")
+# )
+# df["last_10_years"] = (df["days_from_interview"] > np.timedelta64(30, "D")) & (
+#     df["days_from_interview"] < np.timedelta64(10 * 365, "D")
+# )
+# df["since_2003"] = df["interview_year"] >= 2003
+# df = df[df["last_15_years"] == True]
 
-gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.LONGNUM, df.LATNUM))
+# gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.LONGNUM, df.LATNUM))
 
-world_bounds = gpd.read_file(r"D:\Datasets\World Bank Official Boundaries\WB_countries_Admin0_10m\WB_countries_Admin0_10m.shp")
+# world_bounds = gpd.read_file(r"D:\Datasets\World Bank Official Boundaries\WB_countries_Admin0_10m\WB_countries_Admin0_10m.shp")
 
-# plot world without fill and with black borders and thin lines
-ax = world_bounds.simplify(0.1).plot(edgecolor='black', facecolor='none', linewidth=0.4, figsize=(20, 10))
+# # plot world without fill and with black borders and thin lines
+# ax = world_bounds.simplify(0.1).plot(edgecolor='black', facecolor='none', linewidth=0.4, figsize=(20, 10))
 
-# Remove axis
-ax.axis('off')
-ax.set_xlim(-180, 180)
-ax.set_ylim(-70, 85)
+# # Remove axis
+# ax.axis('off')
+# ax.set_xlim(-180, 180)
+# ax.set_ylim(-70, 85)
 
-gdf.plot(ax=ax, markersize=.05)
+# gdf.plot(ax=ax, markersize=.05)
 
 

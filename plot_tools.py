@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 
 OUTPUTS = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs"
 
-
 def remove_words_from_string(long_string, words):
     for word in words:
         long_string = long_string.replace(word, "")
@@ -36,6 +35,16 @@ def compute_ci(coefs, ses):
             lower.append(None)
             upper.append(None)
     return lower, upper
+
+def fix_extreme_temperatures_strings(s):
+    ''' Convert the original hd35_inutero_6m9m_avg strings to t_inutero_6m9m_avg_pos. '''
+    if "hd" in s:
+        s = s + "_pos_int"
+    elif "fd" in s or "id" in s:
+        s = s + "_neg_int"
+    for prefix in ["hd35_", "hd40_", "fd_", "id_"]:
+        s = s.replace(prefix, "t_")
+    return s
 
 def highlight_significant_points(ax, xvalues, coefs, lower, marker='o', color='red', s=80, **kwargs):
     """
@@ -75,7 +84,7 @@ def highlight_significant_points(ax, xvalues, coefs, lower, marker='o', color='r
                    zorder=3,
                    **kwargs)
 
-def extract_coefficients_and_CI_latex(file_path):
+def extract_coefficients_and_CI_latex(file_path, horserace: None | str = None):
     """
     Extracts coefficients and their 95% CI bounds from a LaTeX table.
     
@@ -100,10 +109,22 @@ def extract_coefficients_and_CI_latex(file_path):
     
     # Set dictionary to export results
     results = {}
-    
+        
     # Define valid prefixes for each group.
-    valid_temps = ("stdm_t_", "absdifm_t_", "absdif_t_", "std_t_", "t_")
+    valid_standard_temps = ("stdm_t_", "absdifm_t_", "absdif_t_", "std_t_", "t_")
+    valid_extreme_temps = ("hd35_", "hd40_", "fd_", "id_")
+    all_temps = valid_standard_temps + valid_extreme_temps
+    if horserace is None:
+        valid_temps = valid_standard_temps + valid_extreme_temps
+    elif horserace == "extremes":
+        valid_temps = valid_extreme_temps
+    elif horserace == "standard":
+        valid_temps = valid_standard_temps
+    else:
+        raise ValueError(f"Invalid horserace value: {horserace}. Must be 'extremes', 'standard', or None.")
+        
     valid_spis = ("spi1_", "spi3_", "spi6_", "spi9_", "spi12_", "spi24_", "spi48_")
+    all_spis = valid_spis
     valid_timeframes = [
         "inutero_1m3m", "inutero_4m6m", "inutero_6m9m", 
         "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m", 
@@ -119,6 +140,7 @@ def extract_coefficients_and_CI_latex(file_path):
     i = 0
     len_tokens = 0
     for i, line in enumerate(lines):
+
         line = line.strip()
 
         # Replace LaTeX escapes.
@@ -128,18 +150,19 @@ def extract_coefficients_and_CI_latex(file_path):
         if not (line.startswith(valid_spis) or line.startswith(valid_temps)):
             continue
 
-        # print(line)
         # The first token holds the variable name.
         tokens = line.split()  # splitting by whitespace
         err_line = lines[i + 1].strip()
         full_key = tokens[0]  # e.g., "spi_inutero_avg_neg" or "spi_inutero_avg_ltm1"
-
+        
         # Remove the valid prefixes to obtain the key.
-        key = remove_words_from_string(full_key, valid_spis)
-        key = remove_words_from_string(key, valid_temps)
+        full_key = fix_extreme_temperatures_strings(full_key)
+        key = remove_words_from_string(full_key, all_spis)
+        key = remove_words_from_string(key, all_temps)
+
         if key and key[0] == "_":
             key = key[1:]
-        
+
         # Split the row by ampersand to extract coefficient tokens.
         coeff_tokens = [t.replace("\\", "").strip() for t in line.split("&")]
         err_tokens = [t.replace("\\", "").strip() for t in err_line.split("&")]
@@ -149,12 +172,11 @@ def extract_coefficients_and_CI_latex(file_path):
         assert len_tokens == len(coeff_tokens), f"Length mismatch: {len_tokens} vs {len(coeff_tokens)}"
         
         if contains_any_string(full_key, valid_timeframes):
-           
             # Select the coefficients from the corresponding cell FE and remove the stars 
             cell1 = [to_float(c.replace("*", "")) for c in coeff_tokens[1::3]]
             cell2 = [to_float(c.replace("*", "")) for c in coeff_tokens[2::3]]
             cell3 = [to_float(c.replace("*", "")) for c in coeff_tokens[3::3]]
-            
+
             # Select the standard errors from the corresponding cell FE and remove the stars
             err_cell1 = [to_float(c.replace("(", "").replace(")", "")) for c in err_tokens[1::3]]
             err_cell2 = [to_float(c.replace("(", "").replace(")", "")) for c in err_tokens[2::3]]
@@ -165,12 +187,12 @@ def extract_coefficients_and_CI_latex(file_path):
             cilower_cell2, ciupper_cell2 = compute_ci(cell2, err_cell2)
             cilower_cell3, ciupper_cell3 = compute_ci(cell3, err_cell3)
             
-            if contains_any_string(full_key, valid_spis):
+            if contains_any_string(full_key, all_spis):
                 spi_data["cell1"][key] = {"coef": cell1, "se": err_cell1, "lower": cilower_cell1, "upper": ciupper_cell1}
                 spi_data["cell2"][key] = {"coef": cell2, "se": err_cell2, "lower": cilower_cell2, "upper": ciupper_cell2}
                 spi_data["cell3"][key] = {"coef": cell3, "se": err_cell3, "lower": cilower_cell3, "upper": ciupper_cell3}
-                
-            elif contains_any_string(full_key, valid_temps):
+            
+            elif contains_any_string(full_key, all_temps):
                 temp_data["cell1"][key] = {"coef": cell1, "se": err_cell1, "lower": cilower_cell1, "upper": ciupper_cell1}
                 temp_data["cell2"][key] = {"coef": cell2, "se": err_cell2, "lower": cilower_cell2, "upper": ciupper_cell2}
                 temp_data["cell3"][key] = {"coef": cell3, "se": err_cell3, "lower": cilower_cell3, "upper": ciupper_cell3}
@@ -179,6 +201,23 @@ def extract_coefficients_and_CI_latex(file_path):
     results["temp"] = temp_data
     
     return results
+
+def extract_coefficients_and_CI_latex_horserace(file_path):
+    """
+    Extracts coefficients and their 95% CI bounds from a LaTeX table for horserace analysis.
+    
+    Parameters:
+      file_path : str
+          Path to the LaTeX file containing the regression results.
+      horserace : str
+          The type of horserace analysis, either "standard" or "extreme".
+          
+    Returns:
+      dict : A dictionary containing the extracted coefficients and confidence intervals.
+    """
+    standards = extract_coefficients_and_CI_latex(file_path, horserace="standard")
+    extremes = extract_coefficients_and_CI_latex(file_path, horserace="extremes")
+    return {"standard": standards, "extreme": extremes}
 
 def extract_coefficients_and_CI_latex_heterogeneity(heterogeneity, shock, spi, temp, stat):
     """
@@ -247,23 +286,27 @@ def plot_regression_coefficients(
         labels=["High temperature shocks","Low temperature shocks"],
         outpath=None,
         add_line=False,
+        start="",
+        extra="",
     ):
     
     import os
-
-    title_labels = {
-        "inutero_1m3m_avg_pos_int": "1st In-Utero Quarter",
-        "inutero_4m6m_avg_pos_int": "2nd In-Utero Quarter",
-        "inutero_6m9m_avg_pos_int": "3rd In-Utero Quarter",
-        "born_1m3m_avg_pos_int": "1st Born Quarter",
-        "born_3m6m_avg_pos_int": "2nd Born Quarter",
-        "born_6m9m_avg_pos_int": "3rd Born Quarter",
-        "born_9m12m_avg_pos_int": "4th Born Quarter",
-        "born_12m15m_avg_pos_int": "5th Born Quarter",
-        "born_15m18m_avg_pos_int": "6th Born Quarter",
-        "born_18m21m_avg_pos_int": "7th Born Quarter",
-        "born_21m24m_avg_pos_int": "8th Born Quarter",
-    }
+    
+    title_labels = {}
+    for sign in ["neg", "pos"]:
+        title_labels.update({
+            f"inutero_1m3m_avg_{sign}_int": "1st In-Utero Quarter",
+            f"inutero_4m6m_avg_{sign}_int": "2nd In-Utero Quarter",
+            f"inutero_6m9m_avg_{sign}_int": "3rd In-Utero Quarter",
+            f"born_1m3m_avg_{sign}_int": "1st Born Quarter",
+            f"born_3m6m_avg_{sign}_int": "2nd Born Quarter",
+            f"born_6m9m_avg_{sign}_int": "3rd Born Quarter",
+            f"born_9m12m_avg_{sign}_int": "4th Born Quarter",
+            f"born_12m15m_avg_{sign}_int": "5th Born Quarter",
+            f"born_15m18m_avg_{sign}_int": "6th Born Quarter",
+            f"born_18m21m_avg_{sign}_int": "7th Born Quarter",
+            f"born_21m24m_avg_{sign}_int": "8th Born Quarter",
+        })
     
     data = data[shock]["cell1"]
 
@@ -335,10 +378,10 @@ def plot_regression_coefficients(
             ax.set_ylim(-0.6, 0.8)
 
     fig.tight_layout()
-    plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.2), ncol=2, frameon=False)
+    plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.3), ncol=2, frameon=False)
     
     os.makedirs(outpath, exist_ok=True)
-    filename = fr"{outpath}\{shock}_coefficients_{spi}_{stat}_{temp}.png"
+    filename = fr"{outpath}\{start}{shock}_coefficients_{spi}_{stat}_{temp}{extra}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Se creó la figura ", filename)
         
