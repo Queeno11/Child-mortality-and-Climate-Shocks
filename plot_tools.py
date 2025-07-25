@@ -36,6 +36,41 @@ def compute_ci(coefs, ses):
             upper.append(None)
     return lower, upper
 
+def order_files_naturally(file_list):
+    """
+    Sorts a list of filenames in a "natural" or "alphanumeric" order.
+    
+    This function ensures that numbers within the filenames are treated as
+    numerical values for sorting, so 'file2.txt' comes before 'file10.txt'.
+
+    Args:
+        file_list (list): A list of strings (filenames) to be sorted.
+
+    Returns:
+        list: A new list containing the filenames sorted in natural order.
+        
+    Example:
+        >>> files = ['z1.txt', 'z10.txt', 'z12.txt', 'z2.txt', 'file_1_a.log']
+        >>> order_files_naturally(files)
+        ['file_1_a.log', 'z1.txt', 'z2.txt', 'z10.txt', 'z12.txt']
+    """
+    
+    # This helper function will be used as the 'key' for sorting.
+    # It converts a filename string into a list of strings and numbers.
+    def natural_sort_key(s):
+        # re.split finds all sequences of digits (\d+) and splits the string
+        # by them. The parentheses ensure the digits themselves are kept in the list.
+        # Example: 'v12.z3' -> ['', '12', '.z', '3', '']
+        parts = re.split(r'(\d+)', s)
+        
+        # Now, we convert the string-based numbers to actual integers.
+        # We also filter out any empty strings that re.split might create.
+        return [int(text) if text.isdigit() else text.lower() for text in parts if text]
+
+    # The sorted() function uses our custom key to perform the natural sort.
+    return sorted(file_list, key=natural_sort_key)
+
+
 def fix_extreme_temperatures_strings(s):
     ''' Convert the original hd35_inutero_6m9m_avg strings to t_inutero_6m9m_avg_pos. '''
     if "hd" in s:
@@ -255,6 +290,45 @@ def extract_coefficients_and_CI_latex_heterogeneity(heterogeneity, shock, spi, t
             plotdata[key][band] = outdata[shock]["cell1"][key]
     
     return plotdata
+
+def extract_coefficients_and_CI_latex_stat_windows(shock, spi, temp, stat):
+    """
+    Extracts coefficients and confidence intervals from a LaTeX file.
+    
+    Parameters:
+      file_path : str
+          Path to the LaTeX file containing the regression results.
+          
+    Returns:
+      dict : A dictionary containing the extracted coefficients and confidence intervals.
+    """
+    f_name = f"linear_dummies_true_{spi}_"
+    files = os.listdir(rf"{OUTPUTS}\windows")
+    files = [f for f in files if f_name in f]
+    files = [f for f in files if "standard_fe standard_sym.tex" in f]
+    files = order_files_naturally(files)
+        
+    windows = [f.replace(f"linear_dummies_true_{spi}_", "").replace("_avg_stdm_t  standard_fe standard_sym.tex", "") for f in files] # 
+
+    plotdata = {}
+    for i, window in enumerate(windows):
+
+        file_path = rf"{OUTPUTS}\windows\{files[i]}"
+        print(file_path)
+        outdata = extract_coefficients_and_CI_latex(file_path)
+
+        # Gather all the keys:
+        keys = list(outdata[shock]["cell1"].keys())
+
+        for original_key in keys:
+            key_words = original_key.split("_")
+            key = key_words[0] + "_" + key_words[1] + "_" + key_words[3] + "_" + key_words[4] + "_" + key_words[5]  
+            if key not in plotdata:
+                plotdata[key] = {}
+            plotdata[key][window] = outdata[shock]["cell1"][original_key]
+
+    return plotdata
+
     
 def distribute_x_values(x_values, n, margin=0.1):
     ''' Given a set of values for x, distribute them evenly across n groups. 
@@ -637,6 +711,128 @@ def plot_heterogeneity(
             filename = fr"{outpath}\heterogeneity {heterogeneity} - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
             plt.savefig(filename, dpi=300, bbox_inches='tight')
             print("Se creó la figura ", filename)
+            
+def plot_windows(
+        spi, 
+        temp, 
+        stat, 
+        colors=None,
+        labels=None,    
+        outpath=None,
+        add_line=False,
+    ):
+    '''
+        Plot the coefficients of the heterogeneity analysis.
+        Parameters:
+            full_data: dict
+                The data containing the coefficients and confidence intervals.
+            heterogeneity: str
+                The type of heterogeneity to plot. Must have a folder in the 
+                outputs directory with the same name. 
+            shock: str
+                The type of shock to plot. Can be "temp" or "spi".
+            spi: str
+                The type of SPI to plot. Can be "spi1", "spi3", "spi6", "spi9", 
+                "spi12", "spi24", "spi48".   
+            temp: str
+                The type of temperature to plot.
+            stat: str
+                The type of statistic to plot.  
+            colors: list
+                The colors to use for the different cases.
+            labels: list
+                The labels to use for the different cases.
+            outpath: str
+                The path to save the plot.
+    '''         
+    for shock in ["temp", "spi"]:
+        full_data = extract_coefficients_and_CI_latex_stat_windows(
+            shock, spi, temp, stat
+        )       
+     
+        for sign in ["_neg", "_pos"]:
+            
+            # Keep only keys that contain the specified sign
+            data = {k: v for k, v in full_data.items() if sign in k}
+            n_heterogeneity = 7
+
+            title_labels = {
+                f"inutero_1m3m_avg{sign}_int": "1st In-Utero Quarter",
+                f"inutero_4m6m_avg{sign}_int": "2nd In-Utero Quarter",
+                f"inutero_6m9m_avg{sign}_int": "3rd In-Utero Quarter",
+                f"born_1m3m_avg{sign}_int": "1st Born Quarter",
+                f"born_3m6m_avg{sign}_int": "2nd Born Quarter",
+                f"born_6m9m_avg{sign}_int": "3rd Born Quarter",
+                f"born_9m12m_avg{sign}_int": "4th Born Quarter",
+                f"born_12m15m_avg{sign}_int": "5th Born Quarter",
+                f"born_15m18m_avg{sign}_int": "6th Born Quarter",
+                f"born_18m21m_avg{sign}_int": "7th Born Quarter",
+                f"born_21m24m_avg{sign}_int": "8th Born Quarter",
+            }
+            fig, axs = plt.subplots(2, 3, figsize=(12, 6))
+            xvalues_clean = [0,1,2]#,4,5,6,7]
+            # axs[0][0].spines['top'].set_visible(False)
+            # axs[0][0].spines['bottom'].set_visible(False)
+            # axs[0][0].spines['right'].set_visible(False)
+            # axs[0][0].spines['left'].set_visible(False)
+            # axs[0][0].set_xticks([])
+            # axs[0][0].set_yticks([])
+
+            for i, key in enumerate(data.keys()):
+                if i==(3+len(xvalues_clean)):
+                    # Break the graph when we reach the expected number of plots.
+                    break
+                if i==len(axs.flatten()):
+                    break
+                heterogeneity_data = data[key]
+                for j, case in enumerate(heterogeneity_data.keys()):
+                    coefs = np.array(heterogeneity_data[case]["coef"][:3])
+                    lower = np.array(heterogeneity_data[case]["lower"][:3])
+                    upper = np.array(heterogeneity_data[case]["upper"][:3])
+
+                    is_neg = "_neg" in key
+                    sign = "_neg" if is_neg else "_pos"
+                    
+                    if is_neg:
+                        coefs = coefs*-1
+                        old_upper = upper
+                        upper = lower*-1
+                        lower = old_upper*-1
+                    yerr = [
+                        list(np.subtract(coefs, lower)), # 'down' error
+                        list(np.subtract(upper, coefs))
+                    ]  # 'up' error
+                    
+                    # Get the color from the cycle
+                    color = colors[j]
+                    label = labels[j]
+                    
+                    ax = axs.flatten()[i]
+
+                    xvalues = distribute_x_values(xvalues_clean, n_heterogeneity, margin=0.15)[j]
+                    
+                    ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
+                    if add_line:
+                        ax.plot(xvalues, coefs, color=color)
+
+                    # Now call our helper function to highlight points with a lower CI bound > 0.
+                    highlight_significant_points(ax, xvalues, coefs, lower, color=color)
+
+                ax.set_title(title_labels[key])
+                ax.axhline(y=0, color="black", linewidth=1)
+                ax.spines['top'].set_visible(False)
+                ax.spines['bottom'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q",])# "5th Q", "6th Q", "7th Q", "8th Q"])
+                ax.set_xlim(-0.3, 2.6)
+
+            fig.tight_layout()
+            plt.legend(loc='lower center', bbox_to_anchor=(-0.64, -0.5), ncol=4, frameon=False)
+
+            filename = fr"{outpath}\windows - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
+            plt.savefig(filename, dpi=300, bbox_inches='tight')
+            print("Se creó la figura ", filename)
+
     
 def plot_shocks_histogram(df, cols, outpath):
     
