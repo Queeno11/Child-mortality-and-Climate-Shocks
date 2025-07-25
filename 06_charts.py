@@ -508,5 +508,26 @@ plot_tools.plot_heterogeneity(
 # ax.set_ylim(-70, 85)
 
 # gdf.plot(ax=ax, markersize=.05)
+stop
 
+### Mapas
+import xarray as xr
+import matplotlib.pyplot as plt
 
+ds = xr.open_dataset(r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_proc\Climate_shocks_v9d.nc")
+da = ds.stdm_t
+da = da.rolling(dim={"time": 3}, center="left").mean()
+landside = da.isel(time=-5).drop("time").notnull()
+
+for t in 1.5, 2.5:
+    ndays = (da > t).sum(dim="time") / ((2021-1991)*12)
+    ndays = ndays.where(landside, drop=True) # Mask null values
+    ndays.plot(figsize=(10, 5), cmap="Spectral_r")
+    plt.title(f"Share of months with Monthly Temperature Anomalies >{t} SD (1991-2021)")
+    plt.savefig(rf"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs\Figures\stdm_t_{t}.png", bbox_inches="tight", dpi=450)
+    
+    ndays = (da < -t).sum(dim="time") / ((2021-1991)*12)
+    ndays = ndays.where(landside, drop=True) # Mask null values
+    ndays.plot(figsize=(10, 5), cmap="Spectral_r")
+    plt.title(f"Share of months with Monthly Temperature Anomalies <-{t} SD (1991-2021)")
+    plt.savefig(rf"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs\Figures\stdm_t_-{t}.png", bbox_inches="tight", dpi=450)
