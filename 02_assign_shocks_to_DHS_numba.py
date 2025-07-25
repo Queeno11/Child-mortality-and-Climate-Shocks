@@ -55,64 +55,66 @@ if __name__ == "__main__":
         """Round a number to .25 or .75."""
         return round((number - 0.25) * 2) / 2 + 0.25
         
-    # Define timeframes outside the function for reuse
-    TIMEFRAMES = {
-        "inutero_1m": 0, "inutero_2m": 1, "inutero_3m": 2, "inutero_4m": 3,
-        "inutero_5m": 4, "inutero_6m": 5, "inutero_7m": 6, "inutero_8m": 7,
-        "inutero_9m": 8, "born_1m": 9, "born_2m": 10, "born_3m": 11,
-        "born_4m": 12, "born_5m": 13, "born_6m": 14,
+    # 1. Define timeframes as quarters. The value is the 0-based index of the *last month* of the quarter.
+    TIMEFRAMES_QUARTERLY = {
+        "inutero_1m3m": 2,
+        "inutero_4m6m": 5,
+        "inutero_6m9m": 8,
+        "born_1m3m": 11,
+        "born_3m6m": 14,
+        "born_6m9m": 17,
     }
-    AVG_WINDOWS = np.array([1, 2, 3, 4, 5, 6], dtype=np.int32)
+    
+    # 2. Define the calculation windows. Window '2' is excluded as requested.
+    AVG_WINDOWS = np.array([1, 3, 4, 5, 6, 9, 12], dtype=np.int32)
+    
+    # 3. Add an error check to prevent using window size 2.
+    if 2 in AVG_WINDOWS:
+        raise ValueError("Averaging window of 2 is not a supported calculation.")
 
-    # Create the numba-jitted function. It only works with numpy arrays.
+    # 4. The njit function remains the same (calculates max for window=1, avg for others)
     @njit
-    def _compute_multi_window_stats_njit(data_array, time_indices, window_sizes):
+    def _compute_quarterly_stats_njit(data_array, time_indices, window_sizes):
         """
-        Numba-accelerated function to compute multi-window moving averages for all specified windows.
+        Numba-accelerated function to compute quarterly statistics with conditional logic.
+        - For window=1: Calculates the MAX value over the 3-month quarter.
+        - For window>=3: Calculates the trailing AVG over the specified window.
+        All calculations are based on the end_idx of the quarter.
         """
         n_indices = len(time_indices)
         n_vars = data_array.shape[0]
         n_windows = len(window_sizes)
         
-        # Initialize a 3D result array to store results for every combination:
-        # (timeframe, variable, window_size)
         results = np.empty((n_indices, n_vars, n_windows), dtype=data_array.dtype)
         
-        # Loop over each requested timeframe (e.g., inutero_5m, born_1m)
         for i in range(n_indices):
             end_idx = time_indices[i]
             
-            # Loop over each variable (e.g., spi1, std_t)
             for j in range(n_vars):
-                
-                # KEY LOOP: This loop iterates through EACH of the window sizes
-                # in the `window_sizes` array (i.e., 1, 2, 3, 4, 5, 6).
                 for k in range(n_windows):
-                    window = window_sizes[k] # This will be 1, then 2, then 3, etc.
+                    window = window_sizes[k]
                     
-                    # Handle edge case: start of slice cannot be less than 0
-                    start_idx = max(0, end_idx - window + 1)
-                    
-                    # Take the slice of data for the current variable and calculated window
-                    data_slice = data_array[j, start_idx : end_idx + 1]
-                    
-                    # Numba efficiently computes the mean and stores it
-                    results[i, j, k] = np.mean(data_slice)
-                    
+                    if window == 1:
+                        quarter_start_idx = max(0, end_idx - 2)
+                        quarter_slice = data_array[j, quarter_start_idx : end_idx + 1]
+                        results[i, j, k] = np.max(quarter_slice)
+                    else: # Handles windows 3, 4, 5, 6...
+                        avg_start_idx = max(0, end_idx - window + 1)
+                        avg_slice = data_array[j, avg_start_idx : end_idx + 1]
+                        results[i, j, k] = np.mean(avg_slice)
+                        
         return results
 
-    # 2. Pre-calculate the expanded column names for ALL combinations.
-    # The order of these loops is critical and must match the 3D array structure above.
-    TIME_INDICES_NP = np.array(list(TIMEFRAMES.values()), dtype=np.int32)
+    # 5. REVERTED CHANGE: Pre-calculate column names to *always* use the "_avg" suffix.
+    TIME_INDICES_NP = np.array(list(TIMEFRAMES_QUARTERLY.values()), dtype=np.int32)
 
     RESULT_COLUMN_NAMES = []
-    for timename in TIMEFRAMES.keys():              # Outermost loop -> matches n_indices
-        for var in ORDERED_CLIMATE_VARS:            # Middle loop -> matches n_vars
-            for window in AVG_WINDOWS:              # Innermost loop -> matches n_windows
-                RESULT_COLUMN_NAMES.append(f"{var}_{timename}_{window}m_avg")
-
-    # --- END OF MODIFICATIONS ---
-
+    for timename in TIMEFRAMES_QUARTERLY.keys():
+        for var in ORDERED_CLIMATE_VARS:
+            for window in AVG_WINDOWS:
+                # This line now unconditionally uses "_avg" as requested.
+                col_name = f"{var}_{timename}_{window}m_avg"
+                RESULT_COLUMN_NAMES.append(col_name)
 
     ### Process dataframe ####
     df = df.dropna(subset=["v008", "chb_year", "chb_month"], how="any")
@@ -157,62 +159,59 @@ if __name__ == "__main__":
     ### Run process ####
     print(len(full_dhs))
 
-    # files = os.listdir(rf"{DATA_PROC}/DHS_Climate")
-    # for file in files:
-    #     os.remove(rf"{DATA_PROC}/DHS_Climate/{file}")
-    # print("Old files removed!")
+    files = os.listdir(rf"{DATA_PROC}/DHS_Climate")
+    for file in files:
+        os.remove(rf"{DATA_PROC}/DHS_Climate/{file}")
+    print("Old files removed!")
 
-    # grouped = df.groupby(["lat_round", "lon_round"])
-    # results = []
-    # for i, stuff in tqdm(enumerate(grouped), total=len(grouped)):
+    grouped = df.groupby(["lat_round", "lon_round"])
+    results = []
+    for i, stuff in tqdm(enumerate(grouped), total=len(grouped)):
         
-    #     (lat, lon), group = stuff
+        (lat, lon), group = stuff
         
-    #     earliest_from_date = group["from_date"].min()
-    #     latest_to_date = group["to_date"].max()
+        earliest_from_date = group["from_date"].min()
+        latest_to_date = group["to_date"].max()
 
-    #     point_data = climate_data.sel(
-    #         time=slice(earliest_from_date, latest_to_date),
-    #         lat=lat,
-    #         lon=lon,
-    #     ).load()
+        point_data = climate_data.sel(
+            time=slice(earliest_from_date, latest_to_date),
+            lat=lat,
+            lon=lon,
+        ).load()
         
-    #     date_grouped = group.groupby(["from_date", "to_date"])
+        date_grouped = group.groupby(["from_date", "to_date"])
         
-    #     for (from_date, to_date), date_group in tqdm(date_grouped, total=len(date_grouped), leave=False):
+        for (from_date, to_date), date_group in date_grouped:
 
-    #         data = point_data.sel(time=slice(from_date, to_date))
+            data = point_data.sel(time=slice(from_date, to_date))
 
-    #         # MODIFICATION START: Use the njit-accelerated path
-    #         # 1. Convert the relevant xarray data to a numpy array
-    #         data_np = data.to_array().values.astype(np.float32)
+            # MODIFICATION START: Use the njit-accelerated path
+            # 1. Convert the relevant xarray data to a numpy array
+            data_np = data.to_array().values.astype(np.float32)
 
-    #         # 2. Call the fast Numba function
-    #         # The result is a numpy array of shape (n_timeframes, n_vars)
-    #         stats_np = _compute_multi_window_stats_njit(data_np, TIME_INDICES_NP, AVG_WINDOWS)
+            # 2. Call the fast Numba function
+            # The result is a numpy array of shape (n_timeframes, n_vars)
+            stats_np = _compute_quarterly_stats_njit(data_np, TIME_INDICES_NP, AVG_WINDOWS)
 
-    #         # 3. Create the pandas Series from the numpy result.
-    #         # .ravel() flattens the array in the correct order (C-style, row-major)
-    #         # to match the pre-generated column names.
-    #         stats = pd.Series(stats_np.ravel(), index=RESULT_COLUMN_NAMES, dtype="float16")
-    #         # MODIFICATION END
+            # 3. Create the pandas Series from the numpy result.
+            # .ravel() flattens the array in the correct order (C-style, row-major)
+            # to match the pre-generated column names.
+            stats = pd.Series(stats_np.ravel(), index=RESULT_COLUMN_NAMES, dtype="float16")
 
-    #         stats["lat"] = lat
-    #         stats["lon"] = lon
+            stats["lat"] = lat
+            stats["lon"] = lon
 
-    #         stats_df = pd.DataFrame([stats])
-    #         stats_df["point_ID"] = date_group["point_ID"].iloc[0]
-    #         results.append(stats_df) # Use append for lists
+            stats_df = pd.DataFrame([stats])
+            stats_df["point_ID"] = date_group["point_ID"].iloc[0]
+            results.append(stats_df) # Use append for lists
             
-    #     if ((i-1)%1000 == 0) | (i == len(grouped)-1):
-    #         climate_results = pd.concat(results, ignore_index=True)
-    #         climate_results.to_parquet(f"{DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
-    #         print(f"File saved at {DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
-    #         results = []
-    #         climate_results = None
+        if ((i-1)%1000 == 0) | (i == len(grouped)-1):
+            climate_results = pd.concat(results, ignore_index=True)
+            climate_results.to_parquet(f"{DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
+            print(f"File saved at {DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
+            results = []
+            climate_results = None
     
-    # --- The rest of the script remains unchanged ---
-                    
     files = os.listdir(rf"{DATA_PROC}/DHS_Climate")
     files = [f for f in files if f.startswith("births_climate_")]
     data = []
@@ -260,4 +259,4 @@ if __name__ == "__main__":
         df[float16_cols] = df[float16_cols].astype("float32")
         
     df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v9e_months_njit.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9e_months_njit_alt.dta")
+    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9e_quarterly.dta")

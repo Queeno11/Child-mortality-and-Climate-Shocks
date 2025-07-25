@@ -116,20 +116,18 @@ births["rwi_quintiles"] = pd.qcut(births["rwi"], 5, labels=False, duplicates="dr
 births["rwi_deciles"] = pd.qcut(births["rwi"], 10, labels=False, duplicates="drop") + 1
 
 # ---------- 4.  Child age-at-death dummies (per 1 000 births) ----------
-bins   = [0, 3, 6, 9, 12, 15, 18, 21, 24]          # right-open intervals
 labels = [
-    "1m3m", "3m6m", "6m9m", "9m12m",
-    "12m15m", "15m18m", "18m21m", "21m24m"
+    "1m", "2m", "3m", "4m", "5m", "6m",
 ]
 agecol = "child_agedeath"                          # assumes months
 
 # Remove possibly pre-existing column
 births.drop(columns=[f"child_agedeath_{lab}" for lab in labels], errors="ignore", inplace=True)
 
-cat = pd.cut(births[agecol], bins=bins, labels=labels, right=False)
-for lab in labels:
-    births[f"child_agedeath_{lab}"] = ((cat == lab) * 1_000).astype("int16")  # per 1 000 births
-
+for month, lab in enumerate(labels):
+    # Remove possibly pre-existing column
+    births[f"child_agedeath_{lab}"] = ((births["child_agedeath"] == month) * 1_000).astype("int16")  # per 1 000 births
+    
 # ---------- 5.  Location & household controls ----------
 print("Creating location and time fixed effects...")
 ## 0.1° (original), 0.25°, 0.5°, 1° and 2° aggregations

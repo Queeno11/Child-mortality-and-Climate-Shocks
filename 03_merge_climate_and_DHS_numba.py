@@ -45,17 +45,14 @@ print(f"Data loaded! Number of observations: {births.shape[0]}")
 print("Creating variables...")
 climate_list  = ["stdm_t", "spi1"]#, "spi3", "spi6", "spi9", "spi12", "spi24", "hd35", "hd40", "fd", "id"]
 time_list = [
-    "inutero_1m", "inutero_2m"  , "inutero_3m",
-    "inutero_4m", "inutero_5m"  , "inutero_6m",
-    "inutero_7m", "inutero_8m"  , "inutero_9m",
-    "born_1m"   , "born_2m"     , "born_3m",
-    "born_4m"   , "born_5m"     , "born_6m",
+    "inutero_1m3m", "inutero_4m6m", "inutero_6m9m",
+    "born_1m3m"   , "born_3m6m"   , "born_6m9m" 
 ]
 
 newcols = {}
 for var in tqdm(climate_list):
     for t in tqdm(time_list, leave=False):
-        for stat in ["1m_avg", "2m_avg", "3m_avg", "4m_avg", "5m_avg", "6m_avg"]:
+        for stat in ["1m_avg", "3m_avg", "4m_avg", "5m_avg", "6m_avg", "9m_avg", "12m_avg"]:
             base = f"{var}_{t}_{stat}"
             if base not in births.columns:
                 print(f"Column {base} not in births columns, skipping...")
