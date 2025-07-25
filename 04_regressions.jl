@@ -12,7 +12,7 @@ controls3 = [:child_fem, :child_mulbirth, :birth_order, :rural, :mother_ageb, :m
 controls4 = [:child_fem, :child_mulbirth, :birth_order, :rural, :rwi, :mother_ageb, :mother_ageb_squ, :mother_ageb_cub, :mother_eduy, :mother_eduy_squ, :mother_eduy_cub]
 controls = term.(controls4) # controls3, controls1
 
-path = "D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v9e_njit.feather"
+path = "D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v10b.feather"
 tbl = Arrow.Table(path)
 df_lazy = DataFrame(tbl)
 
@@ -21,22 +21,23 @@ df_lazy = DataFrame(tbl)
 #################################################################
 for m in [1, 3, 6, 12, 24]
 
-    CustomModels.run_models(df_lazy, controls, "", "", [m]; only_linear=true)
-    stop
+    CustomModels.run_models(df_lazy, controls, "", "", [m])
+    
     # Only run heterogeneity/mechanisms for SPI1
     if m == 1
-        #################################################################
-        ###  heterogeneity
-        #################################################################
-        
+        # #################################################################
+        # ###  heterogeneity
+        # #################################################################
+       
         # Income Quintiles/Deciles
+        CustomModels.run_heterogeneity(df_lazy, controls, :poor, [m]) # DHS quintiles
+        CustomModels.run_heterogeneity(df_lazy, controls, :weatlh_ind, [m]) # DHS quintiles
         CustomModels.run_heterogeneity(df_lazy, controls, :rwi_tertiles, [m])
-        stop
-        CustomModels.run_heterogeneity(df_lazy, controls, :rwi_quintiles, [m])
-        CustomModels.run_heterogeneity(df_lazy, controls, :rwi_deciles, [m])
-        stop
+        # CustomModels.run_heterogeneity(df_lazy, controls, :rwi_quintiles, [m])
+        # CustomModels.run_heterogeneity(df_lazy, controls, :rwi_deciles, [m])
+
         # Climate Bands (3 classifications)
-        CustomModels.run_heterogeneity(df_lazy, controls, :climate_band_1, [m])
+        CustomModels.run_heterogeneity(df_lazy, controls, :climate_band_1, [m]; models=["linear", "horserace"])
         # CustomModels.run_heterogeneity(df_lazy, controls, :climate_band_2, [m])
 
         # Income Group
@@ -51,13 +52,14 @@ for m in [1, 3, 6, 12, 24]
         #################################################################
         ###  Mechanisms
         #################################################################
-        
-        CustomModels.run_heterogeneity(df_lazy, controls, :helec, [m])
-        CustomModels.run_heterogeneity(df_lazy, controls, :pipedw, [m])
-        CustomModels.run_heterogeneity(df_lazy, controls, :href , [m])
-        CustomModels.run_heterogeneity(df_lazy, controls, :hhelectemp, [m])
-        CustomModels.run_heterogeneity(df_lazy, controls, :hhfan, [m])
-        CustomModels.run_heterogeneity(df_lazy, controls, :hhaircon, [m])
+
+        CustomModels.run_heterogeneity(df_lazy, controls, :mother_educ, [m]) # Grouped mother educ
+        CustomModels.run_heterogeneity(df_lazy, controls, :helec, [m]) # Electricity
+        CustomModels.run_heterogeneity(df_lazy, controls, :pipedw, [m]) # Piped Water
+        CustomModels.run_heterogeneity(df_lazy, controls, :href , [m]) # Refrigerator
+        CustomModels.run_heterogeneity(df_lazy, controls, :hhelectemp, [m]) # Electrical temperature regulation
+        CustomModels.run_heterogeneity(df_lazy, controls, :hhfan, [m]) # Has fan 
+        CustomModels.run_heterogeneity(df_lazy, controls, :hhaircon, [m]) # Air condition
 
     end
 

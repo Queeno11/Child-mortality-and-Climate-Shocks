@@ -63,13 +63,13 @@ for var in tqdm(climate_list):
         newcols[f'{base}_pos'] = (s >= 0).astype(bool)
         newcols[f'{base}_neg'] = (s <= 0).astype(bool)
     
-        mu, sigma = float(s.mean()), float(s.std())
-        for k in (1, 2):
-            thr_pos, thr_neg = mu + k*sigma, mu - k*sigma
-            newcols[f'{base}_gt{k}']   = (s >=  thr_pos).astype(bool)
-            newcols[f'{base}_bt0{k}']  = ((s <  thr_pos) & (s >= 0)).astype(bool)
-            newcols[f'{base}_bt0m{k}'] = ((s >= thr_neg) & (s <  0)).astype(bool)
-            newcols[f'{base}_ltm{k}']  = (s <  thr_neg).astype(bool)
+        # mu, sigma = float(s.mean()), float(s.std())
+        # for k in (1, 2):
+        #     thr_pos, thr_neg = mu + k*sigma, mu - k*sigma
+        #     newcols[f'{base}_gt{k}']   = (s >=  thr_pos).astype(bool)
+        #     newcols[f'{base}_bt0{k}']  = ((s <  thr_pos) & (s >= 0)).astype(bool)
+        #     newcols[f'{base}_bt0m{k}'] = ((s >= thr_neg) & (s <  0)).astype(bool)
+        #     newcols[f'{base}_ltm{k}']  = (s <  thr_neg).astype(bool)
 
 # mother covariates
 s = births['mother_ageb'].copy()
@@ -79,6 +79,9 @@ s = births['mother_eduy'].copy()
 newcols['mother_eduy_squ'] = pd.to_numeric(s**2, downcast="integer")
 newcols['mother_eduy_cub'] = pd.to_numeric(s**3, downcast="integer")
 s = None
+bins = [0, 7, 13, 35, np.inf]
+names = ['6 years or less', '6-12 years', 'more than 12 years', 'No data']
+births['mother_educ'] = pd.cut(births['mother_eduy'], bins, labels=names)
 
 newcols = pd.DataFrame(newcols, index=births.index)
 
@@ -116,18 +119,20 @@ births["rwi_quintiles"] = pd.qcut(births["rwi"], 5, labels=False, duplicates="dr
 births["rwi_deciles"] = pd.qcut(births["rwi"], 10, labels=False, duplicates="drop") + 1
 
 # ---------- 4.  Child age-at-death dummies (per 1 000 births) ----------
+bins   = [0, 3, 6, 9, 12, 15, 18, 21, 24]          # right-open intervals
 labels = [
-    "1m", "2m", "3m", "4m", "5m", "6m",
+    "1m3m", "3m6m", "6m9m", "9m12m",
+    "12m15m", "15m18m", "18m21m", "21m24m"
 ]
 agecol = "child_agedeath"                          # assumes months
 
 # Remove possibly pre-existing column
 births.drop(columns=[f"child_agedeath_{lab}" for lab in labels], errors="ignore", inplace=True)
 
-for month, lab in enumerate(labels):
-    # Remove possibly pre-existing column
-    births[f"child_agedeath_{lab}"] = ((births["child_agedeath"] == month) * 1_000).astype("int16")  # per 1 000 births
-    
+cat = pd.cut(births[agecol], bins=bins, labels=labels, right=False)
+for lab in labels:
+    births[f"child_agedeath_{lab}"] = ((cat == lab) * 1_000).astype("int16")  # per 1 000 births
+
 # ---------- 5.  Location & household controls ----------
 print("Creating location and time fixed effects...")
 ## 0.1° (original), 0.25°, 0.5°, 1° and 2° aggregations
@@ -170,10 +175,10 @@ climate_shocks = [
     col for col in births.columns if col.startswith(("t_", "std_t_", "stdm_t_", "absdif_t_", "absdifm_t_", "spi", "hd35", "hd40", "fd", "id",))
 ]
 controls = [
-    "child_fem", "child_mulbirth", "birth_order", "rural",
-    "d_weatlh_ind_2", "d_weatlh_ind_3", "d_weatlh_ind_4", "d_weatlh_ind_5",
+    "child_fem", "child_mulbirth", "birth_order", "rural", "poor",
+    "weatlh_ind", "d_weatlh_ind_1", "d_weatlh_ind_2", "d_weatlh_ind_3", "d_weatlh_ind_4", "d_weatlh_ind_5",
     "mother_ageb", "mother_ageb_squ", "mother_ageb_cub",
-    "mother_eduy", "mother_eduy_squ", "mother_eduy_cub",
+    "mother_eduy", "mother_eduy_squ", "mother_eduy_cub", "mother_educ",
     "chb_month", "chb_year", "chb_year_sq", "rwi", 
 ]
 death_vars = [

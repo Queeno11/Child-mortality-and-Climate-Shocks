@@ -450,36 +450,21 @@ module CustomModels
         return spi_syms, temp_syms
     end
     
-    """
-        run_models(df_lazy, controls, folder, extra, months; only_linear=false, filter_on::Union{Nothing, Pair{Symbol, T}}=nothing) where T
-
-        Runs the standard models by iterating through multiple SPI time windows and time periods.
-        It calls the `run_regression` function for each combination of parameters.
-        
-        # Arguments
-        - `df`: DataFrame containing the data.
-        - `controls`: Array of control variables for the regression.
-        - `folder`: Output folder path to save the regression results.
-        - `extra`: Additional string to append to the output filenames.
-        
-        # Output
-        Saves regression results for each combination of parameters in both ASCII and LaTeX formats.
-    """
-    function run_models(df_lazy, controls, folder, extra, months; only_linear=false, filter_on::Union{Nothing, Pair{Symbol, T}}=nothing) where T
+    function run_models(df_lazy, controls, folder, extra, months; models::Vector{}=["linear"], filter_on::Union{Nothing, Pair{Symbol, T}}=nothing) where T
         """
-            run_models(df, controls, folder, extra)
-        
-        Executes the standard models by iterating through multiple SPI time windows and time periods. 
-        It calls the `run_regression` function for each combination of parameters.
-        
-        # Arguments
-        - `df`: DataFrame containing the data.
-        - `controls`: Array of control variables for the regression.
-        - `folder`: Output folder path to save the regression results.
-        - `extra`: Additional string to append to the output filenames.
-        
-        # Output
-        Saves regression results for each combination of parameters in both ASCII and LaTeX formats.
+            run_models(df_lazy, controls, folder, extra, months; only_linear=false, filter_on::Union{Nothing, Pair{Symbol, T}}=nothing) where T
+
+            Runs the standard models by iterating through multiple SPI time windows and time periods.
+            It calls the `run_regression` function for each combination of parameters.
+            
+            # Arguments
+            - `df`: DataFrame containing the data.
+            - `controls`: Array of control variables for the regression.
+            - `folder`: Output folder path to save the regression results.
+            - `extra`: Additional string to append to the output filenames.
+            
+            # Output
+            Saves regression results for each combination of parameters in both ASCII and LaTeX formats.
         """
         
         println("\rRunning Standard Models for $(folder)\r")
@@ -487,10 +472,10 @@ module CustomModels
         for month in months
             extra_original = extra
             sp_threshold = 0.5 # Set default value to avoid breaking the function when this parameter is not used
-            for times in (["inutero_1m3m", "inutero_4m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m"], )
+            for times in (["inutero_1m3m", "inutero_4m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m"], )
                 i = 1
                 for temp in ["stdm_t"]#, "std_t", "absdifm_t", "absdif_t"]#,  "t"]
-                    for stat in ["1m_avg", "3m_avg", "4m_avg", "5m_avg", "6m_avg", "9m_avg", "12m_avg"]#, "minmax"]
+                    for stat in ["avg"]#, "minmax"]
                         for drought in ["spi"]#, "spei"]        
                             
                             # Add month to variable
@@ -501,27 +486,32 @@ module CustomModels
                             df = load_dataset(df_lazy, temp, drought, stat, controls; verbose=false, filter_on=filter_on)
 
                             # Linear models - all cases
-                            stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
-                            if only_linear
-                                continue
+                            if "linear" in models
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
                             end
 
                             # # HD/FD models
-                            # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35fd", cells=[1,2,3])
-                            # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35id", cells=[1,2,3])
-                            # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40fd", cells=[1,2,3])
-                            # stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40id", cells=[1,2,3])
-                            
+                            if "extremes" in models
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35fd", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35id", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40fd", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40id", cells=[1,2,3])
+                            end
+                                
                             # horserace models
-                            stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd35fd", cells=[1,2,3])
-                            stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd35id", cells=[1,2,3])
-                            stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd40fd", cells=[1,2,3])
-                            stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd40id", cells=[1,2,3])
+                            if "horserace" in models
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd35fd", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd35id", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd40fd", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd40id", cells=[1,2,3])
+                            end
 
                             # Spline models - only for standardized variables (std_t, stdm_t):
-                            for sp_threshold in ["1", "2"]
-                                extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
-                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
+                            if "spline" in models
+                                for sp_threshold in ["1", "2"]
+                                    extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
+                                    stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
+                                end
                             end
                         end
                     end
@@ -533,7 +523,7 @@ module CustomModels
 
 
     """
-        run_heterogeneity(df_lazy, controls, heterogeneity_var, months; only_linear=true)
+        run_heterogeneity(df_lazy, controls, heterogeneity_var, months; models=["linear"])
 
     Runs a heterogeneity analysis by splitting the dataset based on the unique values 
     in a specified column and running models on each subset.
@@ -552,7 +542,7 @@ module CustomModels
     - `months`: Array of months to iterate through for the models.
     - `only_linear`: Boolean to run only linear models, typically for faster heterogeneity checks.
     """
-    function run_heterogeneity(df_lazy, controls, heterogeneity_var::Symbol, months; extra::String="")
+    function run_heterogeneity(df_lazy, controls, heterogeneity_var::Symbol, months; extra::String="", models::Vector{}=["linear"])
 
         # 1. Efficiently get the single column of interest from the lazy table.
         println("Finding unique groups in column: $(heterogeneity_var)...")
@@ -586,7 +576,7 @@ module CustomModels
                 # Call the main model runner with the specific filter for this subgroup.
                 # No data has been loaded or filtered yet. That happens inside run_models.
                 CustomModels.run_models(df_lazy, controls, folder, suffix, months;
-                                        only_linear=true,
+                                        models=models,
                                         filter_on=filter_instruction,
                 )
             catch e
