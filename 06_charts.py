@@ -111,44 +111,24 @@ for hot in [35, 40]:
         )
 
 ### Figure 2c: Horserace
-labels = {
-    "fd": "# of days Tmin < 0°C",
-    "id": "# of days Tmax < 0°C",
-    35: "# of days Tmax ≥ 35°C",
-    40: "# of days Tmax ≥ 40°C"
-}
 for hot in [35, 40]:
     for cold in ["fd", "id"]:
+        if cold=="fd":
+            coldstat = "TMin"
+        else: # cold=="id"
+            coldstat = "TMax" 
         file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp}  standard_fe horserace_hd{hot}{cold}_sym.tex"  # Replace with the actual path to your LaTeX file.
         outdata = plot_tools.extract_coefficients_and_CI_latex_horserace(file_path)
         
-        plot_tools.plot_regression_coefficients(
-            data=outdata["standard"], 
-            shock="temp",
+        plot_tools.plot_horserace_temp(
+            data=outdata, 
             spi=spi,
             temp=temp,
             stat=stat,
-            margin=0.25,
-            colors=["#3e9fe1", "#ff5100"], 
-            labels=["Low temperature shocks", "High temperature shocks"],  
+            colors=["#ff5100",  "#fdbb84","#3e9fe1",  "#87ceeb",],
+            labels=["High Temprature Anomalies", f"N° of Days with TMax>{hot}°", "Low Temprature Anomalies", f"N° of Days with {coldstat}<0°"],
             outpath=rf"{OUT_FIGS}",
-            add_line=True,
-            start="horserace - ",
-            extra=f" - hd{hot}{cold}{temp}_monthly",
-        )
-        plot_tools.plot_regression_coefficients(
-            data=outdata["extreme"], 
-            shock="temp",
-            spi=spi,
-            temp=temp,
-            stat=stat,
-            margin=0.25,
-            colors=["#3e9fe1", "#ff5100"], 
-            labels=[labels[cold], labels[hot]], 
-            outpath=rf"{OUT_FIGS}",
-            add_line=True,
-            start="horserace - ",
-            extra=f" - hd{hot}{cold}{temp}_ndays",
+            extra=f" - hd{hot}{cold}{temp}",
         )
         plot_tools.plot_regression_coefficients(
             data=outdata["standard"],  # Or extreme, they are the same!
@@ -165,7 +145,42 @@ for hot in [35, 40]:
             extra=f" - hd{hot}{cold}{temp}_spi",
         )
 
+# Horserace by climate band
+for hot in [35, 40]:
+    for cold in ["fd", "id"]:
+        if cold=="fd":
+            coldstat = "TMin"
+        else: # cold=="id"
+            coldstat = "TMax" 
 
+        for band in ["Arid","Temperate", "Tropical"]:
+            file_path = rf"{OUTPUTS}\heterogeneity\climate_band_1\linear_dummies_true_{spi}_{stat}_{temp}  - {band} standard_fe horserace_hd{hot}{cold}_sym.tex"  # Replace with the actual path to your LaTeX file.
+            outdata = plot_tools.extract_coefficients_and_CI_latex_horserace(file_path)
+            
+            plot_tools.plot_horserace_temp(
+                data=outdata, 
+                spi=spi,
+                temp=temp,
+                stat=stat,
+                colors=["#ff5100",  "#fdbb84","#3e9fe1",  "#87ceeb",],
+                labels=["High Temprature Anomalies", f"N° of Days with TMax>{hot}°", "Low Temprature Anomalies", f"N° of Days with {coldstat}<0°"],
+                outpath=rf"{OUT_FIGS}",
+                extra=f" - {band} hd{hot}{cold}{temp}",
+            )
+            plot_tools.plot_regression_coefficients(
+                data=outdata["standard"],  # Or extreme, they are the same!
+                shock="spi",
+                spi=spi,
+                temp=temp,
+                stat=stat,
+                margin=0.25,
+                colors=["#ff5100", "#3e9fe1"], 
+                labels=["Low precipitation shocks", "High precipitation shocks"], 
+                outpath=rf"{OUT_FIGS}",
+                add_line=True,
+                start="horserace - ",
+                extra=f" - {band} hd{hot}{cold}{temp}_spi",
+            )
 
 # ### Figure 3: Main coefficients Spline
 # file_path = rf"{OUTPUTS}\spline_dummies_false_{spi}_{stat}_{temp}  - spthreshold1 standard_fe standard_sym.tex"  # Replace with the actual path to your LaTeX file.
@@ -217,12 +232,40 @@ for hot in [35, 40]:
 
 
 
-### Figure 4: RWI heterogeneity
+### Figure 4a: RWI heterogeneity
 colors=["#fe3500", "#ffd220", "#79c78d"] 
 labels=["Low Income","Middle Income","High Income"]
         
 plot_tools.plot_heterogeneity(
     "rwi_tertiles",
+    spi=spi,
+    temp=temp,
+    stat=stat,
+    colors=colors, 
+    labels=labels,
+    outpath=OUT_FIGS, 
+)    
+
+### Figure 4b: DHS poor indicator
+colors=["#fe3500", "#79c78d"] 
+labels=["Poor Household","Non Poor Household"]
+        
+plot_tools.plot_heterogeneity(
+    "poor",
+    spi=spi,
+    temp=temp,
+    stat=stat,
+    colors=colors, 
+    labels=labels,
+    outpath=OUT_FIGS, 
+)    
+
+### Figure 4c: DHS Quintiles
+colors=["#fe3500", "#fea500", "#ffd220", "#9ad42d", "#09cf6c"] 
+labels=["1","2","3","4","5"]
+        
+plot_tools.plot_heterogeneity(
+    "weatlh_ind",
     spi=spi,
     temp=temp,
     stat=stat,
@@ -325,6 +368,20 @@ plot_tools.plot_heterogeneity(
 #     labels=labels,
 #     outpath=OUT_FIGS, 
 # )    
+
+### Figure 8: Mother education
+f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
+colors=["#fe3500", "#ffd220", "#79c78d"]
+labels = ['6 years or less', '6-12 years', 'more than 12 years', 'No data']
+plot_tools.plot_heterogeneity(
+    "mother_educ",
+    spi=spi,
+    temp=temp,
+    stat=stat,
+    colors=colors, 
+    labels=labels,
+    outpath=OUT_FIGS, 
+)    
 
 ### Figure 8: Piped water heterogeneity
 f_name = f"linear_dummies_true_{spi}_{stat}_{temp}"
@@ -531,3 +588,40 @@ for t in 1.5, 2.5:
     ndays.plot(figsize=(10, 5), cmap="Spectral_r")
     plt.title(f"Share of months with Monthly Temperature Anomalies <-{t} SD (1991-2021)")
     plt.savefig(rf"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs\Figures\stdm_t_-{t}.png", bbox_inches="tight", dpi=450)
+    
+### Distribuciones
+# import seaborn as sns
+# import matplotlib.pyplot as plt
+# import pandas as pd
+# labels = {
+#     "stdm_t_inutero_1m3m_avg": "In-utero - 1st Quarter",
+#     "stdm_t_inutero_4m6m_avg": "In-utero - 2nd Quarter",
+#     "stdm_t_inutero_6m9m_avg": "In-utero - 3rd Quarter",
+#     "stdm_t_born_1m3m_avg": "Born - 1st Quarter",
+#     "stdm_t_born_3m6m_avg": "Born - 2nd Quarter",
+#     "stdm_t_born_6m9m_avg": "Born - 3rd Quarter",
+#     "stdm_t_born_9m12m_avg": "Born - 4th Quarter",
+# }
+
+# fig, axs = plt.subplots(2, 4, figsize=(20, 8))
+
+# for i, ax in enumerate(axs.flatten()):
+#     if i==0:
+#         continue
+#     var = list(labels.keys())[i-1]
+#     data = pd.read_feather(
+#         r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_out\DHSBirthsGlobal&ClimateShocks_v10b.feather", columns=[var]
+#     )[var]
+#     ax = data.plot(kind="kde", ax=ax, color="black")
+#     ax.set_title(labels[var])
+#     ax.set_xlim(-3,3)
+#     sns.despine()
+
+# axs[0][0].spines['top'].set_visible(False)
+# axs[0][0].spines['bottom'].set_visible(False)
+# axs[0][0].spines['right'].set_visible(False)
+# axs[0][0].spines['left'].set_visible(False)
+# axs[0][0].set_xticks([])
+# axs[0][0].set_yticks([])
+
+# plt.savefig(r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs\Figures\shock_distribution_in_DHS.png", dpi=600)

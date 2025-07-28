@@ -458,7 +458,8 @@ def plot_regression_coefficients(
     filename = fr"{outpath}\{start}{shock}_coefficients_{spi}_{stat}_{temp}{extra}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Se creó la figura ", filename)
-        
+    plt.close()
+    
 def plot_spline_coefficients(
         data, 
         shock,
@@ -559,7 +560,7 @@ def plot_spline_coefficients(
     filename = fr"{outpath}\{shock}_spline_coefficients_{spi}_{stat}_{temp}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Se creó la figura ", filename)
-
+    plt.close()
     return
 
 def extract_sample_size(filepath):
@@ -706,12 +707,146 @@ def plot_heterogeneity(
                 ax.set_xlim(-0.3, 3.6)
 
             fig.tight_layout()
-            plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.25), ncol=2, frameon=False)
+            plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.25), ncol=6, frameon=False)
 
             filename = fr"{outpath}\heterogeneity {heterogeneity} - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
             plt.savefig(filename, dpi=300, bbox_inches='tight')
             print("Se creó la figura ", filename)
+    plt.close()
+    
+def plot_horserace_temp(
+        data,
+        spi, 
+        temp, 
+        stat, 
+        colors=["#3e9fe1", "#ff5100", "#6baed6", "#fd8d3c"],
+        labels=["Standard (+)", "Extreme (+)", "Standard (-) (inverted)", "Extreme (-)"],
+        outpath=None,
+        add_line=False,
+        start="",
+        extra="",
+    ):
+    """
+    Plots a 4-way comparison of standard/extreme and positive/negative temperature coefficients.
+
+    Each subplot corresponds to a timeframe and displays four coefficient estimates:
+    1. Standard Temperature (Positive Shock)
+    2. Extreme Temperature (Positive Shock)
+    3. Standard Temperature (Negative Shock, effect inverted)
+    4. Extreme Temperature (Negative Shock, effect NOT inverted)
+
+    Parameters:
+      file_path : str
+          Path to the LaTeX file with regression results.
+      spi, temp, stat : str
+          Strings for generating the output filename.
+      colors : list, optional
+          A list of four colors for the four series.
+      labels : list, optional
+          A list of four labels for the legend.
+      outpath : str, optional
+          Directory to save the output plot.
+      add_line : bool, optional
+          Whether to connect the coefficient points with a line.
+    """
+        
+    # 2. Restructure data: Group by base timeframe (e.g., 'inutero_1m3m_avg_int')
+    plotdata = {}
+    standard_temp_data = data['standard']['temp']['cell1']
+    extreme_temp_data = data['extreme']['temp']['cell1']
+    
+    all_raw_keys = list(standard_temp_data.keys())
+    base_keys = sorted(list(set([k.replace("_pos_int", "").replace("_neg_int", "") for k in all_raw_keys])))
+    
+    for base_key in base_keys:
+        plotdata[base_key] = {}
+        pos_key = f"{base_key}_pos_int"
+        neg_key = f"{base_key}_neg_int"
+        
+        if pos_key in standard_temp_data:
+            plotdata[base_key]['standard_pos'] = standard_temp_data[pos_key]
+        if pos_key in extreme_temp_data:
+            plotdata[base_key]['extreme_pos'] = extreme_temp_data[pos_key]
+        if neg_key in standard_temp_data:
+            plotdata[base_key]['standard_neg'] = standard_temp_data[neg_key]
+        if neg_key in extreme_temp_data:
+            plotdata[base_key]['extreme_neg'] = extreme_temp_data[neg_key]
+
+    cases = ['standard_pos', 'extreme_pos', 'standard_neg', 'extreme_neg']
+    n_cases = len(cases)
+
+    # 3. Create a single plot with 4 series per subplot
+    title_labels = {
+        f"inutero_1m3m_{stat}": "1st In-Utero Quarter",
+        f"inutero_4m6m_{stat}": "2nd In-Utero Quarter",
+        f"inutero_6m9m_{stat}": "3rd In-Utero Quarter",
+        f"born_1m3m_{stat}": "1st Born Quarter",
+        f"born_3m6m_{stat}": "2nd Born Quarter",
+        f"born_6m9m_{stat}": "3rd Born Quarter",
+        f"born_9m12m_{stat}": "4th Born Quarter",
+    }
+    fig, axs = plt.subplots(2, 4, figsize=(16, 7))
+    xvalues_clean = [0, 1, 2, 3]
+    
+    axs[0][0].axis('off')
+
+    # Loop through each timeframe
+    for i, base_key in enumerate(title_labels.keys()):
+        if i >= len(axs.flatten()) - 1:
+            break
+        
+        ax = axs.flatten()[i + 1]
+        horserace_data_for_key = plotdata[base_key]
+
+        # Loop through the four cases: 'standard_pos', 'extreme_pos', etc.
+        for j, case_name in enumerate(cases):
             
+            plotdata_case = horserace_data_for_key.get(case_name)
+            if not plotdata_case:
+                continue
+                
+            coefs = np.array(plotdata_case["coef"][:len(xvalues_clean)])
+            lower = np.array(plotdata_case["lower"][:len(xvalues_clean)])
+            upper = np.array(plotdata_case["upper"][:len(xvalues_clean)])
+
+            # --- START OF MODIFICATION ---
+            # Flip sign ONLY for standard negative shocks for comparability
+            if case_name == 'standard_neg':
+                coefs *= -1
+                lower, upper = -np.array(upper), -np.array(lower)
+            # --- END OF MODIFICATION ---
+                
+            yerr = [coefs - lower, upper - coefs]
+            
+            color = colors[j]
+            label = labels[j]
+            
+            xvalues = distribute_x_values(xvalues_clean, n_cases, margin=0.1)[j]
+            
+            ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
+            if add_line:
+                ax.plot(xvalues, coefs, color=color, alpha=0.7)
+            
+            # Highlight points where the (potentially inverted) lower bound is > 0
+            highlight_significant_points(ax, xvalues, coefs, lower, color=color)
+
+        # Configure subplot aesthetics
+        ax.set_title(title_labels[base_key])
+        ax.axhline(y=0, color="black", linewidth=1)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.set_xticks(xvalues_clean, labels=[f"{q+1}{'st' if q==0 else 'nd' if q==1 else 'rd' if q==2 else 'th'} Q" for q in xvalues_clean])
+        ax.set_xlim(-0.5, 3.5)
+
+    fig.tight_layout(rect=[0, 0.05, 1, 1])
+    plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.35), ncol=2, frameon=False)
+    
+    filename = fr"{outpath}\horserace - {start}temp_coefficients_{spi}_{stat}_{temp}{extra}.png"
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    print("Se creó la figura ", filename)
+    plt.close()
+
+    
 def plot_windows(
         spi, 
         temp, 
@@ -832,7 +967,7 @@ def plot_windows(
             filename = fr"{outpath}\windows - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
             plt.savefig(filename, dpi=300, bbox_inches='tight')
             print("Se creó la figura ", filename)
-
+    plt.close()
     
 def plot_shocks_histogram(df, cols, outpath):
     
@@ -874,4 +1009,4 @@ def plot_shocks_histogram(df, cols, outpath):
     sns.despine()
     
     fig.savefig(outpath, dpi=300, bbox_inches='tight', pad_inches=0.2)
-
+    plt.close()
