@@ -28,13 +28,13 @@ df_iso = df_iso.rename(columns={"wbcode": "code_iso3"})
 births = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_11072024.dta")
 births["ID"] = np.arange(len(births))
 
-climate = pd.read_stata(rf"{DATA_PROC}/ClimateShocks_assigned_v9d.dta")
+climate = pd.read_stata(rf"{DATA_PROC}/ClimateShocks_assigned_v11.dta")
 births = births.merge(climate, on="ID", how="inner")
 
 # 2.2 add income group --------------------------------------------------------
 births = births.merge(df_iso[["code_iso3", "wbincomegroup"]], on="code_iso3", how="inner")
 
-# 2.3 add climate bands & south-hemisphere dummy ------------------------------
+# 2.3 add climate bands, south-hemisphere dummy and RWI ------------------------------
 bands = pd.read_stata(
     rf"{DATA_PROC}/DHSBirthsGlobalAnalysis_11072024_climate_bands_assigned.dta"
 )
@@ -43,33 +43,33 @@ print(f"Data loaded! Number of observations: {births.shape[0]}")
 
 # ---------- 3.  Climate-shock feature engineering ----------
 print("Creating variables...")
-climate_list  = ["std_t", "stdm_t", "spi1", "spi3", "spi6", "spi9", "spi12", "spi24", "hd35", "hd40", "fd", "id"]
+climate_list  = ["stdm_t", "spi1"]#, "spi3", "spi6", "spi9", "spi12", "spi24", "hd35", "hd40", "fd", "id"]
 time_list = [
     "inutero_1m3m", "inutero_4m6m", "inutero_6m9m",
-    "born_1m3m",    "born_3m6m",    "born_6m9m", "born_9m12m",
-    "born_12m15m",  "born_15m18m",  "born_18m21m", "born_21m24m"
+    "born_1m3m"   , "born_3m6m"   , "born_6m9m" 
 ]
 
 newcols = {}
 for var in tqdm(climate_list):
     for t in tqdm(time_list, leave=False):
-        base = f"{var}_{t}_avg"
-        if base not in births.columns:
-            print(f"Column {base} not in births columns, skipping...")
-            continue
+        for stat in ["avg", "1m_avg", "3m_avg", "4m_avg", "5m_avg", "6m_avg", "9m_avg", "12m_avg"]:
+            base = f"{var}_{t}_{stat}"
+            if base not in births.columns:
+                print(f"Column {base} not in births columns, skipping...")
+                continue
 
-        s = births[base].copy()       
-        newcols[f'{base}_sq']  = s * s            # ^2
-        newcols[f'{base}_pos'] = (s >= 0).astype(bool)
-        newcols[f'{base}_neg'] = (s <= 0).astype(bool)
-
-        mu, sigma = float(s.mean()), float(s.std())
-        for k in (1, 2):
-            thr_pos, thr_neg = mu + k*sigma, mu - k*sigma
-            newcols[f'{base}_gt{k}']   = (s >=  thr_pos).astype(bool)
-            newcols[f'{base}_bt0{k}']  = ((s <  thr_pos) & (s >= 0)).astype(bool)
-            newcols[f'{base}_bt0m{k}'] = ((s >= thr_neg) & (s <  0)).astype(bool)
-            newcols[f'{base}_ltm{k}']  = (s <  thr_neg).astype(bool)
+            s = births[base].copy()       
+            # newcols[f'{base}_sq']  = s * s            # ^2
+            newcols[f'{base}_pos'] = (s >= 0).astype(bool)
+            newcols[f'{base}_neg'] = (s <= 0).astype(bool)
+        
+            # mu, sigma = float(s.mean()), float(s.std())
+            # for k in (1, 2):
+            #     thr_pos, thr_neg = mu + k*sigma, mu - k*sigma
+            #     newcols[f'{base}_gt{k}']   = (s >=  thr_pos).astype(bool)
+            #     newcols[f'{base}_bt0{k}']  = ((s <  thr_pos) & (s >= 0)).astype(bool)
+            #     newcols[f'{base}_bt0m{k}'] = ((s >= thr_neg) & (s <  0)).astype(bool)
+            #     newcols[f'{base}_ltm{k}']  = (s <  thr_neg).astype(bool)
 
 # mother covariates
 s = births['mother_ageb'].copy()
@@ -79,6 +79,9 @@ s = births['mother_eduy'].copy()
 newcols['mother_eduy_squ'] = pd.to_numeric(s**2, downcast="integer")
 newcols['mother_eduy_cub'] = pd.to_numeric(s**3, downcast="integer")
 s = None
+bins = [0, 7, 13, 35, np.inf]
+names = ['6 years or less', '6-12 years', 'more than 12 years', 'No data']
+births['mother_educ'] = pd.cut(births['mother_eduy'], bins, labels=names)
 
 newcols = pd.DataFrame(newcols, index=births.index)
 
@@ -110,6 +113,10 @@ births["chb_year_sq"] = births["chb_year"] ** 2
 for col in ["hhaircon", "hhfan"]:
     births[col] = births[col].map(lambda x: 1 if x == "Yes" else 0).astype(bool)
 
+# Create relative wealth index (rwi) quintiles indicator
+births["rwi_tertiles"] = pd.qcut(births["rwi"], 3, labels=False, duplicates="drop") + 1
+births["rwi_quintiles"] = pd.qcut(births["rwi"], 5, labels=False, duplicates="drop") + 1
+births["rwi_deciles"] = pd.qcut(births["rwi"], 10, labels=False, duplicates="drop") + 1
 
 # ---------- 4.  Child age-at-death dummies (per 1 000 births) ----------
 bins   = [0, 3, 6, 9, 12, 15, 18, 21, 24]          # right-open intervals
@@ -168,11 +175,11 @@ climate_shocks = [
     col for col in births.columns if col.startswith(("t_", "std_t_", "stdm_t_", "absdif_t_", "absdifm_t_", "spi", "hd35", "hd40", "fd", "id",))
 ]
 controls = [
-    "child_fem", "child_mulbirth", "birth_order", "rural",
-    "d_weatlh_ind_2", "d_weatlh_ind_3", "d_weatlh_ind_4", "d_weatlh_ind_5",
+    "child_fem", "child_mulbirth", "birth_order", "rural", "poor",
+    "weatlh_ind", "d_weatlh_ind_1", "d_weatlh_ind_2", "d_weatlh_ind_3", "d_weatlh_ind_4", "d_weatlh_ind_5",
     "mother_ageb", "mother_ageb_squ", "mother_ageb_cub",
-    "mother_eduy", "mother_eduy_squ", "mother_eduy_cub",
-    "chb_month", "chb_year", "chb_year_sq",
+    "mother_eduy", "mother_eduy_squ", "mother_eduy_cub", "mother_educ",
+    "chb_month", "chb_year", "chb_year_sq", "rwi", 
 ]
 death_vars = [
     col for col in births.columns if col.startswith("child_agedeath_")
@@ -184,7 +191,7 @@ mechanisms = [
     "pipedw", "helec", "href", "hhaircon", "hhfan", "hhelectemp", 
 ]
 heterogeneities = [
-    "climate_band_3", "climate_band_2", "climate_band_1", "southern", "wbincomegroup",
+    "climate_band_3", "climate_band_2", "climate_band_1", "southern", "wbincomegroup", "rwi_tertiles", "rwi_quintiles", "rwi_deciles",
 ]
 
 keep_vars = IDs + climate_shocks + controls + death_vars + fixed_effects + mechanisms + heterogeneities
@@ -221,7 +228,7 @@ for col in tqdm(int_cols):
 
 # ---------- 8.  Save outputs (.dta 118 and .csv) -----------------------------
 print("Writing files...")
-out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v9d.feather"
+out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v11.feather"
 
 # `df` is your pandas DataFrame
 feather.write_feather(
