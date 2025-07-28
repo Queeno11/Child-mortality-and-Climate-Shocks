@@ -28,7 +28,7 @@ df_iso = df_iso.rename(columns={"wbcode": "code_iso3"})
 births = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_11072024.dta")
 births["ID"] = np.arange(len(births))
 
-climate = pd.read_stata(rf"{DATA_PROC}/ClimateShocks_assigned_v9d.dta")
+climate = pd.read_stata(rf"{DATA_PROC}/ClimateShocks_assigned_v11.dta")
 births = births.merge(climate, on="ID", how="inner")
 
 # 2.2 add income group --------------------------------------------------------
@@ -43,33 +43,33 @@ print(f"Data loaded! Number of observations: {births.shape[0]}")
 
 # ---------- 3.  Climate-shock feature engineering ----------
 print("Creating variables...")
-climate_list  = ["std_t", "stdm_t", "absdif_t", "absdifm_t", "spi1"]#, "spi3", "spi6", "spi9", "spi12", "spi24", "hd35", "hd40", "fd", "id"]
+climate_list  = ["stdm_t", "spi1"]#, "spi3", "spi6", "spi9", "spi12", "spi24", "hd35", "hd40", "fd", "id"]
 time_list = [
     "inutero_1m3m", "inutero_4m6m", "inutero_6m9m",
-    "born_1m3m",    "born_3m6m",    "born_6m9m", "born_9m12m",
-    "born_12m15m",  "born_15m18m",  "born_18m21m", "born_21m24m"
+    "born_1m3m"   , "born_3m6m"   , "born_6m9m" 
 ]
 
 newcols = {}
 for var in tqdm(climate_list):
     for t in tqdm(time_list, leave=False):
-        base = f"{var}_{t}_avg"
-        if base not in births.columns:
-            print(f"Column {base} not in births columns, skipping...")
-            continue
+        for stat in ["avg", "1m_avg", "3m_avg", "4m_avg", "5m_avg", "6m_avg", "9m_avg", "12m_avg"]:
+            base = f"{var}_{t}_{stat}"
+            if base not in births.columns:
+                print(f"Column {base} not in births columns, skipping...")
+                continue
 
-        s = births[base].copy()       
-        # newcols[f'{base}_sq']  = s * s            # ^2
-        newcols[f'{base}_pos'] = (s >= 0).astype(bool)
-        newcols[f'{base}_neg'] = (s <= 0).astype(bool)
-    
-        # mu, sigma = float(s.mean()), float(s.std())
-        # for k in (1, 2):
-        #     thr_pos, thr_neg = mu + k*sigma, mu - k*sigma
-        #     newcols[f'{base}_gt{k}']   = (s >=  thr_pos).astype(bool)
-        #     newcols[f'{base}_bt0{k}']  = ((s <  thr_pos) & (s >= 0)).astype(bool)
-        #     newcols[f'{base}_bt0m{k}'] = ((s >= thr_neg) & (s <  0)).astype(bool)
-        #     newcols[f'{base}_ltm{k}']  = (s <  thr_neg).astype(bool)
+            s = births[base].copy()       
+            # newcols[f'{base}_sq']  = s * s            # ^2
+            newcols[f'{base}_pos'] = (s >= 0).astype(bool)
+            newcols[f'{base}_neg'] = (s <= 0).astype(bool)
+        
+            # mu, sigma = float(s.mean()), float(s.std())
+            # for k in (1, 2):
+            #     thr_pos, thr_neg = mu + k*sigma, mu - k*sigma
+            #     newcols[f'{base}_gt{k}']   = (s >=  thr_pos).astype(bool)
+            #     newcols[f'{base}_bt0{k}']  = ((s <  thr_pos) & (s >= 0)).astype(bool)
+            #     newcols[f'{base}_bt0m{k}'] = ((s >= thr_neg) & (s <  0)).astype(bool)
+            #     newcols[f'{base}_ltm{k}']  = (s <  thr_neg).astype(bool)
 
 # mother covariates
 s = births['mother_ageb'].copy()
@@ -228,7 +228,7 @@ for col in tqdm(int_cols):
 
 # ---------- 8.  Save outputs (.dta 118 and .csv) -----------------------------
 print("Writing files...")
-out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v10b.feather"
+out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v11.feather"
 
 # `df` is your pandas DataFrame
 feather.write_feather(
