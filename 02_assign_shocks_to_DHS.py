@@ -215,21 +215,7 @@ if __name__ == "__main__":
 
     # Create Death datetime object from year and month
     deads = df["child_death_ind"].astype(bool)
-    # Create a column for the 0-indexed month of death (0-11 for first year)
-    df['death_month_index'] = -1 
     
-    # Create a filter for deaths that occurred ONLY within the first 3 years of life (0-36 months) - for future proof
-    first_year_deaths_mask = deads & (df['child_agedeath'] >= 0) & (df['child_agedeath'] <= 11)
-
-    # The index corresponds to the month in our 21-month analysis window.
-    #   We add 9 because our time series starts 9 months before birth.
-    #   A child who dies at 0 months (first month of life) dies at index 9 of our series.
-    #   A child who dies at 11 months dies at index 20.
-    #   We will use -1 as a sentinel for "alive".
-    df.loc[first_year_deaths_mask, 'death_month_index'] = df.loc[first_year_deaths_mask, 'child_agedeath'] + 9
-
-    df['death_month_index'] = df['death_month_index'].astype(int)
-
     # Maximum range of dates
     df["from_date"] = df["birth_date"] + pd.DateOffset(
         months=-9
@@ -278,8 +264,6 @@ if __name__ == "__main__":
         df["lat_round"].astype(str) + "_" + 
         df["lon_round"].astype(str) + "_" + 
         df["from_date"].dt.strftime(r"%Y-%m-%d") + "_"  
-        # df["to_date"].dt.strftime(r"%Y-%m-%d") + "_" 
-        # df["death_month_index"].astype(str)
     )
     
     # count unique points
