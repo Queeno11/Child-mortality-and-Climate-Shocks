@@ -161,7 +161,7 @@ def extract_coefficients_and_CI_latex(file_path, horserace: None | str = None):
     valid_spis = ("spi1_", "spi3_", "spi6_", "spi9_", "spi12_", "spi24_", "spi48_")
     all_spis = valid_spis
     valid_timeframes = [
-        "inutero_1m3m", "inutero_4m6m", "inutero_6m9m", 
+        "inutero_1m3m", "inutero_3m6m", "inutero_6m9m", 
         "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m", 
         "born_12m15m", "born_15m18m", "born_18m21m", "born_21m24m", 
     ]
@@ -254,7 +254,7 @@ def extract_coefficients_and_CI_latex_horserace(file_path):
     extremes = extract_coefficients_and_CI_latex(file_path, horserace="extremes")
     return {"standard": standards, "extreme": extremes}
 
-def extract_coefficients_and_CI_latex_heterogeneity(heterogeneity, shock, spi, temp, stat):
+def extract_coefficients_and_CI_latex_heterogeneity(heterogeneity, shock, spi, temp, stat, timeframe):
     """
     Extracts coefficients and confidence intervals from a LaTeX file.
     
@@ -265,16 +265,21 @@ def extract_coefficients_and_CI_latex_heterogeneity(heterogeneity, shock, spi, t
     Returns:
       dict : A dictionary containing the extracted coefficients and confidence intervals.
     """
-    f_name = f"linear_dummies_true_{spi}_{stat}_{temp}  -"
-    files = os.listdir(rf"{OUTPUTS}\heterogeneity\{heterogeneity}")
+    f_name = f"linear_dummies_true_{spi}_{stat}_{temp} {timeframe} -"
+    folder = rf"{OUTPUTS}\heterogeneity\{heterogeneity}"
+    assert os.path.exists(folder), f"{folder} does not exist!"
+    files = os.listdir(folder)
+    assert len(files)>0, f"No files in folder! {folder}"
     files = [f for f in files if f_name in f]
+    assert len(files)>0, f"f_name does not exist! {f_name}"
     files = [f for f in files if "standard_fe standard_sym.tex" in f]
-    bands = [f.replace(f"linear_dummies_true_{spi}_{stat}_{temp}  - ", "").replace(" standard_fe standard_sym.tex", "") for f in files] 
-
+    bands = [f.replace(f"linear_dummies_true_{spi}_{stat}_{temp} {timeframe} - ", "").replace(" standard_fe standard_sym.tex", "") for f in files] 
+    assert len(bands)>0, f"There is an issue with filenames! {bands}"
     plotdata = {}
     for i, band in enumerate(bands):
 
         file_path = rf"{OUTPUTS}\heterogeneity\\{heterogeneity}\{files[i]}"
+        assert os.path.exists(file_path), f"{file_path} does not exist!"
         n = extract_sample_size(file_path)
         if n < 100_000:
             continue
@@ -369,17 +374,17 @@ def plot_regression_coefficients(
     title_labels = {}
     for sign in ["neg", "pos"]:
         title_labels.update({
-            f"inutero_1m3m_avg_{sign}_int": "1st In-Utero Quarter",
-            f"inutero_4m6m_avg_{sign}_int": "2nd In-Utero Quarter",
-            f"inutero_6m9m_avg_{sign}_int": "3rd In-Utero Quarter",
-            f"born_1m3m_avg_{sign}_int": "1st Born Quarter",
-            f"born_3m6m_avg_{sign}_int": "2nd Born Quarter",
-            f"born_6m9m_avg_{sign}_int": "3rd Born Quarter",
-            f"born_9m12m_avg_{sign}_int": "4th Born Quarter",
-            f"born_12m15m_avg_{sign}_int": "5th Born Quarter",
-            f"born_15m18m_avg_{sign}_int": "6th Born Quarter",
-            f"born_18m21m_avg_{sign}_int": "7th Born Quarter",
-            f"born_21m24m_avg_{sign}_int": "8th Born Quarter",
+            f"inutero_1m3m_{stat}": "1st In-Utero Quarter",
+            f"inutero_3m6m_{stat}": "2nd In-Utero Quarter",
+            f"inutero_6m9m_{stat}": "3rd In-Utero Quarter",
+            f"born_1m3m_{stat}": "1st Born Quarter",
+            f"born_3m6m_{stat}": "2nd Born Quarter",
+            f"born_6m9m_{stat}": "3rd Born Quarter",
+            f"born_9m12m_{stat}": "4th Born Quarter",
+            f"born_12m15m_{stat}": "5th Born Quarter",
+            f"born_15m18m_{stat}": "6th Born Quarter",
+            f"born_18m21m_{stat}": "7th Born Quarter",
+            f"born_21m24m_{stat}": "8th Born Quarter",
         })
     
     data = data[shock]["cell1"]
@@ -429,7 +434,7 @@ def plot_regression_coefficients(
 
         xvalues = distribute_x_values(xvalues_clean, 2, margin=margin)[pos]
         if i_round != i/2:
-            ax.set_title(title_labels[key])
+            ax.set_title(title_labels[key.replace("_pos_int", "").replace("_neg_int", "")])
         
         ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
         if add_line:
@@ -476,7 +481,7 @@ def plot_spline_coefficients(
 
     title_labels = {
         "inutero_1m3m": "1st In-Utero Quarter",
-        "inutero_4m6m": "2nd In-Utero Quarter",
+        "inutero_3m6m": "2nd In-Utero Quarter",
         "inutero_6m9m": "3rd In-Utero Quarter",
         "born_1m3m": "1st Born Quarter",
         "born_3m6m": "2nd Born Quarter",
@@ -595,6 +600,7 @@ def plot_heterogeneity(
         spi, 
         temp, 
         stat, 
+        timeframe,
         colors=None,
         labels=None,    
         outpath=None,
@@ -626,26 +632,26 @@ def plot_heterogeneity(
     '''         
     for shock in ["temp", "spi"]:
         full_data = extract_coefficients_and_CI_latex_heterogeneity(
-            heterogeneity, shock, spi, temp, stat
+            heterogeneity, shock, spi, temp, stat, timeframe,
         )            
         for sign in ["_neg", "_pos"]:
             
             # Keep only keys that contain the specified sign
             data = {k: v for k, v in full_data.items() if sign in k}
-            n_heterogeneity = len(data[f"inutero_1m3m_avg{sign}_int"].keys())
+            n_heterogeneity = len(data[f"inutero_1m3m_{stat}{sign}_int"].keys())
 
             title_labels = {
-                f"inutero_1m3m_avg{sign}_int": "1st In-Utero Quarter",
-                f"inutero_4m6m_avg{sign}_int": "2nd In-Utero Quarter",
-                f"inutero_6m9m_avg{sign}_int": "3rd In-Utero Quarter",
-                f"born_1m3m_avg{sign}_int": "1st Born Quarter",
-                f"born_3m6m_avg{sign}_int": "2nd Born Quarter",
-                f"born_6m9m_avg{sign}_int": "3rd Born Quarter",
-                f"born_9m12m_avg{sign}_int": "4th Born Quarter",
-                f"born_12m15m_avg{sign}_int": "5th Born Quarter",
-                f"born_15m18m_avg{sign}_int": "6th Born Quarter",
-                f"born_18m21m_avg{sign}_int": "7th Born Quarter",
-                f"born_21m24m_avg{sign}_int": "8th Born Quarter",
+                f"inutero_1m3m_{stat}{sign}_int": "1st In-Utero Quarter",
+                f"inutero_3m6m_{stat}{sign}_int": "2nd In-Utero Quarter",
+                f"inutero_6m9m_{stat}{sign}_int": "3rd In-Utero Quarter",
+                f"born_1m3m_{stat}{sign}_int": "1st Born Quarter",
+                f"born_3m6m_{stat}{sign}_int": "2nd Born Quarter",
+                f"born_6m9m_{stat}{sign}_int": "3rd Born Quarter",
+                f"born_9m12m_{stat}{sign}_int": "4th Born Quarter",
+                f"born_12m15m_{stat}{sign}_int": "5th Born Quarter",
+                f"born_15m18m_{stat}{sign}_int": "6th Born Quarter",
+                f"born_18m21m_{stat}{sign}_int": "7th Born Quarter",
+                f"born_21m24m_{stat}{sign}_int": "8th Born Quarter",
             }
             fig, axs = plt.subplots(2, 4, figsize=(16, 6))
             xvalues_clean = [0,1,2,3]#,4,5,6,7]
@@ -778,7 +784,7 @@ def plot_horserace_temp(
     # 3. Create a single plot with 4 series per subplot
     title_labels = {
         f"inutero_1m3m_{stat}": "1st In-Utero Quarter",
-        f"inutero_4m6m_{stat}": "2nd In-Utero Quarter",
+        f"inutero_3m6m_{stat}": "2nd In-Utero Quarter",
         f"inutero_6m9m_{stat}": "3rd In-Utero Quarter",
         f"born_1m3m_{stat}": "1st Born Quarter",
         f"born_3m6m_{stat}": "2nd Born Quarter",
@@ -831,7 +837,7 @@ def plot_horserace_temp(
             highlight_significant_points(ax, xvalues, coefs, lower, color=color)
 
         # Configure subplot aesthetics
-        ax.set_title(title_labels[base_key])
+        ax.set_title(title_labels[base_key.replace("_pos_int", "").replace("_neg_int", "")])
         ax.axhline(y=0, color="black", linewidth=1)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
@@ -892,17 +898,17 @@ def plot_windows(
             n_heterogeneity = 7
 
             title_labels = {
-                f"inutero_1m3m_avg{sign}_int": "1st In-Utero Quarter",
-                f"inutero_4m6m_avg{sign}_int": "2nd In-Utero Quarter",
-                f"inutero_6m9m_avg{sign}_int": "3rd In-Utero Quarter",
-                f"born_1m3m_avg{sign}_int": "1st Born Quarter",
-                f"born_3m6m_avg{sign}_int": "2nd Born Quarter",
-                f"born_6m9m_avg{sign}_int": "3rd Born Quarter",
-                f"born_9m12m_avg{sign}_int": "4th Born Quarter",
-                f"born_12m15m_avg{sign}_int": "5th Born Quarter",
-                f"born_15m18m_avg{sign}_int": "6th Born Quarter",
-                f"born_18m21m_avg{sign}_int": "7th Born Quarter",
-                f"born_21m24m_avg{sign}_int": "8th Born Quarter",
+                f"inutero_1m3m_{stat}{sign}_int": "1st In-Utero Quarter",
+                f"inutero_3m6m_{stat}{sign}_int": "2nd In-Utero Quarter",
+                f"inutero_6m9m_{stat}{sign}_int": "3rd In-Utero Quarter",
+                f"born_1m3m_{stat}{sign}_int": "1st Born Quarter",
+                f"born_3m6m_{stat}{sign}_int": "2nd Born Quarter",
+                f"born_6m9m_{stat}{sign}_int": "3rd Born Quarter",
+                f"born_9m12m_{stat}{sign}_int": "4th Born Quarter",
+                f"born_12m15m_{stat}{sign}_int": "5th Born Quarter",
+                f"born_15m18m_{stat}{sign}_int": "6th Born Quarter",
+                f"born_18m21m_{stat}{sign}_int": "7th Born Quarter",
+                f"born_21m24m_{stat}{sign}_int": "8th Born Quarter",
             }
             fig, axs = plt.subplots(2, 3, figsize=(12, 6))
             xvalues_clean = [0,1,2]#,4,5,6,7]
@@ -953,7 +959,7 @@ def plot_windows(
                     # Now call our helper function to highlight points with a lower CI bound > 0.
                     highlight_significant_points(ax, xvalues, coefs, lower, color=color)
 
-                ax.set_title(title_labels[key])
+                ax.set_title(title_labels[key.replace("_pos_int", "").replace("_neg_int", "")])
                 ax.axhline(y=0, color="black", linewidth=1)
                 ax.spines['top'].set_visible(False)
                 ax.spines['bottom'].set_visible(False)

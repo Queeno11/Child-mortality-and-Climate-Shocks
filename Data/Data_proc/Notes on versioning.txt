@@ -1,5 +1,0 @@
-v4 - ERA5
-v7 - ERA5-Land
-v8 - CRU SPEI
-v9 - All ERA5, 30-year statistics
-v9b - All ERA5, 30-year statistics, grouped by 3-months

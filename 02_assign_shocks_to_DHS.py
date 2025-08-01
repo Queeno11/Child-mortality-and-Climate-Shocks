@@ -1,11 +1,12 @@
 import os
+import gc
 import logging
 import xarray as xr
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm  # for notebooks
-from numba import njit # MODIFICATION: Import njit
+from numba import njit
 
 if __name__ == "__main__":
     tqdm.pandas()
@@ -25,10 +26,10 @@ if __name__ == "__main__":
     print("Loading data...")
 
     ### CLIMATE DATA
-    climate_data = xr.open_dataset(rf"{DATA_PROC}/Climate_shocks_v9d.nc") # 9d includes hd35, hd40, id and fd
-    
+    climate_data = xr.open_dataset(rf"{DATA_OUT}/Climate_shocks_v11.nc")
+        
     ### DHS DATA
-    full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_11072024.dta")
+    full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_07272025.dta")
     full_dhs["ID"] = full_dhs.index
     # Gen unique id from groups of lat, lon and from_date
     df = full_dhs.copy()
@@ -45,104 +46,198 @@ if __name__ == "__main__":
         "fd", 
         "id",
     ]
-    # MODIFICATION START: Enforce a consistent order of variables for the numpy array conversion
     climate_data = climate_data[climate_variables]
     ORDERED_CLIMATE_VARS = list(climate_data.data_vars)
-    # MODIFICATION END
 
 
-    def round_off(number):
-        """Round a number to .25 or .75.
-        >>> round_off(1.3)
+    def round_to_nearest_quarter(number):
+        """Rounds a number to the nearest 0.25 increment.
+
+        >>> round_to_nearest_quarter(1.3)
         1.25
-        >>> round_off(2.6)
-        2.75
-        >>> round_off(3)
-        3.25
+        >>> round_to_nearest_quarter(1.62)
+        1.5
+        >>> round_to_nearest_quarter(3.9)
+        4.0
+        >>> round_to_nearest_quarter(2.05)
+        2.0
+        >>> round_to_nearest_quarter(5.78)
+        5.75
+        >>> round_to_nearest_quarter(3)
+        3.0
         """
-        
-        return round((number - 0.25) * 2) / 2 + 0.25
-        
+        return round(number * 4) / 4
+            
     # 1. Define timeframes as quarters. The value is the 0-based index of the *last month* of the quarter.
     TIMEFRAMES_QUARTERLY = {
         "inutero_1m3m": 2,
-        "inutero_4m6m": 5,
+        "inutero_3m6m": 5,
         "inutero_6m9m": 8,
         "born_1m3m": 11,
         "born_3m6m": 14,
         "born_6m9m": 17,
+        "born_9m12m": 20,
     }
-    
-    # 2. Define the calculation windows. Window '2' is excluded as requested.
-    AVG_WINDOWS = np.array([1, 3, 4, 5, 6, 9, 12], dtype=np.int32)
-    
-    # 3. Add an error check to prevent using window size 2.
-    if 2 in AVG_WINDOWS:
-        raise ValueError("Averaging window of 2 is not a supported calculation.")
+    TIMEFRAMES_BIANNUALY = {
+        "inutero": 8,
+        "born_1m": 9,
+        "born_1m6m": 14,
+        "born_6m12m": 20,
+    }
+    TIMEFRAMES_IUFOCUS = {
+        "inutero_1m3m": 2,
+        "inutero_3m6m": 5,
+        "inutero_6m9m": 8,
+        "born_1m": 9,
+        "born_2m3m": 11,
+        "born_3m6m": 14,
+    }
+    TIMEFRAMES_MONTHS = {
+        "inutero_1m": 0,
+        "inutero_2m": 1,
+        "inutero_3m": 2,
+        "inutero_4m": 3,
+        "inutero_5m": 4,
+        "inutero_6m": 5,
+        "inutero_7m": 6,
+        "inutero_8m": 7,
+        "inutero_9m": 8,
+        "born_1m": 9,
+        "born_2m": 10,
+        "born_3m": 11,
+        "born_4m": 12,
+        "born_5m": 13,
+        "born_6m": 14,
+    }
+    ALL_TIMEFRAMES = {
+        "q": TIMEFRAMES_QUARTERLY,
+        "b": TIMEFRAMES_BIANNUALY,
+        "m": TIMEFRAMES_MONTHS,
+        "iu": TIMEFRAMES_IUFOCUS,
+    }
 
-    # 4. The njit function remains the same (calculates max for window=1, avg for others)
+    AVG_WINDOWS = {
+        "q": np.array([0], dtype=np.int32), # 0 means no window, -1 means max of the period, -2 means min of the period
+        "b": np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=np.int32),
+        "m": np.array([0], dtype=np.int32),
+        "iu": np.array([0], dtype=np.int32),
+    }    
+    
+    COLUMN_NAMES = {} # Dinamically populate this dict 
+    for timeframe_name, timeframe in ALL_TIMEFRAMES.items():
+        result_column_names = []
+        avg_windows = AVG_WINDOWS[timeframe_name] 
+        for timename in timeframe.keys():
+            for var in ORDERED_CLIMATE_VARS:
+                for window in avg_windows:
+                    if window==-1:
+                        stat="max"
+                    elif window==-2:
+                        stat="min"
+                    elif window==0:
+                        stat="avg"
+                    else:
+                        stat=f"w{window}"
+                    col_name = f"{var}_{timename}_{timeframe_name}_{stat}"
+                    result_column_names.append(col_name)
+        COLUMN_NAMES[timeframe_name] = result_column_names
+
     @njit
-    def _compute_quarterly_stats_njit(data_array, time_indices, window_sizes):
-        """
-        Numba-accelerated function to compute quarterly statistics with conditional logic.
-        - For window=1: Calculates the MAX value over the 3-month quarter.
-        - For window>=3: Calculates the trailing AVG over the specified window.
-        All calculations are based on the end_idx of the quarter.
-        """
-        n_indices = len(time_indices)
+    def _compute_stats(data_array, time_indices, window_sizes, death_month_index):
         n_vars = data_array.shape[0]
+        n_indices = len(time_indices)
         n_windows = len(window_sizes)
-        
-        results = np.empty((n_indices, n_vars, n_windows), dtype=data_array.dtype)
-        
-        for i in range(n_indices):
-            end_idx = time_indices[i]
+        n_timesteps = data_array.shape[1]
+        results = np.empty((n_vars, n_indices, n_windows), dtype=np.float32)
+
+        for time_pos in range(n_indices):
+            end_idx = time_indices[time_pos]
+            if death_month_index != -1:
+                # Case 1: Death happened BEFORE this period even started.
+                # The entire period has irrelevant data, assign nan.
+                period_start = time_indices[time_pos-1] + 1 if time_pos > 0 else 0
+                if death_month_index < period_start:
+                    results[:, time_pos, :] = np.nan
+                    continue
+                
+                # Case 2: Death happened during or after this period.
+                # We must truncate the period's end to the death month.
+                # The min() function handles both situations:
+                # - If death is during the period (death_month_index < end_idx), end_idx becomes death_month_index.
+                # - If death is after the period (death_month_index >= end_idx), end_idx remains unchanged.
+                end_idx = min(end_idx, death_month_index)
             
-            for j in range(n_vars):
-                for k in range(n_windows):
-                    window = window_sizes[k]
+            start_idx = time_indices[time_pos-1] + 1 if time_pos > 0 else 0
+
+            for var_pos in range(n_vars):
+                for window_pos in range(n_windows):
+                    window = window_sizes[window_pos]
                     
-                    if window == 1:
-                        quarter_start_idx = max(0, end_idx - 2)
-                        quarter_slice = data_array[j, quarter_start_idx : end_idx + 1]
-                        results[i, j, k] = np.max(quarter_slice)
-                    else: # Handles windows 3, 4, 5, 6...
-                        avg_start_idx = max(0, end_idx - window + 1)
-                        avg_slice = data_array[j, avg_start_idx : end_idx + 1]
-                        results[i, j, k] = np.mean(avg_slice)
-                        
+                    if (window == 0) | (window == -1) | (window == -2):
+                        # Window 0 is unbounded, -1 is max, -2 is min
+                        avg_start_idx = start_idx
+                    elif window > 0:
+                        # Average the previous {windows} months
+                        avg_start_idx = end_idx - window + 1
+                    else:
+                        raise ValueError(f"windows has to be 0 or positive!! window value: {window}")        
+                
+                    if avg_start_idx > end_idx or end_idx >= n_timesteps or avg_start_idx < 0:
+                        #   avg_start_idx > end_idx: This should never happen but is a safety check
+                        #   end_idx >= n_timesteps: This could happen if the data ingested is shorter that what is expected!
+                        #   avg_start_idx < 0 is an error: requiring a window larger than loaded data
+                        raise ValueError(f"There is some issue with the data ingested! debug: {avg_start_idx > end_idx}, {end_idx >= n_timesteps}, {avg_start_idx < 0} ")        
+
+                    avg_slice = data_array[var_pos, avg_start_idx : end_idx + 1]
+                    if avg_slice.size > 0:
+                        if window==-1:
+                            data_results = np.nanmax(avg_slice)
+                        elif window==-2:
+                            data_results = np.nanmin(avg_slice)
+                        else:
+                            data_results = np.nanmean(avg_slice)
+                        results[var_pos, time_pos, window_pos] = data_results
+                    else:
+                        results[var_pos, time_pos, window_pos] = np.nan
         return results
 
-    # 5. REVERTED CHANGE: Pre-calculate column names to *always* use the "_avg" suffix.
-    TIME_INDICES_NP = np.array(list(TIMEFRAMES_QUARTERLY.values()), dtype=np.int32)
-
-    RESULT_COLUMN_NAMES = []
-    for timename in TIMEFRAMES_QUARTERLY.keys():
-        for var in ORDERED_CLIMATE_VARS:
-            for window in AVG_WINDOWS:
-                # This line now unconditionally uses "_avg" as requested.
-                col_name = f"{var}_{timename}_{window}m_avg"
-                RESULT_COLUMN_NAMES.append(col_name)
 
     ### Process dataframe ####
     # Drop nans in date columns
     df = df.dropna(subset=["v008", "chb_year", "chb_month"], how="any")
 
-    # Create datetime object from year and month
+    # Create Birth datetime object from year and month
     df["day"] = 1
     df["month"] = df["chb_month"].astype(int)
     df["year"] = df["chb_year"].astype(int)
     df["birth_date"] = pd.to_datetime(df[["year", "month", "day"]]).to_numpy()
     df = df.drop(columns=["day", "month", "year"])
+
+    # Create Death datetime object from year and month
+    deads = df["child_death_ind"].astype(bool)
+    # Create a column for the 0-indexed month of death (0-11 for first year)
+    df['death_month_index'] = -1 
     
+    # Create a filter for deaths that occurred ONLY within the first 3 years of life (0-36 months) - for future proof
+    first_year_deaths_mask = deads & (df['child_agedeath'] >= 0) & (df['child_agedeath'] <= 11)
+
+    # The index corresponds to the month in our 21-month analysis window.
+    #   We add 9 because our time series starts 9 months before birth.
+    #   A child who dies at 0 months (first month of life) dies at index 9 of our series.
+    #   A child who dies at 11 months dies at index 20.
+    #   We will use -1 as a sentinel for "alive".
+    df.loc[first_year_deaths_mask, 'death_month_index'] = df.loc[first_year_deaths_mask, 'child_agedeath'] + 9
+
+    df['death_month_index'] = df['death_month_index'].astype(int)
+
     # Maximum range of dates
-    # FIXME: CHequear que estén bien asignados estos valores
     df["from_date"] = df["birth_date"] + pd.DateOffset(
         months=-9
     )  # From in utero (9 months before birth)
     df["to_date"] = df["birth_date"] + pd.DateOffset(
-        months=24
-    )  # To the second year of life # FIXME: make it 12 months for faster run
+        months=11
+    )  # To the second year of life
+    # df["to_date"] = df[["to_date", "death_date"]].min(axis=1)  # If the child died, compute stats until death
 
     # Filter children from_date greater than 1991 (we only have climate data from 1990)
     df = df[df["from_date"] > "1991-01-01"]
@@ -171,76 +266,120 @@ if __name__ == "__main__":
         df["days_from_interview"] < np.timedelta64(10 * 365, "D")
     )
     df["since_2003"] = df["interview_year"] >= 2003
-    df = df[df["last_15_years"] == True]
+    df = df[df["last_15_years"]]
        
-    df["lat_round"] = df["LATNUM"].apply(lambda x: round_off(x))
-    df["lon_round"] = df["LONGNUM"].apply(lambda x: round_off(x))
+    df["lat_round"] = df["LATNUM"].apply(lambda x: round_to_nearest_quarter(x))
+    df["lon_round"] = df["LONGNUM"].apply(lambda x: round_to_nearest_quarter(x))
     df = df.sort_values(["lat_round", "lon_round", "from_date"]) 
     df = df.dropna(subset=["ID", "from_date", "to_date", "lat_round", "lon_round"])
     
     # Store in variable
-    df["point_ID"] = df["lat_round"].astype(str) + "_" + df["lon_round"].astype(str) + "_" + df["from_date"].dt.strftime(r"%Y-%m-%d")
+    df["point_ID"] = (
+        df["lat_round"].astype(str) + "_" + 
+        df["lon_round"].astype(str) + "_" + 
+        df["from_date"].dt.strftime(r"%Y-%m-%d") + "_"  
+        # df["to_date"].dt.strftime(r"%Y-%m-%d") + "_" 
+        # df["death_month_index"].astype(str)
+    )
+    
     # count unique points
     print("Number of unique points:", df["point_ID"].nunique())
     full_dhs = df.copy()
     df = df.reset_index(drop=True)
     
-    ### Run process ####
-    print(len(full_dhs))
+    ## Clean up old files ####
+    output_dir = os.path.join(DATA_PROC, "DHS_Climate")
+    for file in os.listdir(output_dir):
+        if file.startswith("births_climate_"):
+            os.remove(os.path.join(output_dir, file))
+    print("Old intermediate files removed!")
 
-    files = os.listdir(rf"{DATA_PROC}/DHS_Climate")
-    for file in files:
-        os.remove(rf"{DATA_PROC}/DHS_Climate/{file}")
-    print("Old files removed!")
+    #### Run process ####
+    # Chunking implementation: load a large array from the nc to keep the slicing fast! 
 
-    grouped = df.groupby(["lat_round", "lon_round"])
-    results = []
-    for i, stuff in tqdm(enumerate(grouped), total=len(grouped)):
-        
-        (lat, lon), group = stuff
-        
-        earliest_from_date = group["from_date"].min()
-        latest_to_date = group["to_date"].max()
-
-        point_data = climate_data.sel(
-            time=slice(earliest_from_date, latest_to_date),
-            lat=lat,
-            lon=lon,
-        ).load()
-        
-        date_grouped = group.groupby(["from_date", "to_date"])
-        
-        for (from_date, to_date), date_group in date_grouped:
-
-            data = point_data.sel(time=slice(from_date, to_date))
-
-            # MODIFICATION START: Use the njit-accelerated path
-            # 1. Convert the relevant xarray data to a numpy array
-            data_np = data.to_array().values.astype(np.float32)
-
-            # 2. Call the fast Numba function
-            # The result is a numpy array of shape (n_timeframes, n_vars)
-            stats_np = _compute_quarterly_stats_njit(data_np, TIME_INDICES_NP, AVG_WINDOWS)
-
-            # 3. Create the pandas Series from the numpy result.
-            # .ravel() flattens the array in the correct order (C-style, row-major)
-            # to match the pre-generated column names.
-            stats = pd.Series(stats_np.ravel(), index=RESULT_COLUMN_NAMES, dtype="float16")
-
-            stats["lat"] = lat
-            stats["lon"] = lon
-
-            stats_df = pd.DataFrame([stats])
-            stats_df["point_ID"] = date_group["point_ID"].iloc[0]
-            results.append(stats_df) # Use append for lists
-            
-        if ((i-1)%1000 == 0) | (i == len(grouped)-1):
-            climate_results = pd.concat(results, ignore_index=True)
-            climate_results.to_parquet(f"{DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
-            print(f"File saved at {DATA_PROC}/DHS_Climate/births_climate_{i}.parquet")
-            results = []
-            climate_results = None
+    # --- TUNABLE PARAMETER --- Larger means more ram is used
+    LAT_CHUNK_SIZE = 40
     
+    # Get a sorted list of unique latitudes to iterate over
+    unique_lats = np.sort(df["lat_round"].unique())
+    lat_chunks = [unique_lats[i:i + LAT_CHUNK_SIZE] for i in range(0, len(unique_lats), LAT_CHUNK_SIZE)]
+
+    all_results = []
+    for i, lat_slice in enumerate(lat_chunks):
+        print(f"\n--- Processing Latitude Chunk {i+1}/{len(lat_chunks)} (lats: {lat_slice[0]} to {lat_slice[-1]}) ---")
+        
+        # PRE-LOAD CHUNK INTO MEMORY
+        climate_chunk = climate_data.sel(lat=lat_slice).load()
+        df_subset = df[df["lat_round"].isin(lat_slice)]
+        
+        # Group by point ID, which includes time of death
+        grouped = df_subset.groupby("point_ID")
+
+        chunk_results = []
+        for point_id, group in tqdm(grouped, desc=f"Processing groups in chunk {i+1}"):
+            
+            # All children in this group have the same climate data needs.
+            # We only need to get the parameters from the first row.
+            first_row = group.iloc[0]
+            lat, lon = first_row['lat_round'], first_row['lon_round']
+            from_date, to_date = first_row['from_date'], first_row['to_date']
+            # death_idx = first_row['death_month_index']
+            
+            # 3. Select from the IN-MEMORY climate_chunk. This is very fast.
+            point_data = climate_chunk.sel(
+                time=slice(from_date, to_date),
+                lat=lat,
+                lon=lon,
+            )
+            data_np = point_data.to_array().values.astype(np.float32)
+
+            # A list to hold the results from each timeframe configuration
+            result_dict = {}
+
+            # Loop over each timeframe configuration (quarterly, biannual, etc.)
+            for timeframe_name, timeframe_dict in ALL_TIMEFRAMES.items():
+                                    
+                # 1. Dynamically create the time indices for the current configuration
+                time_indices_np = np.array(list(timeframe_dict.values()), dtype=np.int32)
+             
+                # 2. Query the column names for the current configuration
+                result_column_names = []
+                avg_windows = AVG_WINDOWS[timeframe_name]
+                result_column_names = COLUMN_NAMES[timeframe_name]
+
+                # 3. Compute the stats for this configuration
+                stats_np = _compute_stats(data_np, time_indices_np, avg_windows, -1) 
+                #   I assign -1 because the anchored method was not doing ok.
+                #   Comparing a 1-month avg vs a 3-month avg means we assign a higher
+                #   weight on dead children because the variance of 1-month is much higher
+                
+                # 4. Directly update the main dictionary. This is much faster
+                # than creating a Series and concatenating later.
+                stats_np_flat = stats_np.transpose(1, 0, 2).ravel()
+                result_dict.update(dict(zip(result_column_names, stats_np_flat)))
+
+            # Combine the results from all timeframe configurations into a single Series
+            result_dict['lat'] = lat
+            result_dict['lon'] = lon
+            result_dict['point_ID'] = point_id
+            chunk_results.append(result_dict)
+                       
+        # Save intermediate file for this chunk
+        if chunk_results:
+            climate_results_chunk = pd.DataFrame(chunk_results)
+            chunk_filename = os.path.join(output_dir, f"births_climate_{i}.parquet")
+            climate_results_chunk.to_parquet(chunk_filename)
+            print(f"Chunk {i+1} saved to {chunk_filename}")
+            all_results.append(climate_results_chunk)
+
+        # 4. FREE UP MEMORY before loading the next chunk
+        del climate_chunk, df_subset, grouped, chunk_results, climate_results_chunk
+        gc.collect()
+        # print("Memory freed for next chunk.")
+    
+    print("\n--- All chunks processed. Consolidating results... ---")
+
+    # Recontruct the chuncked dataframe    
     files = os.listdir(rf"{DATA_PROC}/DHS_Climate")
     files = [f for f in files if f.startswith("births_climate_")]
     data = []
@@ -278,14 +417,17 @@ if __name__ == "__main__":
         df[float64_cols] = df[float64_cols].astype("float32")
 
     # Drop nans in spi/temp values
-    shock_cols = [col for col in RESULT_COLUMN_NAMES if col in df.columns]
-    df = df.dropna(subset=shock_cols, how="any")
-    df.to_parquet(rf"{DATA_PROC}\ClimateShocks_assigned_v11.parquet")
+    all_shock_cols = [
+       col for sublist in COLUMN_NAMES.values() for col in sublist
+    ]
+    shock_cols = [col for col in all_shock_cols if col in df.columns]
+    # df = df.dropna(subset=shock_cols, how="any")
+    df.to_parquet(rf"{DATA_PROC}\ClimateShocks_assigned_v11_nanmean.parquet")
 
     float16_cols = df.select_dtypes(include=["float16"]).columns
     if len(float16_cols) > 0:
         print(f"Converting float16 to float32: {float16_cols}")
         df[float16_cols] = df[float16_cols].astype("float32")
         
-    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v11.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v9e_quarterly.dta")
+    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v11_nanmean.dta")
+    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v11_nanmean.dta")
