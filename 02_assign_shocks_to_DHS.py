@@ -83,6 +83,10 @@ if __name__ == "__main__":
         "born_1m": 9,
         "born_1m6m": 14,
         "born_6m12m": 20,
+        "born_12m18m": 26,
+        "born_18m24m": 32,
+        "born_24m30m": 38,
+        "born_30m36m": 44,
     }
     TIMEFRAMES_IUFOCUS = {
         "inutero_1m3m": 2,
@@ -142,7 +146,7 @@ if __name__ == "__main__":
                     result_column_names.append(col_name)
         COLUMN_NAMES[timeframe_name] = result_column_names
 
-    @njit
+    @njit(parallel=True)
     def _compute_stats(data_array, time_indices, window_sizes, death_month_index):
         n_vars = data_array.shape[0]
         n_indices = len(time_indices)
@@ -221,8 +225,8 @@ if __name__ == "__main__":
         months=-9
     )  # From in utero (9 months before birth)
     df["to_date"] = df["birth_date"] + pd.DateOffset(
-        months=11
-    )  # To the second year of life
+        months=11+12*2
+    )  # To the third year of life
     # df["to_date"] = df[["to_date", "death_date"]].min(axis=1)  # If the child died, compute stats until death
 
     # Filter children from_date greater than 1991 (we only have climate data from 1990)
@@ -271,25 +275,29 @@ if __name__ == "__main__":
     full_dhs = df.copy()
     df = df.reset_index(drop=True)
     
-    ## Clean up old files ####
-    output_dir = os.path.join(DATA_PROC, "DHS_Climate")
-    for file in os.listdir(output_dir):
-        if file.startswith("births_climate_"):
-            os.remove(os.path.join(output_dir, file))
-    print("Old intermediate files removed!")
 
     #### Run process ####
     # Chunking implementation: load a large array from the nc to keep the slicing fast! 
 
+    ## Clean up old files ####
+    output_dir = os.path.join(DATA_PROC, "DHS_Climate")
+    # for file in os.listdir(output_dir):
+    #     if file.startswith("births_climate_"):
+    #         os.remove(os.path.join(output_dir, file))
+    # print("Old intermediate files removed!")
+
     # --- TUNABLE PARAMETER --- Larger means more ram is used
-    LAT_CHUNK_SIZE = 40
+    LAT_CHUNK_SIZE = 20
     
     # Get a sorted list of unique latitudes to iterate over
     unique_lats = np.sort(df["lat_round"].unique())
     lat_chunks = [unique_lats[i:i + LAT_CHUNK_SIZE] for i in range(0, len(unique_lats), LAT_CHUNK_SIZE)]
 
-    all_results = []
     for i, lat_slice in enumerate(lat_chunks):
+        chunk_filename = os.path.join(output_dir, f"births_climate_{i}.parquet")
+        if os.path.exists(chunk_filename):
+            continue
+
         print(f"\n--- Processing Latitude Chunk {i+1}/{len(lat_chunks)} (lats: {lat_slice[0]} to {lat_slice[-1]}) ---")
         
         # PRE-LOAD CHUNK INTO MEMORY
@@ -351,10 +359,8 @@ if __name__ == "__main__":
         # Save intermediate file for this chunk
         if chunk_results:
             climate_results_chunk = pd.DataFrame(chunk_results)
-            chunk_filename = os.path.join(output_dir, f"births_climate_{i}.parquet")
             climate_results_chunk.to_parquet(chunk_filename)
             print(f"Chunk {i+1} saved to {chunk_filename}")
-            all_results.append(climate_results_chunk)
 
         # 4. FREE UP MEMORY before loading the next chunk
         del climate_chunk, df_subset, grouped, chunk_results, climate_results_chunk
@@ -371,11 +377,14 @@ if __name__ == "__main__":
         df_chunk = pd.read_parquet(rf"{DATA_PROC}/DHS_Climate/{file}")
         data += [df_chunk]
     df = pd.concat(data)
+    data = None
+    del data
     df.to_parquet(f"{DATA_PROC}/DHS_Climate/births_climate.parquet")
     print("File saved at", f"{DATA_PROC}/DHS_Climate/births_climate.parquet")
     climate_cols = df.columns
     df.to_parquet(rf"{DATA_PROC}/DHS_Climate_not_assigned.parquet")
-
+    gc.collect()
+    
     ####### Process data:
     df = full_dhs.merge(df, on="point_ID", how="inner")
     print("Number of observations merged with climate data:", df.shape[0])
@@ -406,12 +415,12 @@ if __name__ == "__main__":
     ]
     shock_cols = [col for col in all_shock_cols if col in df.columns]
     # df = df.dropna(subset=shock_cols, how="any")
-    df.to_parquet(rf"{DATA_PROC}\ClimateShocks_assigned_v11_nanmean.parquet")
+    df.to_parquet(rf"{DATA_PROC}\ClimateShocks_assigned_v11.parquet")
 
-    float16_cols = df.select_dtypes(include=["float16"]).columns
-    if len(float16_cols) > 0:
-        print(f"Converting float16 to float32: {float16_cols}")
-        df[float16_cols] = df[float16_cols].astype("float32")
+    # float16_cols = df.select_dtypes(include=["float16"]).columns
+    # if len(float16_cols) > 0:
+    #     print(f"Converting float16 to float32: {float16_cols}")
+    #     df[float16_cols] = df[float16_cols].astype("float32")
         
-    df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v11_nanmean.dta")
-    print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v11_nanmean.dta")
+    # df.to_stata(rf"{DATA_PROC}\ClimateShocks_assigned_v11.dta")
+    # print(f"Data ready! file saved at {DATA_PROC}/ClimateShocks_assigned_v11.dta")

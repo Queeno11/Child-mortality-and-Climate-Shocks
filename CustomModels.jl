@@ -178,10 +178,10 @@ module CustomModels
         else
             throw("Invalid symbols option: $(symbols).")
         end        
-        if isfile(outtxt) && isfile(outtex)
-            println("File exists, moving to next iteration.")
-            return
-        end
+        # if isfile(outtxt) && isfile(outtex)
+        #     println("File exists, moving to next iteration.")
+        #     return
+        # end
         
         spi_previous = [] # This list is for adding the previous SPI variables to the regression
         temp_previous = []  # This list is for adding the previous temperature variables to the regression
@@ -495,8 +495,8 @@ module CustomModels
         for month in months
             sp_threshold = 0.5 # Set default value to avoid breaking the function when this parameter is not used
             for (name, times, stats) in (
-                # ("semester", ["inutero", "born_1m6m", "born_6m12m", ], ["b_avg",]),
-                ("quarterly", ["inutero_1m3m", "inutero_3m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m"], ["q_avg",]),
+                ("semester", ["inutero", "born_1m6m", "born_6m12m", "born_12m18m", "born_18m24m", "born_24m30m", "born_30m36m"], ["b_avg",]),
+                # ("quarterly", ["inutero_1m3m", "inutero_3m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m"], ["q_avg",]),
                 # ("monthly", ["inutero_1m","inutero_2m","inutero_3m","inutero_4m","inutero_5m","inutero_6m","inutero_7m","inutero_8m","inutero_9m","born_1m","born_2m","born_3m","born_4m","born_5m","born_6m",], ["m_avg",]),
                 # ("1m windows", ["born_1m",], ["b_w1", "b_w1", "b_w2", "b_w3", "b_w4", "b_w5", "b_w6", "b_w7", "b_w8", "b_w9"]),
                 # ("6m windows", ["born_6m",], ["b_w1", "b_w1", "b_w2", "b_w3", "b_w4", "b_w5", "b_w6", "b_w7", "b_w8", "b_w9"]),
@@ -517,7 +517,7 @@ module CustomModels
                             if ("linear" in models)
                                 stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, name, model_type="linear", with_dummies=true, cells=[1,2,3])
                             end
-                            if (name=="1m windows") || (name=="iufocus") || (name=="monthly")
+                            if (name=="1m windows") || (name=="6m windows") || (name=="12m windows") || (name=="iufocus") || (name=="monthly")
                                 continue
                             end
 

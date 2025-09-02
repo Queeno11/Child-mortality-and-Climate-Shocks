@@ -5,6 +5,68 @@ import matplotlib.pyplot as plt
 
 OUTPUTS = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs"
 
+# --- Derived Configurations for Specific Plots ---
+SEMESTER_CONFIG = {
+    "canvas_size": (2, 3),
+    "time_frames": ["inutero", "born_1m6m", "born_6m12m", "born_12m18m", "born_18m24m", "born_24m30m"],
+    "title_labels": {
+        "inutero": "In-Utero",
+        "born_1m6m": "1st Semester (months 0-6)", "born_6m12m": "2nd Semester (months 6-12)",
+        "born_12m18m": "3rd Semester (months 12-18)", "born_18m24m": "4th Semester (months 18-24)", "born_24m30m": "5th Semester (months 24-30)",
+    },
+    "x_tick_labels": ["0-6", "6-12", "12-18", "18-24", "24-30",], # Example x-axis labels
+    "xlim": (-0.5, 4.5), 
+    "legend_pos": {"loc": 'lower center', "bbox_to_anchor": (0.5, -0.4), "ncol": 2}
+}
+# -- Base Configuration for Quarterly analysis (7 periods) --
+QUARTERLY_CONFIG = {
+    "canvas_size": (2, 4),
+    "time_frames": [None, "inutero_1m3m", "inutero_3m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m"],
+    "title_labels": {
+        "inutero_1m3m": "1st In-Utero Quarter", "inutero_3m6m": "2nd In-Utero Quarter", "inutero_6m9m": "3rd In-Utero Quarter",
+        "born_1m3m": "1st Born Quarter", "born_3m6m": "2nd Born Quarter", "born_6m9m": "3rd Born Quarter", "born_9m12m": "4th Born Quarter",
+    },
+    "x_tick_labels": ["1st Q", "2nd Q", "3rd Q", "4th Q"],
+    "xlim": (-0.5, 3.5), "ylim": (-0.8, 1.5),
+    "legend_pos": {"loc": 'lower center', "bbox_to_anchor": (-1.35, -0.3), "ncol": 2}
+}
+
+# -- Base Configuration for Monthly analysis (example, 12 periods) --
+MONTHLY_CONFIG = {
+    "canvas_size": (3, 4),
+    "time_frames": [f"month_{i}" for i in range(1, 13)],
+    "title_labels": {f"month_{i}": f"Month {i}" for i in range(1, 13)},
+    "x_tick_labels": ["Jan", "Feb", "Mar"],
+    "xlim": (-0.5, 2.5), "ylim": (-0.5, 0.5),
+    "legend_pos": {"loc": 'lower center', "bbox_to_anchor": (0.5, -0.3), "ncol": 2}
+}
+
+# Horserace plots might need different y-axis limits or legend placement
+HORSERACE_CONFIG = QUARTERLY_CONFIG.copy()
+HORSERACE_CONFIG["ylim"] = (-0.6, 0.8)
+HORSERACE_CONFIG["legend_pos"] = {"loc": 'lower center', "bbox_to_anchor": (-1.35, -0.35), "ncol": 2}
+
+# Heterogeneity plots often need more space for the legend
+HETEROGENEITY_CONFIG = QUARTERLY_CONFIG.copy()
+HETEROGENEITY_CONFIG["legend_pos"] = {"loc": 'lower center', "bbox_to_anchor": (-1.35, -0.25), "ncol": 6}
+
+# Spline plots have 4 series, so the legend needs more columns
+SPLINE_CONFIG = QUARTERLY_CONFIG.copy()
+SPLINE_CONFIG["legend_pos"] = {"loc": 'lower center', "bbox_to_anchor": (-1.35, -0.25), "ncol": 2}
+
+# Window comparison plots have a different layout and number of subplots
+WINDOWS_CONFIG = {
+    "canvas_size": (2, 3),
+    "time_frames": ["inutero_1m3m", "inutero_3m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m"],
+    "title_labels": {
+        "inutero_1m3m": "1st In-Utero Quarter", "inutero_3m6m": "2nd In-Utero Quarter", "inutero_6m9m": "3rd In-Utero Quarter",
+        "born_1m3m": "1st Born Quarter", "born_3m6m": "2nd Born Quarter", "born_6m9m": "3rd Born Quarter",
+    },
+    "x_tick_labels": ["1st Q", "2nd Q", "3rd Q"],
+    "xlim": (-0.3, 2.6), "ylim": None, # Let matplotlib decide ylim
+    "legend_pos": {"loc": 'lower center', "bbox_to_anchor": (-0.64, -0.5), "ncol": 4}
+}
+
 def remove_words_from_string(long_string, words):
     for word in words:
         long_string = long_string.replace(word, "")
@@ -161,9 +223,12 @@ def extract_coefficients_and_CI_latex(file_path, horserace: None | str = None):
     valid_spis = ("spi1_", "spi3_", "spi6_", "spi9_", "spi12_", "spi24_", "spi48_")
     all_spis = valid_spis
     valid_timeframes = [
+        "born_1m",
         "inutero_1m3m", "inutero_3m6m", "inutero_6m9m", 
         "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m", 
         "born_12m15m", "born_15m18m", "born_18m21m", "born_21m24m", 
+        "inutero", "born_1m6m", "born_6m12m", 
+        "born_12m18m", "born_18m24m", "born_24m30m", "born_30m36m", 
     ]
     spi_data = {"cell1": {}, "cell2": {}, "cell3": {}}
     temp_data = {"cell1": {}, "cell2": {}, "cell3": {}}
@@ -175,12 +240,10 @@ def extract_coefficients_and_CI_latex(file_path, horserace: None | str = None):
     i = 0
     len_tokens = 0
     for i, line in enumerate(lines):
-
         line = line.strip()
 
         # Replace LaTeX escapes.
         line = line.replace(r"\\", "").replace(r"\_", "_")
-
         # Process lines that start with any valid spi or temp prefix.
         if not (line.startswith(valid_spis) or line.startswith(valid_temps)):
             continue
@@ -205,8 +268,9 @@ def extract_coefficients_and_CI_latex(file_path, horserace: None | str = None):
         if len_tokens==0:
             len_tokens = len(coeff_tokens)
         assert len_tokens == len(coeff_tokens), f"Length mismatch: {len_tokens} vs {len(coeff_tokens)}"
-        
+
         if contains_any_string(full_key, valid_timeframes):
+
             # Select the coefficients from the corresponding cell FE and remove the stars 
             cell1 = [to_float(c.replace("*", "")) for c in coeff_tokens[1::3]]
             cell2 = [to_float(c.replace("*", "")) for c in coeff_tokens[2::3]]
@@ -231,10 +295,10 @@ def extract_coefficients_and_CI_latex(file_path, horserace: None | str = None):
                 temp_data["cell1"][key] = {"coef": cell1, "se": err_cell1, "lower": cilower_cell1, "upper": ciupper_cell1}
                 temp_data["cell2"][key] = {"coef": cell2, "se": err_cell2, "lower": cilower_cell2, "upper": ciupper_cell2}
                 temp_data["cell3"][key] = {"coef": cell3, "se": err_cell3, "lower": cilower_cell3, "upper": ciupper_cell3}
-                        
+    
     results["spi"] = spi_data
     results["temp"] = temp_data
-    
+
     return results
 
 def extract_coefficients_and_CI_latex_horserace(file_path):
@@ -307,31 +371,34 @@ def extract_coefficients_and_CI_latex_stat_windows(shock, spi, temp, stat):
     Returns:
       dict : A dictionary containing the extracted coefficients and confidence intervals.
     """
-    f_name = f"linear_dummies_true_{spi}_"
-    files = os.listdir(rf"{OUTPUTS}\windows")
+    f_name = f"linear_dummies_true_{spi}_{stat}"
+    files = os.listdir(OUTPUTS)
+    assert len(files)>0, "No files in OUTPUS!"
     files = [f for f in files if f_name in f]
+    assert len(files)>0, f"No files with {f_name}!"
     files = [f for f in files if "standard_fe standard_sym.tex" in f]
+    assert len(files)>0, f"No files with standard_fe standard_sym.tex!"
     files = order_files_naturally(files)
-        
-    windows = [f.replace(f"linear_dummies_true_{spi}_", "").replace("_avg_stdm_t  standard_fe standard_sym.tex", "") for f in files] # 
+    
+    windows = [f.replace(f"linear_dummies_true_{spi}_", "").replace("_stdm_t 1m windows standard_fe standard_sym.tex", "") for f in files] # 
 
     plotdata = {}
     for i, window in enumerate(windows):
 
-        file_path = rf"{OUTPUTS}\windows\{files[i]}"
-        print(file_path)
+        file_path = rf"{OUTPUTS}\{files[i]}"
+        assert os.path.exists(file_path), f"{file_path} does not exist!"
         outdata = extract_coefficients_and_CI_latex(file_path)
 
         # Gather all the keys:
         keys = list(outdata[shock]["cell1"].keys())
 
-        for original_key in keys:
-            key_words = original_key.split("_")
-            key = key_words[0] + "_" + key_words[1] + "_" + key_words[3] + "_" + key_words[4] + "_" + key_words[5]  
+        for key in keys:
+            original_key = key
+            key = key.replace(f"_{window}", "") 
             if key not in plotdata:
                 plotdata[key] = {}
             plotdata[key][window] = outdata[shock]["cell1"][original_key]
-
+            
     return plotdata
 
     
@@ -355,218 +422,334 @@ def distribute_x_values(x_values, n, margin=0.1):
     return out_values
 
 def plot_regression_coefficients(
-        data, 
-        shock,
-        spi, 
-        temp, 
-        stat,
-        margin=0.2,
-        colors=["#ff5100", "#3e9fe1"], 
-        labels=["High temperature shocks","Low temperature shocks"],
-        outpath=None,
-        add_line=False,
-        start="",
-        extra="",
+        data, shock, spi, temp, stat,
+        canvas_size, time_frames, title_labels, x_tick_labels, xlim, ylim=(-0.8, 1.5), legend_pos=(-0.5,2),
+        margin=0.2, colors=["#ff5100", "#3e9fe1"],
+        labels=["Low temp shocks (inverted)", "High temp shocks"],
+        outpath=None, add_line=False, start="", extra="",
     ):
-    
-    import os
-    
-    title_labels = {}
-    for sign in ["neg", "pos"]:
-        title_labels.update({
-            f"inutero_1m3m_{stat}": "1st In-Utero Quarter",
-            f"inutero_3m6m_{stat}": "2nd In-Utero Quarter",
-            f"inutero_6m9m_{stat}": "3rd In-Utero Quarter",
-            f"born_1m3m_{stat}": "1st Born Quarter",
-            f"born_3m6m_{stat}": "2nd Born Quarter",
-            f"born_6m9m_{stat}": "3rd Born Quarter",
-            f"born_9m12m_{stat}": "4th Born Quarter",
-            f"born_12m15m_{stat}": "5th Born Quarter",
-            f"born_15m18m_{stat}": "6th Born Quarter",
-            f"born_18m21m_{stat}": "7th Born Quarter",
-            f"born_21m24m_{stat}": "8th Born Quarter",
-        })
-    
-    data = data[shock]["cell1"]
+    data_to_plot = data.get(shock, {}).get("cell1", {})
+    if not data_to_plot:
+        print(f"Warning: No data found for shock '{shock}'. Skipping plot.")
+        return
 
-    fig, axs = plt.subplots(2, 4, figsize=(16, 6))
-    axs[0][0].spines['top'].set_visible(False)
-    axs[0][0].spines['bottom'].set_visible(False)
-    axs[0][0].spines['right'].set_visible(False)
-    axs[0][0].spines['left'].set_visible(False)
-    axs[0][0].set_xticks([])
-    axs[0][0].set_yticks([])
-    
-    xvalues_clean = [0,1,2,3]#,4,5,6,7]
-    for i, key in enumerate(data.keys()):
-        if i==2*(3+len(xvalues_clean)):
-            # Break the graph when we reach the expected number of plots.
-            break
-        
-        if i/2==len(axs.flatten()):
-            break
-        
-        i_round = i // 2
-        pos = int((i/2 - i_round)*2)
-        plotdata = data[key]
+    n_rows, n_cols = canvas_size
+    fig, axs = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 3.5 * n_rows), squeeze=False)
+    flat_axs = axs.flatten()
+    xvalues_clean = np.arange(len(x_tick_labels))
 
-        coefs = np.array(plotdata["coef"][:4])
-        lower = np.array(plotdata["lower"][:4])
-        upper = np.array(plotdata["upper"][:4])
-        
-        is_neg = "_neg" in key
-        
-        if is_neg:
-            coefs = coefs*-1
-            old_upper = upper
-            upper = lower*-1
-            lower = old_upper*-1
-        yerr = [
-            list(np.subtract(coefs, lower)), # 'down' error
-            list(np.subtract(upper, coefs))
-        ]  # 'up' error
-        
-        # Get the color from the cycle
-        color = colors[0] if is_neg else colors[1]
-        label = labels[0] if is_neg else labels[1]
-        
-        ax = axs.flatten()[i_round+1]
+    for i, ax in enumerate(flat_axs):
+        if i >= len(time_frames) or time_frames[i] is None:
+            ax.axis('off')
+            continue
 
-        xvalues = distribute_x_values(xvalues_clean, 2, margin=margin)[pos]
-        if i_round != i/2:
-            ax.set_title(title_labels[key.replace("_pos_int", "").replace("_neg_int", "")])
+        timeframe_key_base = time_frames[i]
         
-        ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
-        if add_line:
-            ax.plot(xvalues, coefs, color=color)
+        for series_idx, sign in enumerate(["_neg", "_pos"]):
+            full_data_key = f"{timeframe_key_base}_{stat}{sign}_int"
+            
+            if full_data_key not in data_to_plot:
+                continue
 
-        # Now call our helper function to highlight points with a lower CI bound > 0.
-        highlight_significant_points(ax, xvalues, coefs, lower, color=color)
+            plotdata = data_to_plot[full_data_key]
+            coefs = np.array(plotdata["coef"][:len(x_tick_labels)])
+            lower = np.array(plotdata["lower"][:len(x_tick_labels)])
+            upper = np.array(plotdata["upper"][:len(x_tick_labels)])
+            
+            if sign == "_neg":
+                coefs *= -1
+                lower, upper = -upper, -lower
+            yerr = [coefs - lower, upper - coefs]
 
+            xvalues = distribute_x_values(xvalues_clean, 2, margin=margin)[series_idx]
+            ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=labels[series_idx], color=colors[series_idx])
+            if add_line:
+                ax.plot(xvalues, coefs, color=colors[series_idx])
+            highlight_significant_points(ax, xvalues, coefs, lower, color=colors[series_idx])
+
+        ax.set_title(title_labels.get(timeframe_key_base, timeframe_key_base.replace("_", " ")))
         ax.axhline(y=0, color="black", linewidth=1)
-        # sns.lineplot(data["inutero_1m3m_avg_pos"]["coef"], ax=ax)
-        # sns.despine()
-        ax.spines['top'].set_visible(False)
-        ax.spines['bottom'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q"])
-        ax.set_xlim(-0.3, 3.6)
-        if i<4*2: # Only the first row of plots
-            ax.set_ylim(-0.8, 1.5)
-        else:
-            ax.set_ylim(-0.6, 0.8)
+        ax.spines[['top', 'bottom', 'right']].set_visible(False)
+        ax.set_xticks(xvalues_clean, labels=x_tick_labels)
+        ax.set_xlim(xlim)
+        if ylim: ax.set_ylim(ylim)
 
-    fig.tight_layout()
-    plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.3), ncol=2, frameon=False)
-    
+    fig.tight_layout(rect=[0, 0.08, 1, 1])
+    plt.legend(**legend_pos, frameon=False)
     os.makedirs(outpath, exist_ok=True)
     filename = fr"{outpath}\{start}{shock}_coefficients_{spi}_{stat}_{temp}{extra}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Se creó la figura ", filename)
     plt.close()
+
+
+def plot_horserace_temp(
+        data, spi, temp, stat,
+        canvas_size, time_frames, title_labels, x_tick_labels, xlim, ylim=(-0.8, 1.5), legend_pos=(-0.5,2),
+        colors=["#3e9fe1", "#ff5100", "#6baed6", "#fd8d3c"],
+        labels=["Standard (+)", "Extreme (+)", "Standard (-) (inverted)", "Extreme (-)"],
+        outpath=None, add_line=False, start="", extra="",
+    ):
+    # Data restructuring...
+    plotdata = {}
+    standard_temp_data = data.get('standard', {}).get('temp', {}).get('cell1', {})
+    extreme_temp_data = data.get('extreme', {}).get('temp', {}).get('cell1', {})
+    if not standard_temp_data and not extreme_temp_data:
+        print("Warning: No horserace data found. Skipping plot.")
+        return
+        
+    all_raw_keys = list(standard_temp_data.keys()) + list(extreme_temp_data.keys())
+    base_keys = sorted(list(set([k.replace("_pos_int", "").replace("_neg_int", "") for k in all_raw_keys])))
     
+    for base_key in base_keys:
+        plotdata[base_key] = {}
+        for sign in ["pos", "neg"]:
+            key = f"{base_key}_{sign}_int"
+            if key in standard_temp_data: plotdata[base_key][f'standard_{sign}'] = standard_temp_data[key]
+            if key in extreme_temp_data: plotdata[base_key][f'extreme_{sign}'] = extreme_temp_data[key]
+            
+    cases = ['standard_pos', 'extreme_pos', 'standard_neg', 'extreme_neg']
+    n_cases = len(cases)
+
+    # Plotting setup...
+    n_rows, n_cols = canvas_size
+    fig, axs = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 4 * n_rows), squeeze=False)
+    flat_axs = axs.flatten()
+    xvalues_clean = np.arange(len(x_tick_labels))
+
+    for i, ax in enumerate(flat_axs):
+        if i >= len(time_frames) or time_frames[i] is None:
+            ax.axis('off')
+            continue
+
+        timeframe_key_base = f"{time_frames[i]}_{stat}"
+        horserace_data_for_key = plotdata.get(timeframe_key_base, {})
+
+        for j, case_name in enumerate(cases):
+            plotdata_case = horserace_data_for_key.get(case_name)
+            if not plotdata_case: continue
+                
+            coefs = np.array(plotdata_case["coef"][:len(x_tick_labels)])
+            lower = np.array(plotdata_case["lower"][:len(x_tick_labels)])
+            upper = np.array(plotdata_case["upper"][:len(x_tick_labels)])
+
+            if case_name == 'standard_neg':
+                coefs *= -1
+                lower, upper = -upper, -lower
+                
+            yerr = [coefs - lower, upper - coefs]
+            xvalues = distribute_x_values(xvalues_clean, n_cases, margin=0.1)[j]
+            ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=labels[j], color=colors[j])
+            if add_line: ax.plot(xvalues, coefs, color=colors[j], alpha=0.7)
+            highlight_significant_points(ax, xvalues, coefs, lower, color=colors[j])
+
+        ax.set_title(title_labels.get(time_frames[i], ""))
+        ax.axhline(y=0, color="black", linewidth=1)
+        ax.spines[['top', 'right']].set_visible(False)
+        ax.set_xticks(xvalues_clean, labels=x_tick_labels)
+        ax.set_xlim(xlim)
+        if ylim: ax.set_ylim(ylim)
+
+    fig.tight_layout(rect=[0, 0.08, 1, 1])
+    plt.legend(**legend_pos, frameon=False)
+    filename = fr"{outpath}\horserace - {start}temp_coefficients_{spi}_{stat}_{temp}{extra}.png"
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    print("Se creó la figura ", filename)
+    plt.close()
+
+
 def plot_spline_coefficients(
-        data, 
-        shock,
-        spi, 
-        temp, 
-        stat,
+        data, shock, spi, temp, stat,
+        canvas_size, time_frames, title_labels, x_tick_labels, xlim, ylim=(-0.8, 1.5), legend_pos=(-0.5,2),
         margin=0.2,
         colors=["#ff5100", "#3e9fe1"], 
-        labels=["High temperature shocks","Low temperature shocks"],
+        labels=["High temp shocks","Low temp shocks"],
         outpath=None,
     ):
+    data_to_plot = data.get(shock, {}).get("cell1", {})
+    if not data_to_plot:
+        print(f"Warning: No spline data found for shock '{shock}'. Skipping plot.")
+        return
+
+    n_rows, n_cols = canvas_size
+    fig, axs = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 3.5 * n_rows), squeeze=False)
+    flat_axs = axs.flatten()
+    xvalues_clean = np.arange(len(x_tick_labels))
     
-    import os
+    spline_cats = ['gt1_int', 'bt01_int', 'bt0m1_int', 'ltm1_int'] # From high to low
 
-    title_labels = {
-        "inutero_1m3m": "1st In-Utero Quarter",
-        "inutero_3m6m": "2nd In-Utero Quarter",
-        "inutero_6m9m": "3rd In-Utero Quarter",
-        "born_1m3m": "1st Born Quarter",
-        "born_3m6m": "2nd Born Quarter",
-        "born_6m9m": "3rd Born Quarter",
-        "born_9m12m": "4th Born Quarter",
-        "born_12m15m": "5th Born Quarter",
-        "born_15m18m": "6th Born Quarter",
-        "born_18m21m": "7th Born Quarter",
-        "born_21m24m": "8th Born Quarter",
-    }
+    for i, ax in enumerate(flat_axs):
+        if i >= len(time_frames) or time_frames[i] is None:
+            ax.axis('off')
+            continue
 
-    data = data[shock]["cell1"]
+        timeframe_key_base = time_frames[i]
 
-    fig, axs = plt.subplots(2, 4, figsize=(16, 6))
-    axs[0][0].spines['top'].set_visible(False)
-    axs[0][0].spines['bottom'].set_visible(False)
-    axs[0][0].spines['right'].set_visible(False)
-    axs[0][0].spines['left'].set_visible(False)
-    axs[0][0].set_xticks([])
-    axs[0][0].set_yticks([])
+        for j, cat_suffix in enumerate(spline_cats):
+            full_data_key = f"{timeframe_key_base}_{stat}_{cat_suffix}"
+            plotdata = data_to_plot.get(full_data_key)
+            if not plotdata: continue
 
-    xvalues_clean = [0,1,2,3]#,4,5,6,7]
-    line_values = []
-    for i, key in enumerate(data.keys()):
-        if i==2*(3+len(xvalues_clean)):
-            # Break the graph when we reach the expected number of plots.
-            break
+            coefs = np.array(plotdata["coef"][:len(x_tick_labels)])
+            lower = np.array(plotdata["lower"][:len(x_tick_labels)])
+            upper = np.array(plotdata["upper"][:len(x_tick_labels)])
 
-        if i/4==len(axs.flatten()):
-            break
-        i_round = i // 4
-        pos = int((i/4 - i_round )*4)
-        
-        plotdata = data[key]
+            if "ltm1" in cat_suffix or "bt0m1" in cat_suffix:
+                coefs *= -1
+                lower, upper = -upper, -lower
+                
+            yerr = [coefs - lower, upper - coefs]
+            
+            xvalues = distribute_x_values(xvalues_clean, len(spline_cats), margin=margin)[j]
+            ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=labels[j], color=colors[j])
+            highlight_significant_points(ax, xvalues, coefs, lower, color=colors[j])
 
-        coefs = np.array(plotdata["coef"][:4])
-        lower = np.array(plotdata["lower"][:4])
-        upper = np.array(plotdata["upper"][:4])
-
-        is_neg = ("ltm1" or "bt0m1") in key
-        if is_neg:
-            coefs = coefs*-1
-            old_upper = upper
-            upper = lower*-1
-            lower = old_upper*-1
-        yerr = [
-            list(np.subtract(coefs, lower)), # 'down' error
-            list(np.subtract(upper, coefs))
-        ]  # 'up' error
-        
-        # Get the color from the cycle
-        color = colors[pos]
-        label = labels[pos]
-        
-        ax = axs.flatten()[i_round+1]
-
-        xvalues = distribute_x_values(xvalues_clean, 4, margin=margin)[pos]
-        if pos == 3:
-            ax.set_title(title_labels[key.split(f"_{stat}")[0]])
-        
-        ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
-
-        # Now call our helper function to highlight points with a lower CI bound > 0.
-        highlight_significant_points(ax, xvalues, coefs, lower, color=color)
-
+        ax.set_title(title_labels.get(timeframe_key_base, ""))
         ax.axhline(y=0, color="black", linewidth=1)
-        # sns.lineplot(data["inutero_1m3m_avg_pos"]["coef"], ax=ax)
-        # sns.despine()
-        ax.spines['top'].set_visible(False)
-        ax.spines['bottom'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q"])#, "5th Q", "6th Q", "7th Q", "8th Q"])
-        ax.set_xlim(-0.3, 3.6)
-        line_values += [coefs]
+        ax.spines[['top', 'bottom', 'right']].set_visible(False)
+        ax.set_xticks(xvalues_clean, labels=x_tick_labels)
+        ax.set_xlim(xlim)
+        if ylim: ax.set_ylim(ylim)
 
-
-    fig.tight_layout()
-    plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.25), ncol=2, frameon=False)
-
-    os.makedirs(outpath, exist_ok=True)
+    fig.tight_layout(rect=[0, 0.1, 1, 1])
+    plt.legend(**legend_pos, frameon=False)
     filename = fr"{outpath}\{shock}_spline_coefficients_{spi}_{stat}_{temp}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Se creó la figura ", filename)
     plt.close()
-    return
+
+
+def plot_heterogeneity(
+        heterogeneity, spi, temp, stat, timeframe, 
+        canvas_size, time_frames, title_labels, x_tick_labels, xlim, ylim=(-0.8, 1.5), legend_pos=(-0.5,2),
+        colors=None, labels=None, outpath=None, add_line=False,
+    ):
+    for shock in ["temp", "spi"]:
+        full_data = extract_coefficients_and_CI_latex_heterogeneity(
+            heterogeneity, shock, spi, temp, stat, timeframe,
+        )            
+        if not full_data: 
+            continue
+
+        for sign in ["_neg", "_pos"]:
+            data = {k: v for k, v in full_data.items() if sign in k}
+            if not data: 
+                continue
+
+            n_heterogeneity = len(list(data.values())[0].keys())
+            
+            n_rows, n_cols = canvas_size
+            fig, axs = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 3.5 * n_rows), squeeze=False)
+            flat_axs = axs.flatten()
+            xvalues_clean = np.arange(len(x_tick_labels))
+
+            for i, ax in enumerate(flat_axs):
+                if i >= len(time_frames) or time_frames[i] is None:
+                    ax.axis('off')
+                    continue
+
+                timeframe_key_base = time_frames[i]
+                full_data_key = f"{timeframe_key_base}_{stat}{sign}_int"
+                heterogeneity_data = data.get(full_data_key)
+                if not heterogeneity_data: 
+                    continue
+
+                for j, case in enumerate(sorted(heterogeneity_data.keys())): # Sort keys for consistent order
+                    print(case, colors[j])
+                    plotdata_case = heterogeneity_data[case]
+                    coefs = np.array(plotdata_case["coef"][:len(x_tick_labels)])
+                    lower = np.array(plotdata_case["lower"][:len(x_tick_labels)])
+                    upper = np.array(plotdata_case["upper"][:len(x_tick_labels)])
+                    
+                    if sign == "_neg":
+                        coefs *= -1
+                        lower, upper = -upper, -lower
+                    yerr = [coefs - lower, upper - coefs]
+                    
+                    xvalues = distribute_x_values(xvalues_clean, n_heterogeneity, margin=0.15)[j]
+                    ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=labels[j], color=colors[j])
+                    if add_line: 
+                        ax.plot(xvalues, coefs, color=colors[j])
+                    highlight_significant_points(ax, xvalues, coefs, lower, color=colors[j])
+
+                ax.set_title(title_labels.get(timeframe_key_base, ""))
+                ax.axhline(y=0, color="black", linewidth=1)
+                ax.spines[['top', 'bottom', 'right']].set_visible(False)
+                ax.set_xticks(xvalues_clean, labels=x_tick_labels)
+                ax.set_xlim(xlim)
+                if ylim: 
+                    ax.set_ylim(ylim)
+
+            fig.tight_layout(rect=[0, 0.1, 1, 1])
+            plt.legend(**legend_pos, frameon=False)
+            filename = fr"{outpath}\heterogeneity {heterogeneity} - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
+            plt.savefig(filename, dpi=300, bbox_inches='tight')
+            print("Se creó la figura ", filename)
+    plt.close()
+
+
+def plot_windows(
+        spi, temp, stat,
+        time_frames, title_labels, x_tick_labels, xlim, ylim=(-0.8, 1.5), legend_pos=(-0.5,2),
+        colors=None, labels=None, outpath=None, add_line=False,
+    ):
+    fig, axs = plt.subplots(2, 2, figsize=(12, 8), sharey=True)
+    titles = [
+        ["High temperature shocks", "Low temperature shocks"],
+        ["High precipitation shocks", "Low precipitation shocks"],
+    ]
+    for shock_pos, shock in enumerate(["temp", "spi"]):
+        full_data = extract_coefficients_and_CI_latex_stat_windows(
+            shock, spi, temp, stat,
+        )       
+        if not full_data: continue
+     
+        for sign_pos, sign in enumerate(["_pos", "_neg"]):
+            
+            ax = axs[shock_pos][sign_pos]
+            title = titles[shock_pos][sign_pos]
+            
+            data = {k: v for k, v in full_data.items() if sign in k}
+
+            if not data: continue
+
+            n_windows = len(x_tick_labels)
+
+            xvalues = np.array(distribute_x_values([0], n_windows, margin=0.05)).flatten()
+
+                
+            timeframe_key_base = time_frames[0]
+            full_data_key = f"{timeframe_key_base}{sign}_int"
+
+            window_data = data.get(full_data_key)
+
+            if not window_data: continue
+
+            coefs = np.array([window_data[w]["coef"][0] for w in window_data.keys()])
+            lower = np.array([window_data[w]["lower"][0] for w in window_data.keys()])
+            upper = np.array([window_data[w]["upper"][0] for w in window_data.keys()])
+
+            if sign == "_neg":
+                coefs *= -1
+                lower, upper = -upper, -lower
+            yerr = [coefs - lower, upper - coefs]
+
+            ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=labels, color=colors)
+            if add_line: ax.plot(xvalues, coefs, color=colors)
+            highlight_significant_points(ax, xvalues, coefs, lower, color=colors)
+
+            ax.axhline(y=0, color="black", linewidth=1)
+            ax.spines[['top', 'bottom', 'right']].set_visible(False)
+            ax.set_xticks(xvalues, labels=x_tick_labels)
+            ax.set_xlim(xlim)
+            ax.set_title(title)
+            if ylim: ax.set_ylim(ylim)
+
+    fig.tight_layout()
+    filename = fr"{outpath}\windows - 1m coefficients_{spi}_{stat}_{temp}.png"
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    print("Se creó la figura ", filename)
+    plt.close()
 
 def extract_sample_size(filepath):
     import re
@@ -595,386 +778,6 @@ def extract_sample_size(filepath):
         
     return None
 
-def plot_heterogeneity(
-        heterogeneity,
-        spi, 
-        temp, 
-        stat, 
-        timeframe,
-        colors=None,
-        labels=None,    
-        outpath=None,
-        add_line=False,
-    ):
-    '''
-        Plot the coefficients of the heterogeneity analysis.
-        Parameters:
-            full_data: dict
-                The data containing the coefficients and confidence intervals.
-            heterogeneity: str
-                The type of heterogeneity to plot. Must have a folder in the 
-                outputs directory with the same name. 
-            shock: str
-                The type of shock to plot. Can be "temp" or "spi".
-            spi: str
-                The type of SPI to plot. Can be "spi1", "spi3", "spi6", "spi9", 
-                "spi12", "spi24", "spi48".   
-            temp: str
-                The type of temperature to plot.
-            stat: str
-                The type of statistic to plot.  
-            colors: list
-                The colors to use for the different cases.
-            labels: list
-                The labels to use for the different cases.
-            outpath: str
-                The path to save the plot.
-    '''         
-    for shock in ["temp", "spi"]:
-        full_data = extract_coefficients_and_CI_latex_heterogeneity(
-            heterogeneity, shock, spi, temp, stat, timeframe,
-        )            
-        for sign in ["_neg", "_pos"]:
-            
-            # Keep only keys that contain the specified sign
-            data = {k: v for k, v in full_data.items() if sign in k}
-            n_heterogeneity = len(data[f"inutero_1m3m_{stat}{sign}_int"].keys())
-
-            title_labels = {
-                f"inutero_1m3m_{stat}{sign}_int": "1st In-Utero Quarter",
-                f"inutero_3m6m_{stat}{sign}_int": "2nd In-Utero Quarter",
-                f"inutero_6m9m_{stat}{sign}_int": "3rd In-Utero Quarter",
-                f"born_1m3m_{stat}{sign}_int": "1st Born Quarter",
-                f"born_3m6m_{stat}{sign}_int": "2nd Born Quarter",
-                f"born_6m9m_{stat}{sign}_int": "3rd Born Quarter",
-                f"born_9m12m_{stat}{sign}_int": "4th Born Quarter",
-                f"born_12m15m_{stat}{sign}_int": "5th Born Quarter",
-                f"born_15m18m_{stat}{sign}_int": "6th Born Quarter",
-                f"born_18m21m_{stat}{sign}_int": "7th Born Quarter",
-                f"born_21m24m_{stat}{sign}_int": "8th Born Quarter",
-            }
-            fig, axs = plt.subplots(2, 4, figsize=(16, 6))
-            xvalues_clean = [0,1,2,3]#,4,5,6,7]
-            axs[0][0].spines['top'].set_visible(False)
-            axs[0][0].spines['bottom'].set_visible(False)
-            axs[0][0].spines['right'].set_visible(False)
-            axs[0][0].spines['left'].set_visible(False)
-            axs[0][0].set_xticks([])
-            axs[0][0].set_yticks([])
-
-            for i, key in enumerate(data.keys()):
-                if i==(3+len(xvalues_clean)):
-                    # Break the graph when we reach the expected number of plots.
-                    break
-                if i==len(axs.flatten()):
-                    break
-                heterogeneity_data = data[key]
-                for j, case in enumerate(heterogeneity_data.keys()):
-                    coefs = np.array(heterogeneity_data[case]["coef"][:4])
-                    lower = np.array(heterogeneity_data[case]["lower"][:4])
-                    upper = np.array(heterogeneity_data[case]["upper"][:4])
-
-                    is_neg = "_neg" in key
-                    sign = "_neg" if is_neg else "_pos"
-                    
-                    if is_neg:
-                        coefs = coefs*-1
-                        old_upper = upper
-                        upper = lower*-1
-                        lower = old_upper*-1
-                    yerr = [
-                        list(np.subtract(coefs, lower)), # 'down' error
-                        list(np.subtract(upper, coefs))
-                    ]  # 'up' error
-                    
-                    # Get the color from the cycle
-                    color = colors[j]
-                    label = labels[j]
-                    if (i==0) & (shock=="spi") & (sign=="_neg"): # Only print this for this first iteration
-                        print(f"case: {case} -> label: {label}")
-                    
-                    ax = axs.flatten()[i+1]
-
-                    xvalues = distribute_x_values(xvalues_clean, n_heterogeneity, margin=0.15)[j]
-                    
-                    ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
-                    if add_line:
-                        ax.plot(xvalues, coefs, color=color)
-
-                    # Now call our helper function to highlight points with a lower CI bound > 0.
-                    highlight_significant_points(ax, xvalues, coefs, lower, color=color)
-
-                ax.set_title(title_labels[key])
-                ax.axhline(y=0, color="black", linewidth=1)
-                ax.spines['top'].set_visible(False)
-                ax.spines['bottom'].set_visible(False)
-                ax.spines['right'].set_visible(False)
-                ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q", "4th Q",])# "5th Q", "6th Q", "7th Q", "8th Q"])
-                ax.set_xlim(-0.3, 3.6)
-
-            fig.tight_layout()
-            plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.25), ncol=6, frameon=False)
-
-            filename = fr"{outpath}\heterogeneity {heterogeneity} - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
-            plt.savefig(filename, dpi=300, bbox_inches='tight')
-            print("Se creó la figura ", filename)
-    plt.close()
-    
-def plot_horserace_temp(
-        data,
-        spi, 
-        temp, 
-        stat, 
-        colors=["#3e9fe1", "#ff5100", "#6baed6", "#fd8d3c"],
-        labels=["Standard (+)", "Extreme (+)", "Standard (-) (inverted)", "Extreme (-)"],
-        outpath=None,
-        add_line=False,
-        start="",
-        extra="",
-    ):
-    """
-    Plots a 4-way comparison of standard/extreme and positive/negative temperature coefficients.
-
-    Each subplot corresponds to a timeframe and displays four coefficient estimates:
-    1. Standard Temperature (Positive Shock)
-    2. Extreme Temperature (Positive Shock)
-    3. Standard Temperature (Negative Shock, effect inverted)
-    4. Extreme Temperature (Negative Shock, effect NOT inverted)
-
-    Parameters:
-      file_path : str
-          Path to the LaTeX file with regression results.
-      spi, temp, stat : str
-          Strings for generating the output filename.
-      colors : list, optional
-          A list of four colors for the four series.
-      labels : list, optional
-          A list of four labels for the legend.
-      outpath : str, optional
-          Directory to save the output plot.
-      add_line : bool, optional
-          Whether to connect the coefficient points with a line.
-    """
-        
-    # 2. Restructure data: Group by base timeframe (e.g., 'inutero_1m3m_avg_int')
-    plotdata = {}
-    standard_temp_data = data['standard']['temp']['cell1']
-    extreme_temp_data = data['extreme']['temp']['cell1']
-    
-    all_raw_keys = list(standard_temp_data.keys())
-    base_keys = sorted(list(set([k.replace("_pos_int", "").replace("_neg_int", "") for k in all_raw_keys])))
-    
-    for base_key in base_keys:
-        plotdata[base_key] = {}
-        pos_key = f"{base_key}_pos_int"
-        neg_key = f"{base_key}_neg_int"
-        
-        if pos_key in standard_temp_data:
-            plotdata[base_key]['standard_pos'] = standard_temp_data[pos_key]
-        if pos_key in extreme_temp_data:
-            plotdata[base_key]['extreme_pos'] = extreme_temp_data[pos_key]
-        if neg_key in standard_temp_data:
-            plotdata[base_key]['standard_neg'] = standard_temp_data[neg_key]
-        if neg_key in extreme_temp_data:
-            plotdata[base_key]['extreme_neg'] = extreme_temp_data[neg_key]
-
-    cases = ['standard_pos', 'extreme_pos', 'standard_neg', 'extreme_neg']
-    n_cases = len(cases)
-
-    # 3. Create a single plot with 4 series per subplot
-    title_labels = {
-        f"inutero_1m3m_{stat}": "1st In-Utero Quarter",
-        f"inutero_3m6m_{stat}": "2nd In-Utero Quarter",
-        f"inutero_6m9m_{stat}": "3rd In-Utero Quarter",
-        f"born_1m3m_{stat}": "1st Born Quarter",
-        f"born_3m6m_{stat}": "2nd Born Quarter",
-        f"born_6m9m_{stat}": "3rd Born Quarter",
-        f"born_9m12m_{stat}": "4th Born Quarter",
-    }
-    fig, axs = plt.subplots(2, 4, figsize=(16, 7))
-    xvalues_clean = [0, 1, 2, 3]
-    
-    axs[0][0].axis('off')
-
-    # Loop through each timeframe
-    for i, base_key in enumerate(title_labels.keys()):
-        if i >= len(axs.flatten()) - 1:
-            break
-        
-        ax = axs.flatten()[i + 1]
-        horserace_data_for_key = plotdata[base_key]
-
-        # Loop through the four cases: 'standard_pos', 'extreme_pos', etc.
-        for j, case_name in enumerate(cases):
-            
-            plotdata_case = horserace_data_for_key.get(case_name)
-            if not plotdata_case:
-                continue
-                
-            coefs = np.array(plotdata_case["coef"][:len(xvalues_clean)])
-            lower = np.array(plotdata_case["lower"][:len(xvalues_clean)])
-            upper = np.array(plotdata_case["upper"][:len(xvalues_clean)])
-
-            # --- START OF MODIFICATION ---
-            # Flip sign ONLY for standard negative shocks for comparability
-            if case_name == 'standard_neg':
-                coefs *= -1
-                lower, upper = -np.array(upper), -np.array(lower)
-            # --- END OF MODIFICATION ---
-                
-            yerr = [coefs - lower, upper - coefs]
-            
-            color = colors[j]
-            label = labels[j]
-            
-            xvalues = distribute_x_values(xvalues_clean, n_cases, margin=0.1)[j]
-            
-            ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
-            if add_line:
-                ax.plot(xvalues, coefs, color=color, alpha=0.7)
-            
-            # Highlight points where the (potentially inverted) lower bound is > 0
-            highlight_significant_points(ax, xvalues, coefs, lower, color=color)
-
-        # Configure subplot aesthetics
-        ax.set_title(title_labels[base_key.replace("_pos_int", "").replace("_neg_int", "")])
-        ax.axhline(y=0, color="black", linewidth=1)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.set_xticks(xvalues_clean, labels=[f"{q+1}{'st' if q==0 else 'nd' if q==1 else 'rd' if q==2 else 'th'} Q" for q in xvalues_clean])
-        ax.set_xlim(-0.5, 3.5)
-
-    fig.tight_layout(rect=[0, 0.05, 1, 1])
-    plt.legend(loc='lower center', bbox_to_anchor=(-1.35, -0.35), ncol=2, frameon=False)
-    
-    filename = fr"{outpath}\horserace - {start}temp_coefficients_{spi}_{stat}_{temp}{extra}.png"
-    plt.savefig(filename, dpi=300, bbox_inches='tight')
-    print("Se creó la figura ", filename)
-    plt.close()
-
-    
-def plot_windows(
-        spi, 
-        temp, 
-        stat, 
-        colors=None,
-        labels=None,    
-        outpath=None,
-        add_line=False,
-    ):
-    '''
-        Plot the coefficients of the heterogeneity analysis.
-        Parameters:
-            full_data: dict
-                The data containing the coefficients and confidence intervals.
-            heterogeneity: str
-                The type of heterogeneity to plot. Must have a folder in the 
-                outputs directory with the same name. 
-            shock: str
-                The type of shock to plot. Can be "temp" or "spi".
-            spi: str
-                The type of SPI to plot. Can be "spi1", "spi3", "spi6", "spi9", 
-                "spi12", "spi24", "spi48".   
-            temp: str
-                The type of temperature to plot.
-            stat: str
-                The type of statistic to plot.  
-            colors: list
-                The colors to use for the different cases.
-            labels: list
-                The labels to use for the different cases.
-            outpath: str
-                The path to save the plot.
-    '''         
-    for shock in ["temp", "spi"]:
-        full_data = extract_coefficients_and_CI_latex_stat_windows(
-            shock, spi, temp, stat
-        )       
-     
-        for sign in ["_neg", "_pos"]:
-            
-            # Keep only keys that contain the specified sign
-            data = {k: v for k, v in full_data.items() if sign in k}
-            n_heterogeneity = 7
-
-            title_labels = {
-                f"inutero_1m3m_{stat}{sign}_int": "1st In-Utero Quarter",
-                f"inutero_3m6m_{stat}{sign}_int": "2nd In-Utero Quarter",
-                f"inutero_6m9m_{stat}{sign}_int": "3rd In-Utero Quarter",
-                f"born_1m3m_{stat}{sign}_int": "1st Born Quarter",
-                f"born_3m6m_{stat}{sign}_int": "2nd Born Quarter",
-                f"born_6m9m_{stat}{sign}_int": "3rd Born Quarter",
-                f"born_9m12m_{stat}{sign}_int": "4th Born Quarter",
-                f"born_12m15m_{stat}{sign}_int": "5th Born Quarter",
-                f"born_15m18m_{stat}{sign}_int": "6th Born Quarter",
-                f"born_18m21m_{stat}{sign}_int": "7th Born Quarter",
-                f"born_21m24m_{stat}{sign}_int": "8th Born Quarter",
-            }
-            fig, axs = plt.subplots(2, 3, figsize=(12, 6))
-            xvalues_clean = [0,1,2]#,4,5,6,7]
-            # axs[0][0].spines['top'].set_visible(False)
-            # axs[0][0].spines['bottom'].set_visible(False)
-            # axs[0][0].spines['right'].set_visible(False)
-            # axs[0][0].spines['left'].set_visible(False)
-            # axs[0][0].set_xticks([])
-            # axs[0][0].set_yticks([])
-
-            for i, key in enumerate(data.keys()):
-                if i==(3+len(xvalues_clean)):
-                    # Break the graph when we reach the expected number of plots.
-                    break
-                if i==len(axs.flatten()):
-                    break
-                heterogeneity_data = data[key]
-                for j, case in enumerate(heterogeneity_data.keys()):
-                    coefs = np.array(heterogeneity_data[case]["coef"][:3])
-                    lower = np.array(heterogeneity_data[case]["lower"][:3])
-                    upper = np.array(heterogeneity_data[case]["upper"][:3])
-
-                    is_neg = "_neg" in key
-                    sign = "_neg" if is_neg else "_pos"
-                    
-                    if is_neg:
-                        coefs = coefs*-1
-                        old_upper = upper
-                        upper = lower*-1
-                        lower = old_upper*-1
-                    yerr = [
-                        list(np.subtract(coefs, lower)), # 'down' error
-                        list(np.subtract(upper, coefs))
-                    ]  # 'up' error
-                    
-                    # Get the color from the cycle
-                    color = colors[j]
-                    label = labels[j]
-                    
-                    ax = axs.flatten()[i]
-
-                    xvalues = distribute_x_values(xvalues_clean, n_heterogeneity, margin=0.15)[j]
-                    
-                    ax.errorbar(xvalues, coefs, yerr=yerr, capsize=3, fmt="o", label=label, color=color)
-                    if add_line:
-                        ax.plot(xvalues, coefs, color=color)
-
-                    # Now call our helper function to highlight points with a lower CI bound > 0.
-                    highlight_significant_points(ax, xvalues, coefs, lower, color=color)
-
-                ax.set_title(title_labels[key.replace("_pos_int", "").replace("_neg_int", "")])
-                ax.axhline(y=0, color="black", linewidth=1)
-                ax.spines['top'].set_visible(False)
-                ax.spines['bottom'].set_visible(False)
-                ax.spines['right'].set_visible(False)
-                ax.set_xticks(xvalues_clean, labels=["1st Q", "2nd Q", "3rd Q",])# "5th Q", "6th Q", "7th Q", "8th Q"])
-                ax.set_xlim(-0.3, 2.6)
-
-            fig.tight_layout()
-            plt.legend(loc='lower center', bbox_to_anchor=(-0.64, -0.5), ncol=4, frameon=False)
-
-            filename = fr"{outpath}\windows - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
-            plt.savefig(filename, dpi=300, bbox_inches='tight')
-            print("Se creó la figura ", filename)
-    plt.close()
-    
 def plot_shocks_histogram(df, cols, outpath):
     
     import seaborn as sns

@@ -21,7 +21,7 @@ df_lazy = DataFrame(tbl)
 #################################################################
 for m in [1,]#, 3, 6, 12, 24]
 
-    CustomModels.run_models(df_lazy, controls, "", "", [m]; models=["linear", "extremes", "horserace"])
+    CustomModels.run_models(df_lazy, controls, "", "", [m]; models=["linear", "spline", "extremes", "horserace"])
     
     # Only run heterogeneity/mechanisms for SPI1
     if m == 1

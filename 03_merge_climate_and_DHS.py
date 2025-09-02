@@ -32,7 +32,7 @@ births = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_07272025.dta")
 births["ID"] = np.arange(len(births))
 print(births.shape[0])
 
-parquet_file = pq.ParquetFile(rf"{DATA_PROC}/ClimateShocks_assigned_v11_nanmean.parquet")
+parquet_file = pq.ParquetFile(rf"{DATA_PROC}/ClimateShocks_assigned_v11.parquet")
 cols = parquet_file.schema.names
 
 # 2. Create the list of columns you want to read (all except the excluded one)
@@ -42,7 +42,20 @@ for extremes in ["hd35", "hd40", "fd", "id"]:
         cols_to_exclude += [col for col in cols if (extremes in col and window in col)]
 columns_to_read = [col for col in cols if col not in cols_to_exclude]# print(cols_to_exclude)
 
-climate = pd.read_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v11_nanmean.parquet", columns=columns_to_read).set_index("ID")
+climate = pd.read_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v11.parquet", columns=columns_to_read).set_index("ID")
+# Cast everything in float64 to float32
+climate_shocks = [
+    col for col in climate.columns if col.startswith(("t_", "std_t_", "stdm_t_", "absdif_t_", "absdifm_t_", "spi", "hd35", "hd40", "fd", "id",))
+]
+for col in tqdm(climate_shocks):
+    climate[col] = pd.to_numeric(climate[col], downcast="float")
+    if climate[col].max() < np.finfo(np.float16).max:
+        climate[col] = climate[col].astype("float16", errors="raise")
+    elif climate[col].max() < np.finfo(np.float32).max:
+        climate[col] = climate[col].astype("float32", errors="raise")
+    else:
+        print(f"Column {col} too large for float32, skipping...")
+        
 births = climate.join(births, how="inner")
 print(births.shape[0])
 
@@ -66,7 +79,8 @@ time_list = [
     "inutero_1m3m", "inutero_3m6m", "inutero_6m9m",
     "born_1m3m"   , "born_3m6m"   , "born_6m9m", "born_9m12m", 
     # TIMEFRAMES_BIANNUALY
-    "inutero", "born_1m6m", "born_6m12m",
+    "inutero", "born_1m6m", "born_6m12m", 
+    "born_12m18m", "born_18m24m", "born_24m30m", "born_30m36m",     
     # TIMEFRAMES_IUFOCUS
     "born_1m", "born_2m3m",
     # TIMEFRAMES_MONTHLY
@@ -174,8 +188,8 @@ bins_labels = {
         "labels": ["1m3m", "3m6m", "6m9m", "9m12m", "12m15m", "alive"]
     },
     "biannual": {
-        "bins": [0, 6, 12, 18, np.inf],
-        "labels": ["1m6m", "6m12m", "12m18m", "alive"],
+        "bins": [0, 6, 12, 18, 24, 30, 36,  np.inf],
+        "labels": ["1m6m", "6m12m", "12m18m", "18m24m", "24m30m", "30m36m", "alive"],
     },
     "inutero": {
         "bins": [0, 1, 3, 7, np.inf],
