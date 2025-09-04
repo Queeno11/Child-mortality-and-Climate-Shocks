@@ -3,7 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-OUTPUTS = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs"
+OUTPUTS = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Outputs"
 
 def remove_words_from_string(long_string, words):
     for word in words:

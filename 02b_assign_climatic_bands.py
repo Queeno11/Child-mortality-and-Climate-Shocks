@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 print("Cargando y procesando bases...")
 ##### CLIMATIC BANDS #####
-da = xr.open_dataset(r"D:\Datasets\Köppen-Geiger Climate Classification\KG_1986-2010.grd", engine="rasterio").band_data.sel(band=1)
+da = xr.open_dataset(r"C:\Datasets\Köppen-Geiger Climate Classification\KG_1986-2010.grd", engine="rasterio").band_data.sel(band=1)
 
 # To geopandas
 gdf = vectorize(da)
@@ -55,12 +55,12 @@ gdf['climate_band_1'] = gdf['climate_band_3'].str[0].map(labels_1)
 # Show
 for band in ["climate_band_1", "climate_band_2", "climate_band_3"]:
     f = gdf.plot(column=band, legend=True)
-    plt.savefig(fr"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_out\{band}.png", dpi=300)
+    plt.savefig(fr"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_out\{band}.png", dpi=300)
     print(f"Se creó la figura Data_out\{band}")
 
 ##### META SPATIAL RELATIVE WEALTH INDEX #####
 
-path = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_in\relative-wealth-index-april-2021"
+path = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_in\relative-wealth-index-april-2021"
 files = os.listdir(path)
 
 dfs = []
@@ -81,7 +81,7 @@ df = None
 ##### LOAD DHS DATA #####
     
 print("Procesando base de DHS... Esto puede tardar unos minutos")
-df = pd.read_stata(r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_in\DHS\DHSBirthsGlobalAnalysis_07272025.dta")
+df = pd.read_stata(r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_in\DHS\DHSBirthsGlobalAnalysis_07272025.dta")
 gdf_dhs = df[["ID_HH","LATNUM","LONGNUM"]].drop_duplicates(subset="ID_HH")
 gdf_dhs = gpd.GeoDataFrame(gdf_dhs, geometry=gpd.points_from_xy(gdf_dhs["LONGNUM"], gdf_dhs["LATNUM"]))
 
@@ -104,7 +104,7 @@ gdf_dhs["southern"] = (gdf_dhs["LATNUM"]<0)
 
 ##### EXPORT #####
 print("Exportando archivo...")
-outpath = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_proc\DHSBirthsGlobalAnalysis_07272025_climate_bands_assigned.dta"
+outpath = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_proc\DHSBirthsGlobalAnalysis_07272025_climate_bands_assigned.dta"
 gdf_dhs = gdf_dhs[["ID_HH", "climate_band_3", "climate_band_2", "climate_band_1", "southern", "rwi", "rwi_distance"]].drop_duplicates("ID_HH")
 gdf_dhs.to_stata(outpath)
 print(f"Se creó el archivo {outpath}")

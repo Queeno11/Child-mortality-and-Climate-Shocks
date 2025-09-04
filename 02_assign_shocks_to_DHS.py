@@ -15,7 +15,7 @@ if __name__ == "__main__":
     logging.getLogger("distributed").setLevel(logging.WARNING)
 
     # Set global variables
-    PROJECT = r"D:\World Bank\Paper - Child Mortality and Climate Shocks"
+    PROJECT = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks"
     OUTPUTS = rf"{PROJECT}\Outputs"
     DATA = rf"{PROJECT}\Data"
     DATA_IN = rf"{DATA}\Data_in"

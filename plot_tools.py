@@ -3,7 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-OUTPUTS = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs"
+OUTPUTS = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Outputs"
 
 # --- Derived Configurations for Specific Plots ---
 SEMESTER_CONFIG = {

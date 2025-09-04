@@ -9,7 +9,7 @@ import pyarrow.feather as feather
 import pyarrow.parquet as pq
 
 # Stata globals → Python Path objects
-PROJECT = r"D:\World Bank\Paper - Child mortality and Climate Shocks"
+PROJECT = r"C:\Working Papers\Paper - Child mortality and Climate Shocks"
 OUTPUTS = rf"{PROJECT}\Outputs"
 DATA = rf"{PROJECT}\Data"
 DATA_IN = rf"{DATA}\Data_in"
@@ -22,7 +22,7 @@ DATA_OUT = rf"{DATA}\Data_out"
 # ---------- 1.  Country income-group lookup ----------
 print("Loading and merging data...")
 df_iso = pd.read_excel(
-    r"D:\World Bank\Data-Portal-Brief-Generator\Data\Data_Raw\Country codes & metadata\country_classification.xlsx",
+    r"C:\Working Papers\Data-Portal-Brief-Generator\Data\Data_Raw\Country codes & metadata\country_classification.xlsx",
 )
 df_iso = df_iso.rename(columns={"wbcode": "code_iso3"})
 

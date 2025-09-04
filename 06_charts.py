@@ -30,8 +30,8 @@ else:
 
 print(f"--- Running plots with '{timeframe_name}' configuration ---")
 
-DATA_OUT = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_out"
-OUTPUTS = r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs"
+DATA_OUT = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_out"
+OUTPUTS = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Outputs"
 OUT_FIGS = rf"{OUTPUTS}\Figures\{spi} {temp} {stat}"
 os.makedirs(rf"{OUT_FIGS}", exist_ok=True)
 
@@ -562,7 +562,7 @@ plot_tools.plot_heterogeneity(
 ################## Descriptive statistcs
 ####### Plot DHS sample:
 
-# df = pd.read_stata(r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_in\DHS\DHSBirthsGlobalAnalysis_05142024.dta")
+# df = pd.read_stata(r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_in\DHS\DHSBirthsGlobalAnalysis_05142024.dta")
 
 # df = df.dropna(subset=["v008", "chb_year", "chb_month"], how="any")
 
@@ -613,7 +613,7 @@ plot_tools.plot_heterogeneity(
 
 # gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.LONGNUM, df.LATNUM))
 
-# world_bounds = gpd.read_file(r"D:\Datasets\World Bank Official Boundaries\WB_countries_Admin0_10m\WB_countries_Admin0_10m.shp")
+# world_bounds = gpd.read_file(r"C:\Datasets\World Bank Official Boundaries\WB_countries_Admin0_10m\WB_countries_Admin0_10m.shp")
 
 # # plot world without fill and with black borders and thin lines
 # ax = world_bounds.simplify(0.1).plot(edgecolor='black', facecolor='none', linewidth=0.4, figsize=(20, 10))
@@ -630,7 +630,7 @@ stop
 import xarray as xr
 import matplotlib.pyplot as plt
 
-ds = xr.open_dataset(r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_proc\Climate_shocks_v9d.nc")
+ds = xr.open_dataset(r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_proc\Climate_shocks_v9d.nc")
 da = ds.stdm_t
 da = da.rolling(dim={"time": 3}, center="left").mean()
 landside = da.isel(time=-5).drop("time").notnull()
@@ -640,13 +640,13 @@ for t in 1.5, 2.5:
     ndays = ndays.where(landside, drop=True) # Mask null values
     ndays.plot(figsize=(10, 5), cmap="Spectral_r")
     plt.title(f"Share of months with Monthly Temperature Anomalies >{t} SD (1991-2021)")
-    plt.savefig(rf"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs\Figures\stdm_t_{t}.png", bbox_inches="tight", dpi=450)
+    plt.savefig(rf"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Outputs\Figures\stdm_t_{t}.png", bbox_inches="tight", dpi=450)
     
     ndays = (da < -t).sum(dim="time") / ((2021-1991)*12)
     ndays = ndays.where(landside, drop=True) # Mask null values
     ndays.plot(figsize=(10, 5), cmap="Spectral_r")
     plt.title(f"Share of months with Monthly Temperature Anomalies <-{t} SD (1991-2021)")
-    plt.savefig(rf"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs\Figures\stdm_t_-{t}.png", bbox_inches="tight", dpi=450)
+    plt.savefig(rf"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Outputs\Figures\stdm_t_-{t}.png", bbox_inches="tight", dpi=450)
     
 ### Distribuciones
 # import seaborn as sns
@@ -669,7 +669,7 @@ for t in 1.5, 2.5:
 #         continue
 #     var = list(labels.keys())[i-1]
 #     data = pd.read_feather(
-#         r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Data\Data_out\DHSBirthsGlobal&ClimateShocks_v10b.feather", columns=[var]
+#         r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_out\DHSBirthsGlobal&ClimateShocks_v10b.feather", columns=[var]
 #     )[var]
 #     ax = data.plot(kind="kde", ax=ax, color="black")
 #     ax.set_title(labels[var])
@@ -683,4 +683,4 @@ for t in 1.5, 2.5:
 # axs[0][0].set_xticks([])
 # axs[0][0].set_yticks([])
 
-# plt.savefig(r"D:\World Bank\Paper - Child Mortality and Climate Shocks\Outputs\Figures\shock_distribution_in_DHS.png", dpi=600)
+# plt.savefig(r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Outputs\Figures\shock_distribution_in_DHS.png", dpi=600)
