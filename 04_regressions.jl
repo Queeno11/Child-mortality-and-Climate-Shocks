@@ -1,4 +1,4 @@
-include("D:\\World Bank\\Paper - Child mortality and Climate Shocks\\CustomModels.jl")
+include("C:\\Working Papers\\Paper - Child mortality and Climate Shocks\\CustomModels.jl")
 
 using .CustomModels
 using DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, StatFiles, Arrow
@@ -12,7 +12,7 @@ controls3 = [:child_fem, :child_mulbirth, :birth_order, :rural, :mother_ageb, :m
 controls4 = [:child_fem, :child_mulbirth, :birth_order, :rural, :rwi, :mother_ageb, :mother_ageb_squ, :mother_ageb_cub, :mother_eduy, :mother_eduy_squ, :mother_eduy_cub]
 controls = term.(controls2) # controls3, controls1
 
-path = "D:\\World Bank\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v11_nanmean.feather"
+path = "C:\\Working Papers\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v11_nanmean.feather"
 tbl = Arrow.Table(path)
 df_lazy = DataFrame(tbl)
 
@@ -21,10 +21,25 @@ df_lazy = DataFrame(tbl)
 #################################################################
 for m in [1,]#, 3, 6, 12, 24]
 
-    CustomModels.run_models(df_lazy, controls, "", "", [m]; models=["linear", "spline", "extremes", "horserace"])
+    # CustomModels.run_models(df_lazy, controls, "", "", [m]; models=["linear", "spline", "extremes", "horserace"])
     
     # Only run heterogeneity/mechanisms for SPI1
     if m == 1
+
+        #################################################################
+        ###  Shock Analysis (High vs. Low In-Utero Shocks)
+        #################################################################
+        
+        # Run the analysis for shocks > 1 Standard Deviation
+        CustomModels.run_shock_analysis(df_lazy, controls, "", "", [m]; 
+                                        models=["linear"])
+
+        stop
+        # Example of running for a different threshold, e.g., 2 Standard Deviations
+        # CustomModels.run_shock_analysis(df_lazy, controls, "", "", [m]; 
+        #                                 models=["linear"], 
+        #                                 shock_threshold=2.0)
+
         #################################################################
         ###  heterogeneity
         #################################################################

@@ -141,7 +141,7 @@ module CustomModels
 
         println("\rRunning Model: $(model_type) $(stat) $(temp) $(drought_ind) with dummies=$(with_dummies), symbols=$(symbols) ($(drought_ind)), fe=$(fixed_effects) \r")
 
-        outpath = "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
+        outpath = "C:\\Working Papers\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
         outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe $(symbols)_sym.txt" 
         outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe $(symbols)_sym.tex"
         mkpath(outpath)
@@ -699,5 +699,94 @@ module CustomModels
     #     println("="^62 * "\n\n")
     #     return # Implicitly returns nothing
     # end
+
+    function run_shock_analysis(df_lazy, controls, folder, extra, months; 
+                                models::Vector{}=["linear"], 
+                                shock_threshold::Real=0.50)
+        """
+        run_shock_analysis(df_lazy, controls, folder, extra, months; models=["linear"], shock_threshold=1.0)
+
+        Runs a shock analysis by splitting the dataset based on whether a child was affected
+        by a significant shock during the in-utero period.
+
+        A "shock" is defined as a deviation in temperature or drought indicators exceeding a
+        specified standard deviation threshold. This function identifies children in the "shock"
+        group (those with a deviation greater than `+shock_threshold` or less than `-shock_threshold`)
+        and the "control" group (all others). It then runs the specified regression models on
+        each of these two groups separately.
+
+        # Arguments
+        - `df_lazy`: A lazy table object (e.g., `Arrow.Table`) containing the full dataset.
+        - `controls`: Array of control variable terms for the regression.
+        - `folder`: The base output folder path to save the regression results.
+        - `extra`: Additional string to append to the output filenames.
+        - `months`: Array of months to iterate through for the models. FIXME: This only works with m=1
+        - `models`: (Keyword) A vector of model types to run (e.g., ["linear", "extremes"]).
+        - `shock_threshold`: (Keyword) The standard deviation threshold to define a shock. Defaults to `1.0`.
+        """
+        println("\n" * "="^80)
+        println("Running Shock Analysis with Threshold: $(shock_threshold) SD")
+        println("="^80 * "\n")
+        
+
+        # Define the variables for the in-utero shock
+        temp_shock_var = Symbol("stdm_t_inutero_b_avg")
+        drought_shock_var = Symbol("spi1_inutero_b_avg")
+
+        # Create a temporary DataFrame to determine the groups
+        # Ensure ID column is correctly identified, assuming it's present in the lazy table
+        df_temp = DataFrame(
+            ID = Tables.getcolumn(df_lazy, :ID),
+            temp_shock = Tables.getcolumn(df_lazy, temp_shock_var),
+            drought_shock = Tables.getcolumn(df_lazy, drought_shock_var)
+        )
+
+        # 1. Calculate the boolean mask, which may contain `missing` values.
+        shock_mask = (
+            (df_temp.temp_shock .> shock_threshold) .| (df_temp.temp_shock .< -shock_threshold) .|
+            (df_temp.drought_shock .> shock_threshold) .| (df_temp.drought_shock .< -shock_threshold)
+        )
+
+        # 2. Use `coalesce.` to replace any `missing` results with `false`.
+        # This ensures that children with missing shock data are placed in the control group.
+        df_temp.is_shock_group = coalesce.(shock_mask, false)
+        
+        # Add the group identifier to the lazy table for filtering
+        # This assumes df_lazy can be efficiently joined or that a new filtered view can be created.
+        # For Arrow tables, a join might materialize data, so we'll pass the list of IDs instead for filtering.
+        shock_ids = Set(df_temp[df_temp.is_shock_group .== true, :ID])
+        control_ids = Set(df_temp[df_temp.is_shock_group .== false, :ID])
+
+        # Run the models for the shock group and the control group
+        for (group_name, group_ids) in [("shock_group", shock_ids), ("control_group", control_ids)]
+            println("\n" * "-"^80)
+            println("Analyzing: $(group_name)")
+            println("-"^80 * "\n")
+
+            # Define the folder and suffix for this group, including the threshold
+            threshold_str = replace(string(shock_threshold), "." => "p")
+            group_folder = joinpath(folder, "shock_analysis_$(threshold_str)sd", group_name)
+            group_suffix = "$(extra) - $(group_name)"
+            
+            # Create a filtered view of the lazy DataFrame for the current group
+            # This is more memory-efficient than a join
+            df_group_lazy = filter(row -> row.ID in group_ids, df_lazy)
+
+            # Run the models for this group
+            run_models(
+                df_group_lazy,
+                controls,
+                group_folder,
+                group_suffix,
+                months;
+                models=models,
+                filter_on=nothing # The filtering is already done by creating df_group_lazy
+            )
+        end
+
+        println("\n" * "="^80)
+        println("Shock Analysis Complete")
+        println("="^80 * "\n")
+    end
 
 end # module SteppedRegression
