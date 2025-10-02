@@ -62,130 +62,130 @@ plot_tools.plot_regression_coefficients(
     margin=0.25, colors=["#ff5100", "#3e9fe1"], labels=["Low precipitation shocks", "High precipitation shocks"],
     outpath=OUT_FIGS, add_line=True, start="main - ", ylim=(-0.6, 2.7), **main_config)
 
-### Figure 2b: Extreme temperatures
-labels = {
-    "fd": "# of days Tmin < 0°C",
-    "id": "# of days Tmax < 0°C",
-    35: "# of days Tmax ≥ 35°C",
-    40: "# of days Tmax ≥ 40°C"
-}
-for hot in [35, 40]:
-    for cold in ["fd", "id"]:
-        file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp} {timeframe_name} standard_fe hd{hot}{cold}_sym.tex"  # Replace with the actual path to your LaTeX file.
-        outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
+# ### Figure 2b: Extreme temperatures
+# labels = {
+#     "fd": "# of days Tmin < 0°C",
+#     "id": "# of days Tmax < 0°C",
+#     35: "# of days Tmax ≥ 35°C",
+#     40: "# of days Tmax ≥ 40°C"
+# }
+# for hot in [35, 40]:
+#     for cold in ["fd", "id"]:
+#         file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp} {timeframe_name} standard_fe hd{hot}{cold}_sym.tex"  # Replace with the actual path to your LaTeX file.
+#         outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
         
-        plot_tools.plot_regression_coefficients(
-            data=outdata, 
-            shock="temp",
-            spi=spi,
-            temp=temp,
-            stat=stat,
-            margin=0.25,
-            colors=["#3e9fe1", "#ff5100"], 
-            labels=[labels[cold], labels[hot]], 
-            outpath=rf"{OUT_FIGS}",
-            add_line=True,
-            start="extremes - ",
-            extra=f" - hd{hot}{cold}",
-            ylim=(-0.6, 2.7), 
-            **main_config
-        )
-        plot_tools.plot_regression_coefficients(
-            data=outdata, 
-            shock="spi",
-            spi=spi,
-            temp=temp,
-            stat=stat,
-            margin=0.25,
-            colors=["#ff5100", "#3e9fe1"], 
-            labels=["Low precipitation shocks", "High precipitation shocks"], 
-            outpath=rf"{OUT_FIGS}",
-            add_line=True,
-            start="extremes - ",
-            extra=f" - hd{hot}{cold}",
-            ylim=(-0.6, 2.7), 
-            **main_config
-        )
+#         plot_tools.plot_regression_coefficients(
+#             data=outdata, 
+#             shock="temp",
+#             spi=spi,
+#             temp=temp,
+#             stat=stat,
+#             margin=0.25,
+#             colors=["#3e9fe1", "#ff5100"], 
+#             labels=[labels[cold], labels[hot]], 
+#             outpath=rf"{OUT_FIGS}",
+#             add_line=True,
+#             start="extremes - ",
+#             extra=f" - hd{hot}{cold}",
+#             ylim=(-0.6, 2.7), 
+#             **main_config
+#         )
+#         plot_tools.plot_regression_coefficients(
+#             data=outdata, 
+#             shock="spi",
+#             spi=spi,
+#             temp=temp,
+#             stat=stat,
+#             margin=0.25,
+#             colors=["#ff5100", "#3e9fe1"], 
+#             labels=["Low precipitation shocks", "High precipitation shocks"], 
+#             outpath=rf"{OUT_FIGS}",
+#             add_line=True,
+#             start="extremes - ",
+#             extra=f" - hd{hot}{cold}",
+#             ylim=(-0.6, 2.7), 
+#             **main_config
+#         )
 
-### Figure 2c: Horserace
-for hot in [35, 40]:
-    for cold in ["fd", "id"]:
-        if cold=="fd":
-            coldstat = "TMin"
-        else: # cold=="id"
-            coldstat = "TMax" 
-        file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp} {timeframe_name} standard_fe horserace_hd{hot}{cold}_sym.tex"  # Replace with the actual path to your LaTeX file.
-        outdata = plot_tools.extract_coefficients_and_CI_latex_horserace(file_path)
+# ### Figure 2c: Horserace
+# for hot in [35, 40]:
+#     for cold in ["fd", "id"]:
+#         if cold=="fd":
+#             coldstat = "TMin"
+#         else: # cold=="id"
+#             coldstat = "TMax" 
+#         file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp} {timeframe_name} standard_fe horserace_hd{hot}{cold}_sym.tex"  # Replace with the actual path to your LaTeX file.
+#         outdata = plot_tools.extract_coefficients_and_CI_latex_horserace(file_path)
         
-        plot_tools.plot_horserace_temp(
-            data=outdata, 
-            spi=spi,
-            temp=temp,
-            stat=stat,
-            colors=["#ff5100",  "#fdbb84","#3e9fe1",  "#87ceeb",],
-            labels=["High Temprature Anomalies", f"N° of Days with TMax>{hot}°", "Low Temprature Anomalies", f"N° of Days with {coldstat}<0°"],
-            outpath=rf"{OUT_FIGS}",
-            extra=f" - hd{hot}{cold}{temp}",
-            ylim=(-0.6, 2.7), 
-            **main_config
-        )
-        plot_tools.plot_regression_coefficients(
-            data=outdata["standard"],  # Or extreme, they are the same!
-            shock="spi",
-            spi=spi,
-            temp=temp,
-            stat=stat,
-            margin=0.25,
-            colors=["#ff5100", "#3e9fe1"], 
-            labels=["Low precipitation shocks", "High precipitation shocks"], 
-            outpath=rf"{OUT_FIGS}",
-            add_line=True,
-            start="horserace - ",
-            extra=f" - hd{hot}{cold}{temp}_spi",
-            ylim=(-0.6, 2.7), 
-            **main_config
-        )
+#         plot_tools.plot_horserace_temp(
+#             data=outdata, 
+#             spi=spi,
+#             temp=temp,
+#             stat=stat,
+#             colors=["#ff5100",  "#fdbb84","#3e9fe1",  "#87ceeb",],
+#             labels=["High Temprature Anomalies", f"N° of Days with TMax>{hot}°", "Low Temprature Anomalies", f"N° of Days with {coldstat}<0°"],
+#             outpath=rf"{OUT_FIGS}",
+#             extra=f" - hd{hot}{cold}{temp}",
+#             ylim=(-0.6, 2.7), 
+#             **main_config
+#         )
+#         plot_tools.plot_regression_coefficients(
+#             data=outdata["standard"],  # Or extreme, they are the same!
+#             shock="spi",
+#             spi=spi,
+#             temp=temp,
+#             stat=stat,
+#             margin=0.25,
+#             colors=["#ff5100", "#3e9fe1"], 
+#             labels=["Low precipitation shocks", "High precipitation shocks"], 
+#             outpath=rf"{OUT_FIGS}",
+#             add_line=True,
+#             start="horserace - ",
+#             extra=f" - hd{hot}{cold}{temp}_spi",
+#             ylim=(-0.6, 2.7), 
+#             **main_config
+#         )
 
-# Horserace by climate band
-for hot in [35, 40]:
-    for cold in ["fd", "id"]:
-        if cold=="fd":
-            coldstat = "TMin"
-        else: # cold=="id"
-            coldstat = "TMax" 
+# # Horserace by climate band
+# for hot in [35, 40]:
+#     for cold in ["fd", "id"]:
+#         if cold=="fd":
+#             coldstat = "TMin"
+#         else: # cold=="id"
+#             coldstat = "TMax" 
 
-        for band in ["Arid","Temperate", "Tropical"]:
-            file_path = rf"{OUTPUTS}\heterogeneity\climate_band_1\linear_dummies_true_{spi}_{stat}_{temp} {timeframe_name} - {band} standard_fe horserace_hd{hot}{cold}_sym.tex"  # Replace with the actual path to your LaTeX file.
-            outdata = plot_tools.extract_coefficients_and_CI_latex_horserace(file_path)
+#         for band in ["Arid","Temperate", "Tropical"]:
+#             file_path = rf"{OUTPUTS}\heterogeneity\climate_band_1\linear_dummies_true_{spi}_{stat}_{temp} {timeframe_name} - {band} standard_fe horserace_hd{hot}{cold}_sym.tex"  # Replace with the actual path to your LaTeX file.
+#             outdata = plot_tools.extract_coefficients_and_CI_latex_horserace(file_path)
             
-            plot_tools.plot_horserace_temp(
-                data=outdata, 
-                spi=spi,
-                temp=temp,
-                stat=stat,
-                colors=["#ff5100",  "#fdbb84","#3e9fe1",  "#87ceeb",],
-                labels=["High Temprature Anomalies", f"N° of Days with TMax>{hot}°", "Low Temprature Anomalies", f"N° of Days with {coldstat}<0°"],
-                outpath=rf"{OUT_FIGS}",
-                extra=f" - {band} hd{hot}{cold}{temp}",
-                ylim=(-0.6, 2.7), 
-                **main_config,
-            )
-            plot_tools.plot_regression_coefficients(
-                data=outdata["standard"],  # Or extreme, they are the same!
-                shock="spi",
-                spi=spi,
-                temp=temp,
-                stat=stat,
-                margin=0.25,
-                colors=["#ff5100", "#3e9fe1"], 
-                labels=["Low precipitation shocks", "High precipitation shocks"], 
-                outpath=rf"{OUT_FIGS}",
-                add_line=True,
-                start="horserace - ",
-                extra=f" - {band} hd{hot}{cold}{temp}_spi",
-                ylim=(-0.6, 2.7), 
-                **main_config,
-            )
+#             plot_tools.plot_horserace_temp(
+#                 data=outdata, 
+#                 spi=spi,
+#                 temp=temp,
+#                 stat=stat,
+#                 colors=["#ff5100",  "#fdbb84","#3e9fe1",  "#87ceeb",],
+#                 labels=["High Temprature Anomalies", f"N° of Days with TMax>{hot}°", "Low Temprature Anomalies", f"N° of Days with {coldstat}<0°"],
+#                 outpath=rf"{OUT_FIGS}",
+#                 extra=f" - {band} hd{hot}{cold}{temp}",
+#                 ylim=(-0.6, 2.7), 
+#                 **main_config,
+#             )
+#             plot_tools.plot_regression_coefficients(
+#                 data=outdata["standard"],  # Or extreme, they are the same!
+#                 shock="spi",
+#                 spi=spi,
+#                 temp=temp,
+#                 stat=stat,
+#                 margin=0.25,
+#                 colors=["#ff5100", "#3e9fe1"], 
+#                 labels=["Low precipitation shocks", "High precipitation shocks"], 
+#                 outpath=rf"{OUT_FIGS}",
+#                 add_line=True,
+#                 start="horserace - ",
+#                 extra=f" - {band} hd{hot}{cold}{temp}_spi",
+#                 ylim=(-0.6, 2.7), 
+#                 **main_config,
+#             )
 
 
 ### WINDOWS 1m figures:
@@ -256,6 +256,22 @@ fd = plot_tools.plot_windows(
 # )
 
 
+### Figure 4a: RWI heterogeneity
+colors=["#fe3500", "#79c78d"] 
+labels=["Affected by extreme temperatures in-utero", "Not affected by extreme temperatures in-utero"]
+
+plot_tools.plot_heterogeneity(
+    "shock_analysis_p25p0_p75p0",
+    spi=spi,
+    temp=temp,
+    stat=stat,
+    timeframe=timeframe_name,
+    colors=colors, 
+    labels=labels,
+    outpath=OUT_FIGS, 
+    ylim=(-0.6, 2.7), 
+    **main_config,
+)    
 
 ### Figure 4a: RWI heterogeneity
 colors=["#fe3500", "#ffd220", "#79c78d"] 

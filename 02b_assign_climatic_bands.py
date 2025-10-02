@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 print("Cargando y procesando bases...")
 ##### CLIMATIC BANDS #####
-da = xr.open_dataset(r"C:\Datasets\Köppen-Geiger Climate Classification\KG_1986-2010.grd", engine="rasterio").band_data.sel(band=1)
+da = xr.open_dataset(r"E:\Datasets\Köppen-Geiger Climate Classification\KG_1986-2010.grd", engine="rasterio").band_data.sel(band=1)
 
 # To geopandas
 gdf = vectorize(da)
@@ -58,6 +58,8 @@ for band in ["climate_band_1", "climate_band_2", "climate_band_3"]:
     plt.savefig(fr"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_out\{band}.png", dpi=300)
     print(f"Se creó la figura Data_out\{band}")
 
+gdf = gdf[['geometry', 'climate_band_3', 'climate_band_2', 'climate_band_1']]
+
 ##### META SPATIAL RELATIVE WEALTH INDEX #####
 
 path = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_in\relative-wealth-index-april-2021"
@@ -73,18 +75,38 @@ df = pd.concat(dfs, ignore_index=True)
 
 gdf_rwi = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df["longitude"], df["latitude"])).drop(columns=["longitude", "latitude"])
 gdf_rwi = gdf_rwi.set_crs("EPSG:4326")
+gdf_rwi = gdf_rwi[["rwi","geometry"]]
 
 dfs = None
 df = None
 
+##### ND Gain Index #####
+gain = pd.read_csv(r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_in\ND Gain Index 2025\resources\gain\gain.csv")
+gain = gain.rename(columns={"ISO3": "code_iso3", "2023": "ND Gain Index 2023"}) 
+gain = gain[["code_iso3", "ND Gain Index 2023"]]
+
+##### World Risk Index #####
+wri = pd.read_excel(r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_in\worldriskindex-2024.xlsx")
+wri = wri.rename(columns={
+    "ISO3.Code": "code_iso3",
+    "W": "World Risk Index",
+    "V": "Vulnerability Index",
+    "E": "Exposure Index", 
+    "A": "Adaptive Capacity",
+    "C": "Coping Mechanisms",
+})
+wri = wri[["code_iso3", "World Risk Index", "Vulnerability Index", "Exposure Index", "Adaptive Capacity", "Coping Mechanisms"]]
 
 ##### LOAD DHS DATA #####
     
 print("Procesando base de DHS... Esto puede tardar unos minutos")
 df = pd.read_stata(r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_in\DHS\DHSBirthsGlobalAnalysis_07272025.dta")
-gdf_dhs = df[["ID_HH","LATNUM","LONGNUM"]].drop_duplicates(subset="ID_HH")
+gdf_dhs = df[["code_iso3", "ID_HH","LATNUM","LONGNUM"]].drop_duplicates(subset="ID_HH")
 gdf_dhs = gpd.GeoDataFrame(gdf_dhs, geometry=gpd.points_from_xy(gdf_dhs["LONGNUM"], gdf_dhs["LATNUM"]))
 
+##### COUNTRY LEVEL MERGES #####
+gdf_dhs = gdf_dhs.merge(gain, on="code_iso3", how="left", validate="m:1")
+gdf_dhs = gdf_dhs.merge(wri, on="code_iso3", how="left", validate="m:1")
 
 ##### SPATIAL MERGES #####
 print("Realizando merges espaciales...")
@@ -104,7 +126,7 @@ gdf_dhs["southern"] = (gdf_dhs["LATNUM"]<0)
 
 ##### EXPORT #####
 print("Exportando archivo...")
-outpath = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_proc\DHSBirthsGlobalAnalysis_07272025_climate_bands_assigned.dta"
-gdf_dhs = gdf_dhs[["ID_HH", "climate_band_3", "climate_band_2", "climate_band_1", "southern", "rwi", "rwi_distance"]].drop_duplicates("ID_HH")
-gdf_dhs.to_stata(outpath)
+outpath = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_proc\DHSBirthsGlobalAnalysis_07272025_climate_bands_assigned.parquet"
+gdf_dhs = gdf_dhs.drop_duplicates("ID_HH")
+gdf_dhs.drop(columns=["LATNUM", "LONGNUM", "code_iso3"]).to_parquet(outpath)
 print(f"Se creó el archivo {outpath}")

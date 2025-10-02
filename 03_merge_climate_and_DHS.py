@@ -22,7 +22,7 @@ DATA_OUT = rf"{DATA}\Data_out"
 # ---------- 1.  Country income-group lookup ----------
 print("Loading and merging data...")
 df_iso = pd.read_excel(
-    r"C:\Working Papers\Data-Portal-Brief-Generator\Data\Data_Raw\Country codes & metadata\country_classification.xlsx",
+    r"E:\World Bank\Data-Portal-Brief-Generator\Data\Data_Raw\Country codes & metadata\country_classification.xlsx",
 )
 df_iso = df_iso.rename(columns={"wbcode": "code_iso3"})
 
@@ -32,7 +32,7 @@ births = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_07272025.dta")
 births["ID"] = np.arange(len(births))
 print(births.shape[0])
 
-parquet_file = pq.ParquetFile(rf"{DATA_PROC}/ClimateShocks_assigned_v11.parquet")
+parquet_file = pq.ParquetFile(rf"{DATA_PROC}/ClimateShocks_assigned_v11_full.parquet")
 cols = parquet_file.schema.names
 
 # 2. Create the list of columns you want to read (all except the excluded one)
@@ -42,7 +42,7 @@ for extremes in ["hd35", "hd40", "fd", "id"]:
         cols_to_exclude += [col for col in cols if (extremes in col and window in col)]
 columns_to_read = [col for col in cols if col not in cols_to_exclude]# print(cols_to_exclude)
 
-climate = pd.read_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v11.parquet", columns=columns_to_read).set_index("ID")
+climate = pd.read_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v11_full.parquet", columns=columns_to_read).set_index("ID")
 # Cast everything in float64 to float32
 climate_shocks = [
     col for col in climate.columns if col.startswith(("t_", "std_t_", "stdm_t_", "absdif_t_", "absdifm_t_", "spi", "hd35", "hd40", "fd", "id",))
@@ -59,17 +59,21 @@ for col in tqdm(climate_shocks):
 births = climate.join(births, how="inner")
 print(births.shape[0])
 
+
 # 2.2 add income group --------------------------------------------------------
 births = births.merge(df_iso[["code_iso3", "wbincomegroup"]], on="code_iso3", how="inner")
 print(births.shape[0])
 
-# 2.3 add climate bands, south-hemisphere dummy and RWI ------------------------------
-bands = pd.read_stata(
-    rf"{DATA_PROC}/DHSBirthsGlobalAnalysis_07272025_climate_bands_assigned.dta"
+# 2.3 add climate bands, south-hemisphere dummy and RWI + Country level indicators ------------------------------
+bands = pd.read_parquet(
+    rf"{DATA_PROC}/DHSBirthsGlobalAnalysis_07272025_climate_bands_assigned.parquet"
 )
+print("Columns in the 'bands' DataFrame:", bands.columns)
+
 births = births.merge(bands, on="ID_HH", how="inner")
 print(f"Data loaded! Number of observations: {births.shape[0]}")
 print(births.shape[0])
+
 
 # ---------- 3.  Climate-shock feature engineering ----------
 print("Creating variables...")
@@ -113,7 +117,7 @@ for var in tqdm(climate_list):
             base = f"{var}_{t}_{stat}"
             
             if (base not in births.columns):
-                print(f"Column {base} not in births columns, skipping...")
+                # print(f"Column {base} not in births columns, skipping...")
                 continue
             
             s = births[base].copy()
@@ -176,11 +180,20 @@ for col in ["hhaircon", "hhfan"]:
 births["rwi_tertiles"] = pd.qcut(births["rwi"], 3, labels=False) + 1
 births["rwi_quintiles"] = pd.qcut(births["rwi"], 5, labels=False) + 1
 
-# Create house indicators: "housing_quality_index", "heat_protection_index", "cold_protection_index"
-births["high_quality_housing"] = pd.qcut(births["housing_quality_index"], 2, labels=False)
-births["high_heat_protection"] = pd.qcut(births["heat_protection_index"], 2, labels=False)
-births["high_cold_protection"] = pd.qcut(births["cold_protection_index"], 2, labels=False)
+heterogeneity_indexes = [
+    "housing_quality_index", "heat_protection_index", "cold_protection_index", 
+    "World Risk Index", "Exposure Index", "Adaptive Capacity", "Coping Mechanisms",
+    "ND Gain Index 2023", 
+]
+for ind in heterogeneity_indexes:
+    ind_new_name = ind.lower().replace(" ", "_").replace("_index", "")
+    births[f"high_{ind_new_name}"] = pd.qcut(births[ind], 2, labels=False)
 
+# Threshold based on World Risk Index Report 2023
+births.loc[births["Vulnerability Index"]>=25.02, "high_vulnerability"] = 1
+births.loc[births["Vulnerability Index"]<25.02, "high_vulnerability"] = 0
+
+X|   
 # ---------- 4.  Child age-at-death dummies (per 1 000 births) ----------
 bins_labels = {
     "quarterly": {
@@ -248,7 +261,7 @@ births["time_sq"]  = births["time"] ** 2
 
 # ---------- 6.  Set final dataset  ----------
 print("Dropping variables...")
-IDs = ["ID", "ID_R", "ID_CB", "ID_HH", "lat", "lon", "child_agedeath"]
+IDs = ["ID", "ID_R", "ID_CB", "ID_HH", "lat", "lon", "code_iso3", "child_agedeath"]
 climate_shocks = [
     col for col in births.columns if col.startswith(("t_", "std_t_", "stdm_t_", "absdif_t_", "absdifm_t_", "spi", "hd35", "hd40", "fd", "id",))
 ]
@@ -268,8 +281,7 @@ fixed_effects = [
 mechanisms = [
     "pipedw", "refrigerator", "electricity", "hhaircon", "hhfan", 
     "housing_quality_index", "heat_protection_index", "cold_protection_index",  
-    "high_quality_housing", "high_heat_protection", "high_cold_protection",
-]
+] + [col for col in births.columns if "high_" in col]
 heterogeneities = [
     "climate_band_3", "climate_band_2", "climate_band_1", "southern", "wbincomegroup", "rwi_tertiles", "rwi_quintiles",
 ]
@@ -307,7 +319,7 @@ for col in tqdm(int_cols):
 
 # ---------- 8.  Save outputs (.dta 118 and .csv) -----------------------------
 print("Writing files...")
-out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v11_nanmean.feather"
+out_feather   = rf"{DATA_OUT}/DHSBirthsGlobal&ClimateShocks_v11_full.feather"
 
 # `df` is your pandas DataFrame
 feather.write_feather(

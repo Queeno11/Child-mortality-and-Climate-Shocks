@@ -1,6 +1,6 @@
 module CustomModels
 
-    using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, Arrow, Tables
+    using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, Arrow, Tables, Statistics
     using StatsModels: termvars
 
     
@@ -700,11 +700,12 @@ module CustomModels
     #     return # Implicitly returns nothing
     # end
 
-    function run_shock_analysis(df_lazy, controls, folder, extra, months; 
+    function run_shock_analysis(df_lazy, controls, extra, months; 
                                 models::Vector{}=["linear"], 
-                                shock_threshold::Real=0.50)
+                                lower_p::Real=0.15,
+                                upper_p::Real=0.85)
         """
-        run_shock_analysis(df_lazy, controls, folder, extra, months; models=["linear"], shock_threshold=1.0)
+        run_shock_analysis(df_lazy, controls, extra, months; models=["linear"], shock_threshold=1.0)
 
         Runs a shock analysis by splitting the dataset based on whether a child was affected
         by a significant shock during the in-utero period.
@@ -718,55 +719,54 @@ module CustomModels
         # Arguments
         - `df_lazy`: A lazy table object (e.g., `Arrow.Table`) containing the full dataset.
         - `controls`: Array of control variable terms for the regression.
-        - `folder`: The base output folder path to save the regression results.
         - `extra`: Additional string to append to the output filenames.
         - `months`: Array of months to iterate through for the models. FIXME: This only works with m=1
         - `models`: (Keyword) A vector of model types to run (e.g., ["linear", "extremes"]).
         - `shock_threshold`: (Keyword) The standard deviation threshold to define a shock. Defaults to `1.0`.
         """
         println("\n" * "="^80)
-        println("Running Shock Analysis with Threshold: $(shock_threshold) SD")
+        println("Running Temperature-Only Shock Analysis (Thresholds: p$(lower_p*100) and p$(upper_p*100))")
         println("="^80 * "\n")
         
-
-        # Define the variables for the in-utero shock
+        # Define the variable for the in-utero temperature shock
         temp_shock_var = Symbol("stdm_t_inutero_b_avg")
-        drought_shock_var = Symbol("spi1_inutero_b_avg")
 
         # Create a temporary DataFrame to determine the groups
-        # Ensure ID column is correctly identified, assuming it's present in the lazy table
         df_temp = DataFrame(
             ID = Tables.getcolumn(df_lazy, :ID),
-            temp_shock = Tables.getcolumn(df_lazy, temp_shock_var),
-            drought_shock = Tables.getcolumn(df_lazy, drought_shock_var)
+            temp_shock = Tables.getcolumn(df_lazy, temp_shock_var)
         )
+        
+        # Calculate temperature thresholds using quantiles, ignoring missing values
+        temp_lower_bound = quantile(skipmissing(df_temp.temp_shock), lower_p)
+        temp_upper_bound = quantile(skipmissing(df_temp.temp_shock), upper_p)
 
-        # 1. Calculate the boolean mask, which may contain `missing` values.
-        shock_mask = (
-            (df_temp.temp_shock .> shock_threshold) .| (df_temp.temp_shock .< -shock_threshold) .|
-            (df_temp.drought_shock .> shock_threshold) .| (df_temp.drought_shock .< -shock_threshold)
-        )
+        println("Calculated Thresholds:")
+        println("  - Temperature (stdm_t): [Lower: $(round(temp_lower_bound, digits=3)), Upper: $(round(temp_upper_bound, digits=3))]")
 
-        # 2. Use `coalesce.` to replace any `missing` results with `false`.
-        # This ensures that children with missing shock data are placed in the control group.
+        # Define the shock group based ONLY on temperature falling outside the bounds
+        shock_mask = (df_temp.temp_shock .< temp_lower_bound) .| (df_temp.temp_shock .> temp_upper_bound)
+
+        # Replace any `missing` results from the comparison with `false`.
+        # Children with missing temperature shock data will be in the control group.
         df_temp.is_shock_group = coalesce.(shock_mask, false)
         
-        # Add the group identifier to the lazy table for filtering
-        # This assumes df_lazy can be efficiently joined or that a new filtered view can be created.
-        # For Arrow tables, a join might materialize data, so we'll pass the list of IDs instead for filtering.
+        # Get the IDs for each group
         shock_ids = Set(df_temp[df_temp.is_shock_group .== true, :ID])
         control_ids = Set(df_temp[df_temp.is_shock_group .== false, :ID])
 
-        # Run the models for the shock group and the control group
+        # Run the models for each group
         for (group_name, group_ids) in [("shock_group", shock_ids), ("control_group", control_ids)]
+  
             println("\n" * "-"^80)
             println("Analyzing: $(group_name)")
             println("-"^80 * "\n")
 
             # Define the folder and suffix for this group, including the threshold
-            threshold_str = replace(string(shock_threshold), "." => "p")
-            group_folder = joinpath(folder, "shock_analysis_$(threshold_str)sd", group_name)
-            group_suffix = "$(extra) - $(group_name)"
+            lower_p_str = replace(string(lower_p * 100), "." => "p")
+            upper_p_str = replace(string(upper_p * 100), "." => "p")
+            group_folder = joinpath("heterogeneity", "shock_analysis_p$(lower_p_str)_p$(upper_p_str)")
+            group_suffix = " - $(group_name)$(extra)"
             
             # Create a filtered view of the lazy DataFrame for the current group
             # This is more memory-efficient than a join

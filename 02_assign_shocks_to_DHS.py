@@ -295,8 +295,8 @@ if __name__ == "__main__":
 
     for i, lat_slice in enumerate(lat_chunks):
         chunk_filename = os.path.join(output_dir, f"births_climate_{i}.parquet")
-        if os.path.exists(chunk_filename):
-            continue
+        # if os.path.exists(chunk_filename):
+        #     continue
 
         print(f"\n--- Processing Latitude Chunk {i+1}/{len(lat_chunks)} (lats: {lat_slice[0]} to {lat_slice[-1]}) ---")
         
@@ -415,7 +415,7 @@ if __name__ == "__main__":
     ]
     shock_cols = [col for col in all_shock_cols if col in df.columns]
     # df = df.dropna(subset=shock_cols, how="any")
-    df.to_parquet(rf"{DATA_PROC}\ClimateShocks_assigned_v11.parquet")
+    df.to_parquet(rf"{DATA_PROC}\ClimateShocks_assigned_v11_full.parquet")
 
     # float16_cols = df.select_dtypes(include=["float16"]).columns
     # if len(float16_cols) > 0:
