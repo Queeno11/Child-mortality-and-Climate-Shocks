@@ -1,9 +1,9 @@
 include("C:\\Working Papers\\Paper - Child mortality and Climate Shocks\\CustomModels.jl")
 
 using .CustomModels
-using DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, StatFiles, Arrow
+using DataFrames, RDatasets, RegressionTables, FixedEffectModels, ProgressMeter, StatFiles, Arrow
 
-@assert CUDA.functional()
+# @assert CUDA.functional()
 
 ## Load the data
 controls1 = [:child_fem, :child_mulbirth, :birth_order, :rural, :d_weatlh_ind_2, :d_weatlh_ind_3, :d_weatlh_ind_4, :d_weatlh_ind_5, :mother_ageb, :mother_eduy]
@@ -21,8 +21,8 @@ df_lazy = DataFrame(tbl)
 #################################################################
 for m in [1,]#, 3, 6, 12, 24]
 
-    # CustomModels.run_models(df_lazy, controls, "", "", [m]; models=["linear", "horserace",]) #"spline", "extremes", ])
-    
+    CustomModels.run_models(df_lazy, controls, "", "", [m]; models=["spline"])#, "linear", "horserace",])#, "extremes", ])
+    stop
     # Only run heterogeneity/mechanisms for SPI1
     if m == 1
 

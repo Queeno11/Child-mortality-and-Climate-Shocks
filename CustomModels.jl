@@ -340,25 +340,67 @@ module CustomModels
                 append!(syms,  (ind_neg_x,  ind_pos_x, ind_neg_x_sq, ind_pos_x_sq))
 
             elseif model_type == "spline"
-                # 1.  Dummy indicators
-                ind_gtk = Symbol("$(ind)_gt$(sp_threshold)")
-                ind_bt0k = Symbol("$(ind)_bt0$(sp_threshold)")
-                ind_bt0mk = Symbol("$(ind)_bt0m$(sp_threshold)")
-                ind_ltk = Symbol("$(ind)_ltm$(sp_threshold)")
 
-                # 2.  Build the interaction columns
-                ind_gtk_x = Symbol("$(ind)_gt$(sp_threshold)_int")   # interaction
-                ind_bt0k_x = Symbol("$(ind)_bt0$(sp_threshold)_int")   
-                ind_bt0mk_x = Symbol("$(ind)_bt0m$(sp_threshold)_int")   
-                ind_ltk_x = Symbol("$(ind)_ltm$(sp_threshold)_int")   
+                # --- CALCULATION OF QUARTILES ---
+                # 1. Collect data for the specific column, skipping missing values
+                #    We convert to Float32/64 to ensure statistics can be calculated
+                data_col = collect(skipmissing(df[!, ind]))
                 
-                df[!,  ind_gtk_x  ] = passmissing(Float16).(df[!, ind] .* df[!, ind_gtk  ])
-                df[!,  ind_bt0k_x ] = passmissing(Float16).(df[!, ind] .* df[!, ind_bt0k ])
-                df[!,  ind_bt0mk_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_bt0mk])
-                df[!,  ind_ltk_x  ] = passmissing(Float16).(df[!, ind] .* df[!, ind_ltk  ])
+                if isempty(data_col)
+                    println("Warning: Column $(ind) is empty. Skipping spline generation.")
+                    continue
+                end
+
+                # 2. Compute Quartiles [25%, 50%, 75%]
+                qvals = quantile(data_col, [0.25, 0.5, 0.75])
+                q1_val, median_val, q3_val = qvals[1], qvals[2], qvals[3]
+
+                # Debug print to verify it's working
+                # println("Column: $(ind) | Q1: $(round(q1_val, digits=2)), Med: $(round(median_val, digits=2)), Q3: $(round(q3_val, digits=2))")
+
+                # --- DEFINE SYMBOLS (q4=Highest, q1=Lowest) ---
+                # We use suffixes _q1 to _q4 instead of _gt, _bt, etc.
+                ind_q4 = Symbol("$(ind)_q4")       # > Q3
+                ind_q3 = Symbol("$(ind)_q3")       # Median to Q3
+                ind_q2 = Symbol("$(ind)_q2")       # Q1 to Median
+                ind_q1 = Symbol("$(ind)_q1")       # < Q1
+
+                # --- GENERATE DUMMIES ON THE FLY ---
+
+                # Bin 4: Top 25% (x > Q3)
+                if !hasproperty(df, ind_q4)
+                    df[!, ind_q4] = passmissing(x -> x > q3_val ? 1.0 : 0.0).(df[!, ind])
+                end
+
+                # Bin 3: Upper Middle (Median < x <= Q3)
+                if !hasproperty(df, ind_q3)
+                    df[!, ind_q3] = passmissing(x -> (x > median_val && x <= q3_val) ? 1.0 : 0.0).(df[!, ind])
+                end
+
+                # Bin 2: Lower Middle (Q1 <= x <= Median)
+                if !hasproperty(df, ind_q2)
+                    df[!, ind_q2] = passmissing(x -> (x >= q1_val && x <= median_val) ? 1.0 : 0.0).(df[!, ind])
+                end
+
+                # Bin 1: Bottom 25% (x < Q1)
+                if !hasproperty(df, ind_q1)
+                    df[!, ind_q1] = passmissing(x -> x < q1_val ? 1.0 : 0.0).(df[!, ind])
+                end
+
+                # --- BUILD INTERACTION TERMS (Splines) ---
+                ind_q4_x = Symbol("$(ind)_q4_int")   
+                ind_q3_x = Symbol("$(ind)_q3_int")   
+                ind_q2_x = Symbol("$(ind)_q2_int")   
+                ind_q1_x = Symbol("$(ind)_q1_int")   
                 
-                append!(syms,  (ind_gtk_x,  ind_bt0k_x, ind_bt0mk_x, ind_ltk_x))
+                df[!,  ind_q4_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_q4])
+                df[!,  ind_q3_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_q3])
+                df[!,  ind_q2_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_q2])
+                df[!,  ind_q1_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_q1])
                 
+                append!(syms,  (ind_q4_x,  ind_q3_x, ind_q2_x, ind_q1_x))
+
+                                                
             else
                 error("Combination (model_type=$(model_type), with_dummies=$(with_dummies)) not yet implemented.")
             end
