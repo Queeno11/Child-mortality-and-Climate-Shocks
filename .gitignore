@@ -37,3 +37,4 @@
 *.ai
 Outputs/*
 *.jpg
+!overleaf_source.zip

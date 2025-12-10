@@ -9,13 +9,13 @@ if __name__ == "__main__":
     from dask.distributed import Client
 
     # Set global variables
-    PROJECT = r"D:\World Bank\Paper - Child mortality and Climate Shocks"
+    PROJECT = r"C:\Working Papers\Paper - Child mortality and Climate Shocks"
     OUTPUTS = rf"{PROJECT}\Outputs"
     DATA = rf"{PROJECT}\Data"
     DATA_IN = rf"{DATA}\Data_in"
     DATA_PROC = rf"{DATA}\Data_proc"
     DATA_OUT = rf"{DATA}\Data_out"
-    ERA5_DATA = r"D:\Datasets\ERA5 Reanalysis\monthly-single-levels"
+    ERA5_DATA = r"C:\Datasets\ERA5 Reanalysis\monthly-single-levels"
 
     #######################
     #### Filter warnings (disable if debugging)

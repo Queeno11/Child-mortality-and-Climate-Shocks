@@ -3,7 +3,7 @@ using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, Pro
 
 # Load the data
 print("Cargando dataset...")
-df = CSV.read("Z:\\Laboral\\World Bank\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks.csv", DataFrame)
+df = CSV.read("Z:\\Laboral\\Working Papers\\Paper - Child mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks.csv", DataFrame)
 df.child_agedeath_30d = df.child_agedeath_30d .* 1000
 df.child_agedeath_30d3m = df.child_agedeath_30d3m .* 1000
 df.child_agedeath_3m6m = df.child_agedeath_3m6m .* 1000

@@ -1,6 +1,6 @@
 module CustomModels
 
-    using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, Arrow, Tables
+    using CSV, DataFrames, RDatasets, RegressionTables, FixedEffectModels, CUDA, ProgressMeter, Arrow, Tables, Statistics
     using StatsModels: termvars
 
     
@@ -42,29 +42,26 @@ module CustomModels
         all_cols = Tables.columnnames(df)
 
         # 3. Helper to test if a name contains both substrings.
-        function has_both(name::Symbol, a::AbstractString, b::AbstractString)
-            s = String(name)
-            return occursin(a, s) && occursin(b, s)
+        function has_both(a::AbstractString, b::AbstractString, c::AbstractString)
+            return occursin(a, c) && occursin(b, c)
         end
 
         # 4. Find matching column names (they are already Symbols).
-        temp_stat_cols    = filter(c -> has_both(c, "$(temp)_", stat), all_cols)
-        temphd_stat_cols = filter(c -> occursin("hd", String(c)), all_cols)
-        tempfd_stat_cols = filter(c -> occursin("fd", String(c)), all_cols)
-        tempid_stat_cols = filter(c -> occursin("id", String(c)), all_cols)
-        drought_stat_cols = filter(c -> has_both(c, "$(drought)_", stat), all_cols)
-        cell_cols = filter(c -> occursin("ID_cell", String(c)), all_cols)
-        chb_cols = filter(c -> occursin("chb_", String(c)), all_cols)
-        agedeath_cols = filter(c -> occursin("child_agedeath_", String(c)), all_cols)
+        temp_stat_cols    = filter(c -> has_both("$(temp)_",     "$(stat)",  String(c)), all_cols)
+        temphd_stat_cols  = filter(c -> has_both("hd",           "$(stat)",  String(c)), all_cols)
+        tempfd_stat_cols  = filter(c -> has_both("fd",           "$(stat)",  String(c)), all_cols)
+        tempid_stat_cols  = filter(c -> has_both("id",           "$(stat)",  String(c)), all_cols)
+        drought_stat_cols = filter(c -> has_both("$(drought)_",  "$(stat)",  String(c)), all_cols)
+        cell_cols         = filter(c -> occursin("ID_cell",                  String(c)), all_cols)
+        chb_cols          = filter(c -> occursin("chb_",                     String(c)), all_cols)
+        agedeath_cols     = filter(c -> occursin("child_agedeath",           String(c)), all_cols)
 
-        # TODO: we could also filter in depth each columns so we do not have, for example, spline vars loaded in linear models... Only if we still run out of memory!
-        
         # 5. Merge the lists of Symbols and return the unique set.
         return unique(vcat(ctrl_syms, temp_stat_cols, temphd_stat_cols, tempfd_stat_cols, tempid_stat_cols, 
                        drought_stat_cols, cell_cols, chb_cols, agedeath_cols)) 
     end
 
-    function load_dataset(df_lazy, temp, drought, stat, controls; verbose=false, filter_on::Union{Nothing, Pair{Symbol, T}}=nothing) where T
+    function load_dataset(df_lazy, temp, drought, stat, controls, name; verbose=false, filter_on::Union{Nothing, Pair{Symbol, T}}=nothing) where T
         println("Loading dataset... ")
 
         variables = get_required_vars(df_lazy, temp, drought, stat, controls)
@@ -83,7 +80,17 @@ module CustomModels
             # Use the non-copying filter! for efficiency before the final copy
             filter!(row -> !ismissing(row[filter_on.first]) && row[filter_on.first] == filter_on.second, df_selected)
         end
-        
+
+        # Filter based on names
+        if name == "6m windows"
+            # Keep only childs alive at 6th month
+            df_selected = filter(row -> ismissing(row.child_agedeath) || row.child_agedeath >= 5, df_selected)
+        end
+        if name == "12m windows"
+            # Keep only childs alive at 6th month
+            df_selected = filter(row -> ismissing(row.child_agedeath) || row.child_agedeath >= 11, df_selected)
+        end
+
         df = copy(df_selected)
         print("Dataset cargado!")
         if verbose
@@ -94,6 +101,35 @@ module CustomModels
         return df
     end
 
+    """
+        run_regression(df, controls, times, folder, extra; model_type="linear", with_dummies=false)
+    
+    Runs the specified regression models on the provided DataFrame `df` for different time periods. 
+    This function supports multiple model types, including linear, quadratic, and quadratic with dummy variables.
+    
+    Results in stata cannot be directly replicated because reghdfe creates one variable for each ID_cell, which makes it
+    imposible to fit in a RAM. Nevertheless, this function replicates a model such as:
+        
+        reghdfe child_agedeath_30d spi1_inutero_avg_neg spi1_inutero_avg_pos spi1_30d_avg_neg spi1_30d_avg_pos 
+                                   stdm_t_inutero_avg_neg stdm_t_inutero_avg_pos stdm_t_30d_avg_neg stdm_t_30d_avg_pos 
+                                   {controls} i.ID_cell1#c.chb_year, 
+                                   absorb(ID_cell1#chb_month ID_cell1) vce(cluster ID_cell1) nocons
+
+    the term i.ID_cell1#c.chb_year adds a linear trend on every fixed effect, and the term absorb(ID_cell1#chb_month ID_cell1) 
+    adds the fixed effects for each cell and cell-month interaction. 
+
+    # Arguments
+    - `df`: DataFrame containing the data.
+    - `controls`: Array of control variables for the regression.
+    - `times`: Array of time periods for the regression.
+    - `folder`: Output folder path to save the regression results.
+    - `extra`: Additional string to append to the output filenames.
+    - `model_type`: Type of regression model to run. Options are `"linear"` (default) or `"quadratic"`.
+    - `with_dummies`: Boolean indicating whether to include dummy variables for positive and negative deviations (default is `false`).
+    
+    # Output
+    Saves regression results in both ASCII and LaTeX formats to the specified folder.
+    """
     function stepped_regression(df, temp, drought_ind, controls,
         times, stat, sp_threshold, folder, extra;
         model_type      = "linear",
@@ -102,39 +138,10 @@ module CustomModels
         symbols         = "standard",
         cells           = [1,2,3], 
         binned          = false,)
-        """
-            run_regression(df, controls, times, folder, extra; model_type="linear", with_dummies=false)
-        
-        Runs the specified regression models on the provided DataFrame `df` for different time periods. 
-        This function supports multiple model types, including linear, quadratic, and quadratic with dummy variables.
-        
-        Results in stata cannot be directly replicated because reghdfe creates one variable for each ID_cell, which makes it
-        imposible to fit in a RAM. Nevertheless, this function replicates a model such as:
-            
-            reghdfe child_agedeath_30d spi1_inutero_avg_neg spi1_inutero_avg_pos spi1_30d_avg_neg spi1_30d_avg_pos 
-                                       stdm_t_inutero_avg_neg stdm_t_inutero_avg_pos stdm_t_30d_avg_neg stdm_t_30d_avg_pos 
-                                       {controls} i.ID_cell1#c.chb_year, 
-                                       absorb(ID_cell1#chb_month ID_cell1) vce(cluster ID_cell1) nocons
 
-        the term i.ID_cell1#c.chb_year adds a linear trend on every fixed effect, and the term absorb(ID_cell1#chb_month ID_cell1) 
-        adds the fixed effects for each cell and cell-month interaction. 
+        println("\rRunning Model: $(model_type) $(stat) $(temp) $(drought_ind) with dummies=$(with_dummies), symbols=$(symbols) ($(drought_ind)), fe=$(fixed_effects) \r")
 
-        # Arguments
-        - `df`: DataFrame containing the data.
-        - `controls`: Array of control variables for the regression.
-        - `times`: Array of time periods for the regression.
-        - `folder`: Output folder path to save the regression results.
-        - `extra`: Additional string to append to the output filenames.
-        - `model_type`: Type of regression model to run. Options are `"linear"` (default) or `"quadratic"`.
-        - `with_dummies`: Boolean indicating whether to include dummy variables for positive and negative deviations (default is `false`).
-        
-        # Output
-        Saves regression results in both ASCII and LaTeX formats to the specified folder.
-        """
-
-        println("\rRunning Model: $(model_type) with dummies=$(with_dummies), symbols=$(symbols) ($(drought_ind)), fe=$(fixed_effects) \r")
-
-        outpath = "D:\\World Bank\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
+        outpath = "C:\\Working Papers\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
         outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe $(symbols)_sym.txt" 
         outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe $(symbols)_sym.tex"
         mkpath(outpath)
@@ -171,10 +178,10 @@ module CustomModels
         else
             throw("Invalid symbols option: $(symbols).")
         end        
-        if isfile(outtxt) && isfile(outtex)
-            println("File exists, moving to next iteration.")
-            return
-        end
+        # if isfile(outtxt) && isfile(outtex)
+        #     println("File exists, moving to next iteration.")
+        #     return
+        # end
         
         spi_previous = [] # This list is for adding the previous SPI variables to the regression
         temp_previous = []  # This list is for adding the previous temperature variables to the regression
@@ -185,11 +192,12 @@ module CustomModels
         # Compute the number of time periods including the word "inutero"
         inutero_periods_number = sum([occursin("inutero", time) for time in times])
         for time in inutero_periods_number:(length(times)-1)
-
-            time0 = times[time] # Previous period
+            if time>0
+                # This case happens when we do not include in utero in the regression
+                time0 = times[time] # Previous period
+                agedeath0 = replace(time0, "born_" => "child_agedeath_")
+            end
             time1 = times[time + 1] # Contemporary period
-            # Remove the word "born_" from the string to get the time period
-            agedeath0 = replace(time0, "born_" => "child_agedeath_")
             agedeath1 = replace(time1, "born_" => "child_agedeath_")
 
             # Get SPI and temperature symbols based on the model type and dummies
@@ -197,35 +205,50 @@ module CustomModels
             if time == inutero_periods_number
                 # Get the SPI and temperature symbols for the first three periods (inutero_1m3m, inutero_4m6m, inutero_6m9m)
                 for i in 1:inutero_periods_number
+                    # If no in-utero periods are included, this goes from 1:0, and in Julia this is skipped
                     spi_start, temp_start = get_symbols(df, temp, drought_ind, times[i], stat, sp_threshold, model_type, with_dummies)
                     append!(order_spi, spi_start)
                     append!(order_temp, temp_start)
                     append!(spi_previous, spi_start)
                     append!(temp_previous, temp_start)
                 end
-
             else
                 # Filter out children that did not survive the previous time period
                 mask = df[!, Symbol(agedeath0)] .== 0
                 df = @view df[mask, :]
             end
 
+            all_spis = append!(spi_previous, spi_actual)
+            all_temp = append!(temp_previous, temp_actual)
+
             for i in cells
+
                 if fixed_effects == "standard"
                     fixed_effects_term = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
                 elseif fixed_effects == "quadratic_time"
                     fixed_effects_term = fe(Symbol("ID_cell$i")) & term(:chb_year) + fe(Symbol("ID_cell$i")) & term(:chb_year_sq) + fe(Symbol("ID_cell$i")) & fe(:chb_month)
                 end
-               
+
+                # validate_regression_inputs(
+                #     df,
+                #     Symbol(agedeath1),
+                #     vcat(spi_actual, temp_actual),
+                #     getproperty.(controls, :sym),
+                #     fixed_effects_term;
+                #     context_info="Time Period: $(agedeath1), Cell ID: ID_cell$i"
+                # )
+
                 reg_model = reg(
-                    df, 
-                    term(Symbol(agedeath1))  ~ sum(term.(spi_previous)) + sum(term.(spi_actual))  + sum(term.(temp_previous)) + sum(term.(temp_actual)) + sum(term.(controls)) + fixed_effects_term, 
+                    df,   
+                    term(Symbol(agedeath1))  ~ sum(term.(all_spis)) + sum(term.(all_temp)) + sum(term.(controls)) + fixed_effects_term, 
                     Vcov.cluster(Symbol("ID_cell$i")), 
                     method=:CUDA
                 )
                 println(reg_model)
                 push!(regs, reg_model)
+            
             end
+
             append!(spi_previous, spi_actual)
             append!(temp_previous, temp_actual)
             append!(order_spi, spi_actual)
@@ -317,25 +340,67 @@ module CustomModels
                 append!(syms,  (ind_neg_x,  ind_pos_x, ind_neg_x_sq, ind_pos_x_sq))
 
             elseif model_type == "spline"
-                # 1.  Dummy indicators
-                ind_gtk = Symbol("$(ind)_gt$(sp_threshold)")
-                ind_bt0k = Symbol("$(ind)_bt0$(sp_threshold)")
-                ind_bt0mk = Symbol("$(ind)_bt0m$(sp_threshold)")
-                ind_ltk = Symbol("$(ind)_ltm$(sp_threshold)")
 
-                # 2.  Build the interaction columns
-                ind_gtk_x = Symbol("$(ind)_gt$(sp_threshold)_int")   # interaction
-                ind_bt0k_x = Symbol("$(ind)_bt0$(sp_threshold)_int")   
-                ind_bt0mk_x = Symbol("$(ind)_bt0m$(sp_threshold)_int")   
-                ind_ltk_x = Symbol("$(ind)_ltm$(sp_threshold)_int")   
+                # --- CALCULATION OF QUARTILES ---
+                # 1. Collect data for the specific column, skipping missing values
+                #    We convert to Float32/64 to ensure statistics can be calculated
+                data_col = collect(skipmissing(df[!, ind]))
                 
-                df[!,  ind_gtk_x  ] = passmissing(Float16).(df[!, ind] .* df[!, ind_gtk  ])
-                df[!,  ind_bt0k_x ] = passmissing(Float16).(df[!, ind] .* df[!, ind_bt0k ])
-                df[!,  ind_bt0mk_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_bt0mk])
-                df[!,  ind_ltk_x  ] = passmissing(Float16).(df[!, ind] .* df[!, ind_ltk  ])
+                if isempty(data_col)
+                    println("Warning: Column $(ind) is empty. Skipping spline generation.")
+                    continue
+                end
+
+                # 2. Compute Quartiles [25%, 50%, 75%]
+                qvals = quantile(data_col, [0.25, 0.5, 0.75])
+                q1_val, median_val, q3_val = qvals[1], qvals[2], qvals[3]
+
+                # Debug print to verify it's working
+                # println("Column: $(ind) | Q1: $(round(q1_val, digits=2)), Med: $(round(median_val, digits=2)), Q3: $(round(q3_val, digits=2))")
+
+                # --- DEFINE SYMBOLS (q4=Highest, q1=Lowest) ---
+                # We use suffixes _q1 to _q4 instead of _gt, _bt, etc.
+                ind_q4 = Symbol("$(ind)_q4")       # > Q3
+                ind_q3 = Symbol("$(ind)_q3")       # Median to Q3
+                ind_q2 = Symbol("$(ind)_q2")       # Q1 to Median
+                ind_q1 = Symbol("$(ind)_q1")       # < Q1
+
+                # --- GENERATE DUMMIES ON THE FLY ---
+
+                # Bin 4: Top 25% (x > Q3)
+                if !hasproperty(df, ind_q4)
+                    df[!, ind_q4] = passmissing(x -> x > q3_val ? 1.0 : 0.0).(df[!, ind])
+                end
+
+                # Bin 3: Upper Middle (Median < x <= Q3)
+                if !hasproperty(df, ind_q3)
+                    df[!, ind_q3] = passmissing(x -> (x > median_val && x <= q3_val) ? 1.0 : 0.0).(df[!, ind])
+                end
+
+                # Bin 2: Lower Middle (Q1 <= x <= Median)
+                if !hasproperty(df, ind_q2)
+                    df[!, ind_q2] = passmissing(x -> (x >= q1_val && x <= median_val) ? 1.0 : 0.0).(df[!, ind])
+                end
+
+                # Bin 1: Bottom 25% (x < Q1)
+                if !hasproperty(df, ind_q1)
+                    df[!, ind_q1] = passmissing(x -> x < q1_val ? 1.0 : 0.0).(df[!, ind])
+                end
+
+                # --- BUILD INTERACTION TERMS (Splines) ---
+                ind_q4_x = Symbol("$(ind)_q4_int")   
+                ind_q3_x = Symbol("$(ind)_q3_int")   
+                ind_q2_x = Symbol("$(ind)_q2_int")   
+                ind_q1_x = Symbol("$(ind)_q1_int")   
                 
-                append!(syms,  (ind_gtk_x,  ind_bt0k_x, ind_bt0mk_x, ind_ltk_x))
+                df[!,  ind_q4_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_q4])
+                df[!,  ind_q3_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_q3])
+                df[!,  ind_q2_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_q2])
+                df[!,  ind_q1_x] = passmissing(Float16).(df[!, ind] .* df[!, ind_q1])
                 
+                append!(syms,  (ind_q4_x,  ind_q3_x, ind_q2_x, ind_q1_x))
+
+                                                
             else
                 error("Combination (model_type=$(model_type), with_dummies=$(with_dummies)) not yet implemented.")
             end
@@ -470,53 +535,60 @@ module CustomModels
         println("\rRunning Standard Models for $(folder)\r")
 
         for month in months
-            extra_original = extra
             sp_threshold = 0.5 # Set default value to avoid breaking the function when this parameter is not used
-            for times in (["inutero_1m3m", "inutero_4m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m"], )
-                i = 1
-                for temp in ["stdm_t"]#, "std_t", "absdifm_t", "absdif_t"]#,  "t"]
-                    for stat in ["avg"]#, "minmax"]
+            for (name, times, stats) in (
+                ("semester", ["inutero", "born_1m6m", "born_6m12m", "born_12m18m", "born_18m24m", "born_24m30m", "born_30m36m"], ["b_avg",]),
+                # ("quarterly", ["inutero_1m3m", "inutero_3m6m", "inutero_6m9m", "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m"], ["q_avg",]),
+                # ("monthly", ["inutero_1m","inutero_2m","inutero_3m","inutero_4m","inutero_5m","inutero_6m","inutero_7m","inutero_8m","inutero_9m","born_1m","born_2m","born_3m","born_4m","born_5m","born_6m",], ["m_avg",]),
+                # ("1m windows", ["born_1m",], ["b_w1", "b_w1", "b_w2", "b_w3", "b_w4", "b_w5", "b_w6", "b_w7", "b_w8", "b_w9"]),
+                # ("6m windows", ["born_6m",], ["b_w1", "b_w1", "b_w2", "b_w3", "b_w4", "b_w5", "b_w6", "b_w7", "b_w8", "b_w9"]),
+                # ("12m windows", ["born_12m",], ["b_w1", "b_w1", "b_w2", "b_w3", "b_w4", "b_w5", "b_w6", "b_w7", "b_w8", "b_w9"]),
+                # ("iufocus", ["inutero_1m3m", "inutero_3m6m", "inutero_6m9m", "born_1m", "born_2m3m", "born_3m6m"], ["iu_avg", ]),
+             )
+                name = name * "$(extra)"
+                for stat in stats
+                    for temp in ["stdm_t", ]# "absdifm_t", "std_t", "absdif_t"]#,  "t"]
                         for drought in ["spi"]#, "spei"]        
-                            
                             # Add month to variable
                             drought = "$(drought)$(month)"
-                            extra_with_time = extra_original #* " - times$(i)"
 
                             # Load dataset
-                            df = load_dataset(df_lazy, temp, drought, stat, controls; verbose=false, filter_on=filter_on)
-
+                            df = load_dataset(df_lazy, temp, drought, stat, controls, name; verbose=false, filter_on=filter_on)
+                            
                             # Linear models - all cases
-                            if "linear" in models
-                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true)
+                            if ("linear" in models)
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, name, model_type="linear", with_dummies=true, cells=[1,2,3])
+                            end
+                            if (name=="1m windows") || (name=="6m windows") || (name=="12m windows") || (name=="iufocus") || (name=="monthly")
+                                continue
                             end
 
                             # # HD/FD models
                             if "extremes" in models
-                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35fd", cells=[1,2,3])
-                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd35id", cells=[1,2,3])
-                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40fd", cells=[1,2,3])
-                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="hd40id", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, name, model_type="linear", with_dummies=true, symbols="hd35fd", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, name, model_type="linear", with_dummies=true, symbols="hd35id", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, name, model_type="linear", with_dummies=true, symbols="hd40fd", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, name, model_type="linear", with_dummies=true, symbols="hd40id", cells=[1,2,3])
                             end
                                 
                             # horserace models
                             if "horserace" in models
-                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd35fd", cells=[1,2,3])
-                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd35id", cells=[1,2,3])
-                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd40fd", cells=[1,2,3])
-                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_time, model_type="linear", with_dummies=true, symbols="horserace_hd40id", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, name, model_type="linear", with_dummies=true, symbols="horserace_hd35fd", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, name, model_type="linear", with_dummies=true, symbols="horserace_hd35id", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, name, model_type="linear", with_dummies=true, symbols="horserace_hd40fd", cells=[1,2,3])
+                                stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, name, model_type="linear", with_dummies=true, symbols="horserace_hd40id", cells=[1,2,3])
                             end
 
                             # Spline models - only for standardized variables (std_t, stdm_t):
                             if "spline" in models
                                 for sp_threshold in ["1", "2"]
-                                    extra_with_threshold = extra_with_time * " - spthreshold$(sp_threshold)"
-                                    stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, extra_with_threshold, model_type="spline")
+                                    name_with_threshold = name * " - spthreshold$(sp_threshold)"
+                                    stepped_regression(df, temp, drought, controls, times, stat, sp_threshold, folder, name_with_threshold, model_type="spline")
                                 end
                             end
                         end
                     end
                 end
-                i += 1
             end
         end
     end
@@ -589,5 +661,174 @@ module CustomModels
         println("Heterogeneity analysis for '$(heterogeneity_var)' complete.")
     end
 
+    # function validate_regression_inputs(
+    #     df::DataFrame,
+    #     dependent_var::Symbol,
+    #     regressor_vars::Vector{Symbol},
+    #     control_vars::Vector{Symbol},
+    #     fe_term;
+    #     context_info::String=""
+    #     )
+    #     """
+    #         validate_regression_inputs(df, dependent_var, regressor_vars, control_vars, fe_term; context_info="")
     
+    #     Performs a series of pre-regression checks and throws an `ArgumentError` if any check fails.
+    
+    #     This function verifies that:
+    #     1.  All specified variable columns exist in the DataFrame.
+    #     2.  The DataFrame is not empty.
+    
+    #     If any check fails, it prints a detailed error message and throws an exception.
+    #     If all checks pass, it prints a descriptive summary of the variables and returns `nothing`.
+    
+    #     # Arguments
+    #     - `df::DataFrame`: The DataFrame to be checked.
+    #     - `dependent_var::Symbol`: The symbol for the dependent variable.
+    #     - `regressor_vars::Vector{Symbol}`: A vector of symbols for the main regressors.
+    #     - `control_vars::Vector{Symbol}`: A vector of symbols for the control variables.
+    #     - `fe_term`: The fixed effects term from `FixedEffectModels`.
+    #     - `context_info::String`: Optional string to print context (e.g., model type, cell ID).
+    
+    #     # Throws
+    #     - `ArgumentError`: If the DataFrame is empty or if any required columns are missing.
+    #     """
+    #     println("\n\n" * "="^20 * " VALIDATING REGRESSION INPUTS " * "="^20)
+    #     if !isempty(context_info)
+    #         println(context_info)
+    #     end
+
+    #     # --- Check 1: DataFrame should not be empty ---
+    #     if isempty(df)
+    #         msg = "Validation failed: The input DataFrame is empty. Cannot proceed."
+    #         println("ERROR: " * msg)
+    #         println("="^62 * "\n\n")
+    #         throw(ArgumentError(msg))
+    #     end
+    #     println("DataFrame size: $(size(df))")
+
+    #     # --- Check 2: All required columns must exist ---
+    #     fixed_effect_vars = termvars(fe_term)
+    #     all_needed_vars = unique(vcat(dependent_var, regressor_vars, control_vars, fixed_effect_vars))
+
+    #     missing_cols = [var for var in all_needed_vars if !hasproperty(df, var)]
+
+    #     if !isempty(missing_cols)
+    #         # Construct a detailed error message
+    #         msg = """
+    #         Validation failed: The following required columns are MISSING from the DataFrame:
+    #         $(join(["  - :$col" for col in missing_cols], "\n"))
+    #         This is the likely cause of NaN results. Check that 'get_required_vars' is loading all necessary base columns for interactions.
+    #         """
+    #         println("ERROR: " * msg)
+    #         println("="^62 * "\n\n")
+    #         throw(ArgumentError(msg))
+    #     else
+    #         println("\nSUCCESS: All required columns are present in the DataFrame.")
+    #     end
+
+    #     # --- If all checks pass, print a descriptive summary ---
+    #     println("\n--- Data Description of Model Variables ---")
+    #     try
+    #         println(describe(df, cols=all_needed_vars))
+    #     catch e
+    #         msg = "Validation failed: The `describe()` function threw an error. This may indicate corrupted or unexpected data."
+    #         println("\nERROR: " * msg)
+    #         showerror(stdout, e) # Show the original error from describe()
+    #         println("="^62 * "\n\n")
+    #         throw(ArgumentError(msg))
+    #     end
+
+    #     println("="^62 * "\n\n")
+    #     return # Implicitly returns nothing
+    # end
+
+    function run_shock_analysis(df_lazy, controls, extra, months; 
+                                models::Vector{}=["linear"], 
+                                lower_p::Real=0.15,
+                                upper_p::Real=0.85)
+        """
+        run_shock_analysis(df_lazy, controls, extra, months; models=["linear"], shock_threshold=1.0)
+
+        Runs a shock analysis by splitting the dataset based on whether a child was affected
+        by a significant shock during the in-utero period.
+
+        A "shock" is defined as a deviation in temperature or drought indicators exceeding a
+        specified standard deviation threshold. This function identifies children in the "shock"
+        group (those with a deviation greater than `+shock_threshold` or less than `-shock_threshold`)
+        and the "control" group (all others). It then runs the specified regression models on
+        each of these two groups separately.
+
+        # Arguments
+        - `df_lazy`: A lazy table object (e.g., `Arrow.Table`) containing the full dataset.
+        - `controls`: Array of control variable terms for the regression.
+        - `extra`: Additional string to append to the output filenames.
+        - `months`: Array of months to iterate through for the models. FIXME: This only works with m=1
+        - `models`: (Keyword) A vector of model types to run (e.g., ["linear", "extremes"]).
+        - `shock_threshold`: (Keyword) The standard deviation threshold to define a shock. Defaults to `1.0`.
+        """
+        println("\n" * "="^80)
+        println("Running Temperature-Only Shock Analysis (Thresholds: p$(lower_p*100) and p$(upper_p*100))")
+        println("="^80 * "\n")
+        
+        # Define the variable for the in-utero temperature shock
+        temp_shock_var = Symbol("stdm_t_inutero_b_avg")
+
+        # Create a temporary DataFrame to determine the groups
+        df_temp = DataFrame(
+            ID = Tables.getcolumn(df_lazy, :ID),
+            temp_shock = Tables.getcolumn(df_lazy, temp_shock_var)
+        )
+        
+        # Calculate temperature thresholds using quantiles, ignoring missing values
+        temp_lower_bound = quantile(skipmissing(df_temp.temp_shock), lower_p)
+        temp_upper_bound = quantile(skipmissing(df_temp.temp_shock), upper_p)
+
+        println("Calculated Thresholds:")
+        println("  - Temperature (stdm_t): [Lower: $(round(temp_lower_bound, digits=3)), Upper: $(round(temp_upper_bound, digits=3))]")
+
+        # Define the shock group based ONLY on temperature falling outside the bounds
+        shock_mask = (df_temp.temp_shock .< temp_lower_bound) .| (df_temp.temp_shock .> temp_upper_bound)
+
+        # Replace any `missing` results from the comparison with `false`.
+        # Children with missing temperature shock data will be in the control group.
+        df_temp.is_shock_group = coalesce.(shock_mask, false)
+        
+        # Get the IDs for each group
+        shock_ids = Set(df_temp[df_temp.is_shock_group .== true, :ID])
+        control_ids = Set(df_temp[df_temp.is_shock_group .== false, :ID])
+
+        # Run the models for each group
+        for (group_name, group_ids) in [("shock_group", shock_ids), ("control_group", control_ids)]
+  
+            println("\n" * "-"^80)
+            println("Analyzing: $(group_name)")
+            println("-"^80 * "\n")
+
+            # Define the folder and suffix for this group, including the threshold
+            lower_p_str = replace(string(lower_p * 100), "." => "p")
+            upper_p_str = replace(string(upper_p * 100), "." => "p")
+            group_folder = joinpath("heterogeneity", "shock_analysis_p$(lower_p_str)_p$(upper_p_str)")
+            group_suffix = " - $(group_name)$(extra)"
+            
+            # Create a filtered view of the lazy DataFrame for the current group
+            # This is more memory-efficient than a join
+            df_group_lazy = filter(row -> row.ID in group_ids, df_lazy)
+
+            # Run the models for this group
+            run_models(
+                df_group_lazy,
+                controls,
+                group_folder,
+                group_suffix,
+                months;
+                models=models,
+                filter_on=nothing # The filtering is already done by creating df_group_lazy
+            )
+        end
+
+        println("\n" * "="^80)
+        println("Shock Analysis Complete")
+        println("="^80 * "\n")
+    end
+
 end # module SteppedRegression
