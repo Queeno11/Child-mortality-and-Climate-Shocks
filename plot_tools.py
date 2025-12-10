@@ -226,9 +226,9 @@ def extract_coefficients_and_CI_latex(file_path, horserace: None | str = None):
         "born_1m",
         "inutero_1m3m", "inutero_3m6m", "inutero_6m9m", 
         "born_1m3m", "born_3m6m", "born_6m9m", "born_9m12m", 
-        "born_12m15m", "born_15m18m", "born_18m21m", "born_21m24m", 
+        "born_12m15m", "born_15m18m", "born_18m21m",# "born_21m24m", 
         "inutero", "born_1m6m", "born_6m12m", 
-        "born_12m18m", "born_18m24m", "born_24m30m", "born_30m36m", 
+        "born_12m18m", "born_18m24m",#, "born_24m30m", "born_30m36m", 
     ]
     spi_data = {"cell1": {}, "cell2": {}, "cell3": {}}
     temp_data = {"cell1": {}, "cell2": {}, "cell3": {}}
@@ -272,14 +272,14 @@ def extract_coefficients_and_CI_latex(file_path, horserace: None | str = None):
         if contains_any_string(full_key, valid_timeframes):
 
             # Select the coefficients from the corresponding cell FE and remove the stars 
-            cell1 = [to_float(c.replace("*", "")) for c in coeff_tokens[1::3]]
-            cell2 = [to_float(c.replace("*", "")) for c in coeff_tokens[2::3]]
-            cell3 = [to_float(c.replace("*", "")) for c in coeff_tokens[3::3]]
+            cell1 = [to_float(c.replace("*", "")) for c in coeff_tokens[1::3]][:-2]
+            cell2 = [to_float(c.replace("*", "")) for c in coeff_tokens[2::3]][:-2]
+            cell3 = [to_float(c.replace("*", "")) for c in coeff_tokens[3::3]][:-2]
 
             # Select the standard errors from the corresponding cell FE and remove the stars
-            err_cell1 = [to_float(c.replace("(", "").replace(")", "")) for c in err_tokens[1::3]]
-            err_cell2 = [to_float(c.replace("(", "").replace(")", "")) for c in err_tokens[2::3]]
-            err_cell3 = [to_float(c.replace("(", "").replace(")", "")) for c in err_tokens[3::3]]
+            err_cell1 = [to_float(c.replace("(", "").replace(")", "")) for c in err_tokens[1::3]][:-2]
+            err_cell2 = [to_float(c.replace("(", "").replace(")", "")) for c in err_tokens[2::3]][:-2]
+            err_cell3 = [to_float(c.replace("(", "").replace(")", "")) for c in err_tokens[3::3]][:-2]
 
             # Compute the confidence intervals
             cilower_cell1, ciupper_cell1 = compute_ci(cell1, err_cell1)
