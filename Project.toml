@@ -1,0 +1,4 @@
+# Julia project for the regression stage. Kept minimal on purpose: running
+# install_julia_deps.jl (or setup_wsl_env.sh) populates [deps] + Manifest.toml
+# with registry-resolved UUIDs, so nothing has to be hand-written here.
+name = "ChildMortalityClimateShocks"
