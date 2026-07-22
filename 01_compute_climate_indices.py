@@ -4,23 +4,44 @@ if __name__ == "__main__":
     import logging
     import numpy as np
     import xarray as xr
-    from climate_indices import indices, compute, utils
+    from climate_indices import indices, compute
     from dask.diagnostics import ProgressBar
-    from dask.distributed import Client
+    from dask.distributed import Client, LocalCluster
 
     # Set global variables
-    PROJECT = r"C:\Working Papers\Paper - Child mortality and Climate Shocks"
-    OUTPUTS = rf"{PROJECT}\Outputs"
-    DATA = rf"{PROJECT}\Data"
-    DATA_IN = rf"{DATA}\Data_in"
-    DATA_PROC = rf"{DATA}\Data_proc"
-    DATA_OUT = rf"{DATA}\Data_out"
-    ERA5_DATA = r"C:\Datasets\ERA5 Reanalysis\monthly-single-levels"
+    PROJECT = r"/mnt/c/Working Papers/Paper - Child mortality and Climate Shocks"
+    OUTPUTS = rf"{PROJECT}/Outputs"
+    DATA = rf"{PROJECT}/Data"
+    DATA_IN = rf"{DATA}/Data_in"
+    DATA_PROC = rf"{DATA}/Data_proc"
+    ERA5_DATA = r"/mnt/e/Datasets/ERA5 Reanalysis/monthly-single-levels"
 
+    # Filter warnings
+    logging.disable(logging.CRITICAL)
+
+    # ---------------------------------------------------------
+    # CONFIGURATION FOR MAX CPU / SAFE RAM
+    # ---------------------------------------------------------
+    # We use a LocalCluster to strictly control memory per worker.
+    # n_workers = number of physical cores (high CPU)
+    # memory_limit = restricts each worker so they don't eat all RAM.
+    # ---------------------------------------------------------
+    n_workers = os.cpu_count() - 2 # Leave 1 core for OS
+    if n_workers < 1: n_workers = 1
+    
+    # Calculate memory limit per worker (leave 4GB buffer for OS)
+    
+    client = Client(
+        n_workers=10,
+        threads_per_worker=1, # Pure processing power
+    )
+    print(f"Cluster active: {n_workers} workers, 500MB RAM limit each.")
+    print(f"Dashboard: {client.dashboard_link}")
+    
     #######################
     #### Filter warnings (disable if debugging)
     logging.disable(logging.CRITICAL)
-
+    print(client)
     def drop_duplicate_dims(ds):
         dims = list(ds.dims)
         for dim in dims:
@@ -31,124 +52,94 @@ if __name__ == "__main__":
         return ds
 
     ########################
-    ####  Process data ####
+    ####  Process data  ####
     ########################
-    print("Warning: Running this scripts takes about a few days and requires ~600GB to store all the required data. Ensure you have such space available...")
+    print("Warning: Ensure you have ~600GB space available...")
+    
+    # 1. Prepare Base ERA5 Data
     era5_path = os.path.join(DATA_PROC, "ERA5_monthly_1970-2021.nc")
+    
     if os.path.exists(era5_path):
         print("ERA5 already processed. Loading...")
     else:
-        ########################
-        ####  Load Data    ####
         print("Loading ERA5 raw data...")
         files = os.listdir(ERA5_DATA)
-        datasets = []
-        for file in files:
-            ds = xr.open_dataset(
-                os.path.join(ERA5_DATA, file),
-                chunks="auto",
-            )
-            datasets += [ds]
-        precipitation = xr.concat(datasets, dim="time")
-        # precipitation = precipitation.chunk({"time": 15})
+        # Load all with open_mfdataset for better parallel I/O handling than manual loop
+        # combining by coords usually safer for time series
+        try:
+            full_paths = [os.path.join(ERA5_DATA, f) for f in files if f.endswith('.nc')]
+            precipitation = xr.open_mfdataset(full_paths, chunks={"time": 12}, combine='by_coords', parallel=True)
+        except Exception as e:
+            print(f"mfdataset failed ({e}), falling back to manual loop...")
+            datasets = []
+            for file in files:
+                ds = xr.open_dataset(os.path.join(ERA5_DATA, file), chunks="auto")
+                datasets.append(ds)
+            precipitation = xr.concat(datasets, dim="time")
 
         print("Raw Data Loaded! Processing...")
 
-        ########################
-        ####  Process Data  ####
-        ## Longitude is in range 0-360, with 0 at Greenwich.
-        #   We need to transform it to -180 to 180
-        def transform_longitude(longitude):
-            if longitude > 180:
-                return longitude - 360
-            else:
-                return longitude
-
-        precipitation["longitude"] = (
-            precipitation["longitude"].to_series().apply(transform_longitude).values
+        # Longitude Transformation
+        # Using xarray functionality is faster than converting to pandas series
+        precipitation["longitude"] = xr.where(
+            precipitation["longitude"] > 180, 
+            precipitation["longitude"] - 360, 
+            precipitation["longitude"]
         )
-        precipitation = precipitation.sortby("longitude").sortby("latitude")  # Reorder
+        precipitation = precipitation.sortby(["longitude", "latitude"])
         precipitation = precipitation.rename({"longitude": "lon", "latitude": "lat"})
 
-        ## Temperature is in Kelvin, we need it in Celsius
+        # Kelvin to Celsius
         precipitation["t2m"] = precipitation["t2m"] - 273.15
 
+        # Save Base File
+        encoding = {var: {"zlib": True, "complevel": 5} for var in precipitation.data_vars}
         with ProgressBar():
-            encoding = {
-                var: {"zlib": True, "complevel": 5} for var in precipitation.data_vars
-            }
-            precipitation.to_netcdf(
-                era5_path,
-                encoding=encoding,
-            )
+            precipitation.to_netcdf(era5_path, encoding=encoding)
 
-    precipitation = xr.open_dataset(
-        era5_path#, chunks={"latitude": 10, "longitude": 10, "time": -1}
-    )
+    # Load cleaned data
+    # Chunking: Time -1 (all) is needed for SPI, but for Rolling stats we need access to neighbors.
+    # A chunk size of {'time': 120} (10 years) represents a good balance.
+    ds_base = xr.open_dataset(era5_path, chunks={"time": 120, "lat": 100, "lon": 100})
 
-    # # Select south america: -71.894531,-29.228890,-43.593750,-3.337954
-    # precipitation = precipitation.sel(
-    #     lat=slice(-20, -10),
-    #     lon=slice(-60, -50),
-    # )
-    
     ########################
     ####   Compute SPI  ####
     ########################
-
-    ### Running this takes... A lot. Aprox. 90m for each SPI, so ~7.5h for all SPIs.
-
-    ## Script based on: https://github.com/monocongo/climate_indices/issues/326
-    ## Original paper: https://www.droughtmanagement.info/literature/AMS_Relationship_Drought_Frequency_Duration_Time_Scales_1993.pdf
-    ## User guide to SPI: https://digitalcommons.unl.edu/cgi/viewcontent.cgi?article=1208&context=droughtfacpub
-    #   It is recommended to use SPI-9 or SPI-12 to compute droughts.
-    #   "SPI values below -1.5 for these timescales (SPI-9) are usually a good indication that dryness is having a significant impact on
-    #    agriculture and may be affecting other sectors as well."
-    ## More here: https://www.researchgate.net/profile/Sorin-Cheval/publication/264467702_Spatiotemporal_variability_of_the_meteorological_drought_in_Romania_using_the_Standardized_Precipitation_Index_SPI/links/5842d18a08ae2d21756372f8/Spatiotemporal-variability-of-the-meteorological-drought-in-Romania-using-the-Standardized-Precipitation-Index-SPI.pdf
-    ## Ignore negative values, they are normal: https://confluence.ecmwf.int/display/UDOC/Why+are+there+sometimes+small+negative+precipitation+accumulations+-+ecCodes+GRIB+FAQ
-
-    print("Data Ready!")
+    
+    # Keeping original logic for SPI as it requires specific calibration periods
     spi_out = rf"{DATA_PROC}\ERA5_monthly_1991-2021_spi.nc"
     if os.path.exists(spi_out):
         print("SPI already computed!")
+        ds_spi_final = xr.open_dataset(spi_out, chunks={"time": 120, "lat": 100, "lon": 100})
     else:
-        print("Computing SPI. This will take at least a few hours...")
+        print("Computing SPI...")
 
-        def compute_spi_series(precip_series, scale, distribution, data_start_year, calibration_year_initial, calibration_year_final, periodicity):
-            # Ensure the array is writable
-            precip = np.array(precip_series)
-            precip = precip.copy()
-            return indices.spi(
-                precip,
-                scale,
-                distribution,
-                data_start_year,
-                calibration_year_initial,
-                calibration_year_final,
-                periodicity,
-            )
+        def compute_spi_series(precip_series, scale, distribution, start_year, cal_start, cal_end, periodicity):
+            # Helper for ufunc
+            precip = np.array(precip_series).copy()
+            return indices.spi(precip, scale, distribution, start_year, cal_start, cal_end, periodicity)
         
-        # Stack 'lat' and 'lon' into a 'point' dimension
-        da_precip = precipitation['tp'].stack(point=('lat', 'lon'))
-        da_precip = da_precip.chunk({'time': -1, 'point': 100000})
-        print(da_precip.chunks)
-        # Parameters
+        # SPI Prep
+        da_precip = ds_base['tp'].stack(point=('lat', 'lon'))
+        # Rechunk for time-series heavy operation
+        da_precip = da_precip.chunk({'time': -1, 'point': 'auto'})
+        
         distribution = indices.Distribution.gamma
-        data_start_year = 1986
+        data_start_year = 1970 # Updated to match file start if needed, or keep 1986 if intended
         calibration_year_initial = 1991
         calibration_year_final = 2020
         periodicity = compute.Periodicity.monthly
 
-        # apply SPI to each `point`
-        spis = []
-        for i in [1, 3, 6, 9, 12, 24, 48]:
+        spi_datasets = []
+        scales = [1, 6, 12]
+        
+        for i in scales:
             print(f"Computing SPI-{i}")
-            spi_path = os.path.join(DATA_PROC, f"ERA5_monthly_1991-2021_SPI{i}.nc")
-            if os.path.exists(spi_path):
-                da_spi = xr.open_dataset(
-                    spi_path, chunks={"time": 12, "latitude": 500, "longitude": 500}
-                )
-                print(f"SPI-{i} already computed. Skipping...")
+            spi_temp_path = os.path.join(DATA_PROC, f"ERA5_monthly_1991-2021_SPI{i}.nc")
+            
+            if os.path.exists(spi_temp_path):
+                print(f"SPI-{i} found, loading...")
+                da_spi = xr.open_dataset(spi_temp_path)
             else:
                 da_spi_stacked = xr.apply_ufunc(
                     compute_spi_series,
@@ -164,156 +155,169 @@ if __name__ == "__main__":
                     output_dtypes=[np.float32],
                     vectorize=True,
                     dask="parallelized",
-                )                
+                )
                 da_spi = da_spi_stacked.unstack('point').rename(f'spi{i}')
-                # da_spi = da_spi.sel(time=slice("1991", "2021") ) # Only last 30 years
+                # Slice to desired output range
+                da_spi = da_spi.sel(time=slice("1991", "2021"))
+                
                 encoding = {da_spi.name: {"zlib": True, "complevel": 6}}
                 with ProgressBar():
-                    da_spi.to_netcdf(spi_path, encoding=encoding)
-                    
-            spis += [da_spi]
-
-        spis = xr.combine_by_coords(spis)
-        encoding = {name: {"zlib": True, "complevel": 5} for name in spis.data_vars}
-        with ProgressBar():
-            spis.to_netcdf(spi_out)
-
-    #########################
-    ####   Compute Temp  ####
-    #########################
-
-    # Standardize temperature over 30-year average
-
-    stdtemp_path = os.path.join(DATA_PROC, "ERA5_monthly_1991-2021_stdtemp.nc")
-    if os.path.exists(stdtemp_path):
-        print("Standardized temperature already computed. Skipping...")
-
-    else:
-        print("Computing standardized temperature...")
-        temperature = xr.open_dataset(era5_path, chunks={"time": 12})
-        temperature = temperature.sel(time=slice("1991", "2021")) # Only last 30 years
-        climatology_mean = temperature["t2m"].mean(dim="time")
-        climatology_std = temperature["t2m"].std(dim="time")
-        stand_temp = xr.apply_ufunc(
-            lambda x, m, s: (x - m) / s,
-            temperature["t2m"],
-            climatology_mean,
-            climatology_std,
-            dask="parallelized",
-        )
-
-        encoding = {stand_temp.name: {"zlib": True, "complevel": 5}}
-        with ProgressBar():
-            stand_temp.to_netcdf(
-                stdtemp_path,
-                encoding=encoding,
-            )
+                    da_spi.to_netcdf(spi_temp_path, encoding=encoding)
             
+            spi_datasets.append(da_spi)
 
-    absdiff_path = os.path.join(DATA_PROC, "ERA5_monthly_1991-2021_absdifftemp.nc")
-    if os.path.exists(absdiff_path):
-        print("Abs diff temperature already computed. Skipping...")
+        ds_spi_final = xr.merge(spi_datasets)
+        # Save combined SPI if needed, or just keep in memory/temp files
+        # (Original script combined them here)
+        encoding = {var: {"zlib": True, "complevel": 5} for var in ds_spi_final.data_vars}
+        if not os.path.exists(spi_out):
+            with ProgressBar():
+                ds_spi_final.to_netcdf(spi_out, encoding=encoding)
 
-    else:
-        print("Computing Abs diff temperature...")
-        temperature = xr.open_dataset(era5_path, chunks={"time": 12})
-        temperature = temperature.sel(time=slice("1991", "2021")) # Only last 30 years
-        climatology_mean = temperature["t2m"].mean(dim="time")
-        climatology_std = temperature["t2m"].std(dim="time")
-        absdiff_temp = xr.apply_ufunc(
-            lambda x, m: (x - m),
-            temperature["t2m"],
-            climatology_mean,
-            dask="parallelized",
+    ###############################
+    ####   Compute Temperature ####
+    ###############################
+    print("Computing Temperature Statistics...")
+
+    # Define Temperature Variable
+    # ds_base is full 1970-2021, used for rolling window history
+    temp_da = ds_base["t2m"].rename("t")
+    
+    # Define Target Period for Export
+    target_period = slice("1991", "2021")
+
+    # Dictionary to hold all result DataArrays
+    results = {}
+
+    # 1. FIXED 30-YEAR CLIMATOLOGY (Original Variables)
+    # -------------------------------------------------
+    print("Computing Fixed (1991-2021) Climatology Variables...")
+    
+    # Isolate reference data
+    ref_da = temp_da.sel(time=target_period)
+    
+    # Global Mean/Std (Fixed)
+    clim_mean = ref_da.mean(dim="time")
+    clim_std = ref_da.std(dim="time")
+    
+    # Monthly Mean/Std (Fixed)
+    clim_mean_m = ref_da.groupby("time.month").mean("time")
+    clim_std_m = ref_da.groupby("time.month").std("time")
+
+    # Add Raw Temp
+    results["t"] = ref_da
+    
+    # Compute Fixed Stats
+    results["std_t"] = (ref_da - clim_mean) / clim_std
+    results["absdif_t"] = (ref_da - clim_mean)
+    
+    results["stdm_t"] = xr.apply_ufunc(
+        lambda x, m, s: (x - m) / s,
+        ref_da.groupby("time.month"),
+        clim_mean_m,
+        clim_std_m,
+        dask="parallelized"
+    ).drop_vars("month")
+    
+    results["absdifm_t"] = xr.apply_ufunc(
+        lambda x, m: (x - m),
+        ref_da.groupby("time.month"),
+        clim_mean_m,
+        dask="parallelized"
+    ).drop_vars("month")
+
+    # 2. ROLLING STATISTICS (New Variables)
+    # -------------------------------------
+    windows_years = [5, 10, 20, 30]
+    
+    for y in windows_years:
+        print(f"Preparing rolling statistics: {y}-year window...")
+        
+        # A) CONTINUOUS ROLLING (Generic t, std_t, absdif_t)
+        # --------------------------------------------------
+        # Window size in months
+        w_months = y * 12
+        
+        # Continuous rolling on the full timeline (1970-2021)
+        # center=False: Window is [t - window, t]
+        cont_roller = temp_da.rolling(time=w_months, center=False, min_periods=w_months)
+        
+        cont_mean = cont_roller.mean()
+        cont_std = cont_roller.std()
+        
+        # Calculate Continuous Anomalies
+        # std_t_roll: How deviant is T relative to the last Y years average?
+        roll_z = (temp_da - cont_mean) / cont_std
+        roll_diff = (temp_da - cont_mean)
+        
+        # Slice to output period and store
+        results[f"t_roll_{y}y_mean"] = cont_mean.sel(time=target_period)
+        results[f"t_roll_{y}y_std"] = cont_std.sel(time=target_period)
+        results[f"std_t_roll_{y}y"] = roll_z.sel(time=target_period)
+        results[f"absdif_t_roll_{y}y"] = roll_diff.sel(time=target_period)
+
+        # B) MONTHLY ROLLING (stdm_t, absdifm_t)
+        # --------------------------------------
+        # We need to compare Jan 2000 to {Jan 1999... Jan 19XX}
+        # Strategy: Group by month, then apply rolling over the time dimension 
+        # (which, inside the group, represents years).
+        
+        def calc_rolling_monthly_anomalies(x, window):
+            # x is a single month (e.g. all Januarys)
+            # window is in years (counts of Januarys)
+            
+            # min_periods=window ensures we have full history
+            roller = x.rolling(time=window, center=False, min_periods=window)
+            r_mean = roller.mean()
+            r_std = roller.std()
+            
+            z = (x - r_mean) / r_std
+            d = (x - r_mean)
+            
+            # Return dataset to compute both at once
+            return xr.Dataset({"z": z, "d": d})
+
+        # Apply using map
+        # This creates a Dask graph that computes rolling stats per month-group
+        print(f"  - Mapping monthly rolling logic for {y}y...")
+        
+        monthly_rolled = temp_da.groupby("time.month").map(
+            lambda x: calc_rolling_monthly_anomalies(x, y)
         )
-
-        encoding = {absdiff_temp.name: {"zlib": True, "complevel": 5}}
-        with ProgressBar():
-            absdiff_temp.to_netcdf(
-                absdiff_path,
-                encoding=encoding,
-            )
-
-    # Standardize temperature over 30-year monthly average
-    stdmtemp_path = os.path.join(DATA_PROC, "ERA5_monthly_1991-2021_stdmtemp.nc")
-    if os.path.exists(stdmtemp_path):
-        print("Standardized temperature monthly already computed. Skipping...")
-    else:
-        print("Computing temperature anomalies...")
-        temperature = xr.open_dataset(era5_path, chunks={"time": -1, "lat": 500, "lon": 500})
-        temperature = temperature.sel(time=slice("1991", "2021")) # Only last 30 years
-        climatology_mean_m = temperature["t2m"].groupby("time.month").mean("time")
-        climatology_std_m = temperature["t2m"].groupby("time.month").std("time")
-        stand_anomalies = xr.apply_ufunc(
-            lambda x, m, s: (x - m) / s,
-            temperature["t2m"].groupby("time.month"),
-            climatology_mean_m,
-            climatology_std_m,
-            dask="parallelized",
-        )
-        encoding = {stand_anomalies.name: {"zlib": True, "complevel": 5}}
-        with ProgressBar():
-            stand_anomalies.to_netcdf(
-                stdmtemp_path,
-                encoding=encoding,
-            )
-
-    absdiffm_path = os.path.join(DATA_PROC, "ERA5_monthly_1991-2021_absdiffmtemp.nc")
-    if os.path.exists(absdiffm_path):
-        print("Abs diff monthly temperature already computed. Skipping...")
-
-    else:
-        print("Computing monthly temperature anomalies...")
-        temperature = xr.open_dataset(era5_path, chunks={"time": -1, "lat": 500, "lon": 500})
-        temperature = temperature.sel(time=slice("1991", "2021")) # Only last 30 years
-        climatology_mean_m = temperature["t2m"].groupby("time.month").mean("time")
-        climatology_std_m = temperature["t2m"].groupby("time.month").std("time")
-        stand_anomalies = xr.apply_ufunc(
-            lambda x, m: (x - m),
-            temperature["t2m"].groupby("time.month"),
-            climatology_mean_m,
-            dask="parallelized",
-        )
-        encoding = {stand_anomalies.name: {"zlib": True, "complevel": 5}}
-        with ProgressBar():
-            stand_anomalies.to_netcdf(
-                absdiffm_path,
-                encoding=encoding,
-            )
-
-    stand_temp = xr.open_dataset(stdtemp_path, chunks={"lat": 700, "lon": 700, "time": 120})
-    stand_temp = stand_temp.rename({"t2m": "std_t"})
-
-    absdiff_temp = xr.open_dataset(absdiff_path, chunks={"lat": 700, "lon": 700, "time": 120})
-    absdiff_temp = absdiff_temp.rename({"t2m": "absdif_t"})
-
-    absdiffm_temp = xr.open_dataset(absdiffm_path, chunks={"lat": 700, "lon": 700, "time": 120})
-    absdiffm_temp = absdiffm_temp.rename({"t2m": "absdifm_t"})
-
-    stand_mtemp = xr.open_dataset(stdmtemp_path, chunks={"lat": 700, "lon": 700, "time": 120})
-    stand_mtemp = stand_mtemp.rename({"t2m": "stdm_t"})
-
-    temperature = xr.open_dataset(era5_path, chunks={"lat": 700, "lon": 700, "time": 120}).sel(time=slice("1991", "2021"))
-    temperature = temperature.rename({"t2m": "t"})
-
-    spis = xr.open_dataset(spi_out, chunks={"lat": 700, "lon": 700, "time": 120}).sel(time=slice("1991", "2021"))
-
-    data_arrays = [spis, temperature["t"], stand_temp["std_t"], stand_mtemp["stdm_t"], absdiff_temp["absdif_t"], absdiffm_temp["absdifm_t"]]
-
+        
+        # Extract and Slice
+        results[f"stdm_t_roll_{y}y"] = monthly_rolled["z"].sel(time=target_period)
+        results[f"absdifm_t_roll_{y}y"] = monthly_rolled["d"].sel(time=target_period)
 
     ########################
     ####   Export data  ####
     ########################
+    print("Merging all datasets...")
+    
+    # Ensure SPI is sliced correctly
+    ds_spi_final = ds_spi_final.sel(time=target_period)
+    
+    # Combine Dictionary to Dataset
+    ds_temp_all = xr.Dataset(results)
+    
+    # Merge Temp and SPI
+    climate_data = xr.merge([ds_spi_final, ds_temp_all])
 
-    climate_data = xr.combine_by_coords(data_arrays)
+    # Optimize datatypes (float32 saves 50% space vs float64)
+    for var in climate_data.data_vars:
+        if climate_data[var].dtype == 'float64':
+            climate_data[var] = climate_data[var].astype(np.float32)
 
-    out = rf"{DATA_PROC}/Climate_shocks_v9.nc"
+    out = rf"{DATA_PROC}/Climate_shocks_v2.0.nc"
+    
+    print(f"Writing final file to {out}...")
+    print("This step performs the actual computation. It may take a while.")
+    
     encoding = {
-        var: {"zlib": True, "complevel": 6} for var in climate_data.data_vars
+        var: {"zlib": True, "complevel": 5} for var in climate_data.data_vars
     }
+    
     with ProgressBar():
-        climate_data.to_netcdf(
-            out,
-            encoding=encoding,
-        )
-    print(f"Data ready! file saved at {out}")
+        climate_data.to_netcdf(out, encoding=encoding)
+        
+    print("Process Complete!")
