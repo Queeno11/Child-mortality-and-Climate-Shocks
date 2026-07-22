@@ -23,7 +23,7 @@
 \maketitle
 
 \begin{abstract}
-This paper investigates the causal impact of extreme weather shocks on infant mortality across 60 low- and middle-income countries from 1998 to 2021. Leveraging household-level data from the Demographic and Health Surveys (DHS) and high-resolution gridded satellite climatic data from ERA5, we examine how exposure to extreme temperature and precipitation anomalies during pregnancy and the first year of life affects infant survival.  Employing a fixed effects framework that controls for spatiotemporal confounders and individual-level characteristics, our findings reveal significant and heterogeneous relationships between weather shocks and mortality rates. pecifically, we find that both precipitation and temperature shocks are strongly associated with increased infant mortality, with temperature shocks having a greater impact. Furthermore, we explore potential mechanisms, finding evidence that the impact of extreme weather is amplified for vulnerable populations lacking access to basic infrastructure like food refrigeration and piped water.  These results underscore the disproportionate burden of climate variability on infant health in resource-constrained settings and highlight the urgent need for targeted interventions to build climate resilience and protect the most vulnerable.
+This paper investigates the causal impact of extreme weather shocks on infant mortality across 60 low- and middle-income countries from 1998 to 2021. Leveraging household-level data from the Demographic and Health Surveys (DHS) and high-resolution gridded satellite climatic data from ERA5, we examine how exposure to extreme temperature and precipitation anomalies during pregnancy and the first year of life affects infant survival.  Employing a fixed effects framework that controls for spatiotemporal confounders and individual-level characteristics, our findings reveal significant and heterogeneous relationships between weather shocks and mortality rates. Specifically, we find that both precipitation and temperature shocks are strongly associated with increased infant mortality, with temperature shocks having a greater impact. Furthermore, we explore potential mechanisms, finding evidence that the impact of extreme weather is amplified for vulnerable populations lacking access to basic infrastructure like food refrigeration and piped water.  These results underscore the disproportionate burden of climate variability on infant health in resource-constrained settings and highlight the urgent need for targeted interventions to build climate resilience and protect the most vulnerable.
 \end{abstract}
 
 \newpage
@@ -223,7 +223,7 @@ Overall, the linear model suggests that both temperature and precipitation shock
 \end{figure}
 
 
-% \input{table1}
+\input{Regression Tables (Aug-2025)/linear_dummies_true_spi1_b_avg_stdm_t semester standard_fe standard_sym_main}
 
 \subsection{Spline Estimates}
 
@@ -496,6 +496,16 @@ Table \ref{tab:cell_sizes_sq} further extends this analysis by incorporating qua
 
 
 In summary, these robustness checks provide strong support for our main findings. The results are robust to the inclusion of quadratic time trends, and the estimated effects, including the non-linearities captured by the quadratic terms, remain consistent across different spatial resolutions of the climate data and fixed effects. Further robustness checks, SHOULD WE ADD SOMETHING HERE?, are presented in the Appendix (Tables A3-A5) and consistently support our main conclusions.
+
+
+\begin{table}[t!]
+\centering
+\caption{Absolute Deviations Linear Fixed Effects Regression}
+\label{tab:absdiff}
+\begin{adjustbox}{max width=\linewidth}
+\input{Tables/table_absdif}
+\end{adjustbox}
+\end{table}
 
 
 \section{Simulations}

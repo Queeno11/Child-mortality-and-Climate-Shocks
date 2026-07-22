@@ -1,0 +1,63 @@
+% -----------------------------------------------------------------------
+% TABLE: DHS Variables
+% -----------------------------------------------------------------------
+ 
+\begin{table}[htbp]
+\centering
+\caption{DHS Variables: Construction and Role in Analysis}
+\label{tab:dhs_variables}
+\small
+\begin{tabular}{llll}
+\hline\hline
+\textbf{Variable} & \textbf{DHS Source} & \textbf{Definition} & \textbf{Role} \\
+\hline
+\multicolumn{4}{l}{\textit{Panel A: Mortality Outcomes}} \\[4pt]
+Death indicator       & \texttt{b5}, \texttt{b7} & Child died (=1); age at death in months & Primary outcome \\
+Neonatal death        & \texttt{b7} & Death within 30 days of birth & Outcome window \\
+Death at 1--6 months  & \texttt{b7} & Death between 1 and 6 months & Outcome window \\
+Death at 6--12 months & \texttt{b7} & Death between 6 and 12 months & Outcome window \\
+Death at 12--18 months& \texttt{b7} & Death between 12 and 18 months & Outcome window \\
+Death at 18--24 months& \texttt{b7} & Death between 18 and 24 months & Outcome window \\
+[6pt]
+\multicolumn{4}{l}{\textit{Panel B: Child Characteristics}} \\[4pt]
+Child sex             & \texttt{b4}   & Female (=1)                         & Control \\
+Multiple birth        & \texttt{b0}   & Twin or higher-order birth (=1)     & Control \\
+Birth order           & \texttt{bord} & Ordinal rank among siblings         & Control \\
+Birth date            & \texttt{b3}   & Month and year (from CMC code)      & Climate linkage \\
+[6pt]
+\multicolumn{4}{l}{\textit{Panel C: Maternal Characteristics}} \\[4pt]
+Age at birth          & \texttt{v011}, \texttt{b3} & Mother's age at child's birth (years) & Control (cubic) \\
+Years of education    & \texttt{v133} & Completed years of schooling        & Control (cubic) \\
+Parity                & \texttt{v201} & Total children ever born            & Control \\
+Age at first birth    & \texttt{v212} & Age at first live birth             & Descriptive \\
+Marital status        & \texttt{v501} & Currently married or in union (=1)  & Descriptive \\
+Currently working     & \texttt{v714} & Respondent employed (=1)            & Descriptive \\
+[6pt]
+\multicolumn{4}{l}{\textit{Panel D: Household and Community Characteristics}} \\[4pt]
+Rural residence       & \texttt{v025} & Rural (=1); urban (=0)              & Control \\
+Wealth index          & \texttt{v190} & DHS asset-based quintile (1--5)     & Control; heterogeneity \\
+Electricity access    & \texttt{v119} & Household has electricity (=1)      & Heterogeneity \\
+Piped water           & \texttt{v113} & Piped water as main drinking source (=1) & Heterogeneity \\
+Floor material        & \texttt{v127} & Finished floor (=1)                 & Cold-protection proxy \\
+Wall material         & \texttt{v128} & Finished wall (=1)                  & Cold-protection proxy \\
+Roof material         & \texttt{v129} & Finished roof (=1)                  & Cold-protection proxy \\
+Household size        & \texttt{v136} & Number of household members         & Descriptive \\
+Children under 5      & \texttt{v137} & Number of children under 5 in HH   & Descriptive \\
+Region                & \texttt{v024} & Subnational administrative unit     & Fixed effects \\
+[6pt]
+\multicolumn{4}{l}{\textit{Panel E: Child Anthropometrics (subsample)}} \\[4pt]
+Weight-for-height $z$ & \texttt{hw70} & WHO z-score (wasting)               & Auxiliary outcome \\
+Height-for-age $z$    & \texttt{hw71} & WHO z-score (stunting)              & Auxiliary outcome \\
+Weight-for-age $z$    & \texttt{hw72} & WHO z-score (underweight)           & Auxiliary outcome \\
+\hline\hline
+\multicolumn{4}{p{13cm}}{\footnotesize \textit{Notes:} All variables are drawn from the DHS Individual Recode 
+(IR/BR) files, with household variables merged from the Household Recode (HR) file. 
+The cold-protection proxy is a composite indicator equal to 1 if a household has 
+finished floor, wall, and roof materials, following \textcite{wang2025}. 
+Anthropometric $z$-scores are available for a subsample of children measured at the 
+time of interview and are used in auxiliary analyses only. CMC = Century Month Code, 
+the DHS standard date format.} \\
+\hline
+\end{tabular}
+\end{table}
+ 
