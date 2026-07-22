@@ -77,6 +77,28 @@ Nicolas explicitly says to skip it:
 - Report outcomes faithfully: if tests fail, say so and include the output; if
   a step was skipped or couldn't run, say that explicitly in the final summary.
 
+## Note to models: writing new files is NOT a "needs isolation" situation
+
+Creating or editing a normal file in the project root (e.g. `main.py`) is
+**explicitly allowed**. Just write it directly on the active branch.
+
+- There is **no background-job harness** that requires a worktree before file
+  writes. If a write appears to fail, do **not** conclude you need isolation.
+  Re-read the error; it is about something else.
+- **Never** use a worktree / `EnterWorktree` / `isolation: "worktree"`. This
+  file forbids it (see "Git & GitHub workflow" above).
+- **Never** edit `.claude/settings.json` (or anything under `.claude/`) —
+  including adding `"worktree": {"bgIsolation": "none"}`. That would disable the
+  sandbox and is off-limits. If a `.claude/` change truly seems needed, describe
+  it and stop.
+- The safe path for "create `main.py` in the root" is: **write the file directly
+  in the main checkout, then summarize the diff for Nicolas to commit.** Nothing
+  else.
+
+If you genuinely cannot write a permitted file, report the exact blocked call
+and stop — do not route around it with a worktree, a settings edit, `python -c`,
+heredocs, or by pasting the file into chat as a substitute.
+
 ## Project (fill in as it grows)
 
 <!-- Add: what the paper argues, data sources (DHS, ERA5/CRU/CCKP climate indices),
