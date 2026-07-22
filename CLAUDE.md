@@ -99,6 +99,13 @@ If you genuinely cannot write a permitted file, report the exact blocked call
 and stop — do not route around it with a worktree, a settings edit, `python -c`,
 heredocs, or by pasting the file into chat as a substitute.
 
+## Testing conventions
+
+- **All test files go in the `tests/` folder** (project root), never in the
+  project root itself. Since scripts live in the root, tests must add the root
+  to `sys.path` (e.g. `sys.path.insert(0, str(Path(__file__).parent.parent))`)
+  before importing them.
+
 ## Project (fill in as it grows)
 
 <!-- Add: what the paper argues, data sources (DHS, ERA5/CRU/CCKP climate indices),
