@@ -141,9 +141,9 @@ module CustomModels
 
         println("\rRunning Model: $(model_type) $(stat) $(temp) $(drought_ind) with dummies=$(with_dummies), symbols=$(symbols) ($(drought_ind)), fe=$(fixed_effects) \r")
 
-        outpath = "C:\\Working Papers\\Paper - Child mortality and Climate Shocks\\Outputs\\$(folder)"
-        outtxt = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe $(symbols)_sym.txt" 
-        outtex = "$(outpath)\\$(model_type)_dummies_$(with_dummies)_$(drought_ind)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe $(symbols)_sym.tex"
+        outpath = joinpath(@__DIR__, "Outputs", folder)
+        outtxt = "$(outpath)/$(model_type)_dummies_$(with_dummies)_$(drought_ind)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe $(symbols)_sym.txt"
+        outtex = "$(outpath)/$(model_type)_dummies_$(with_dummies)_$(drought_ind)_$(stat)_$(temp) $(extra) $(fixed_effects)_fe $(symbols)_sym.tex"
         mkpath(outpath)
 
         # Set the symbols that will be used in the regression. If use_hd_symbols is true, use the HD symbols, else use the standard ones.
@@ -634,7 +634,7 @@ module CustomModels
             
             try
                 # Define folder and file suffix for this specific group.
-                folder = "heterogeneity\\$(heterogeneity_var)"
+                folder = "heterogeneity/$(heterogeneity_var)"
                 suffix = " - $(group)$(extra)"
 
                 # Define the filter instruction for this group.

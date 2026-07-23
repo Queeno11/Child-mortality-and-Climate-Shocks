@@ -8,30 +8,30 @@ from tqdm import tqdm
 import pyarrow.feather as feather
 import pyarrow.parquet as pq
 
-# Stata globals → Python Path objects
-PROJECT = r"C:\Working Papers\Paper - Child mortality and Climate Shocks"
-OUTPUTS = rf"{PROJECT}\Outputs"
-DATA = rf"{PROJECT}\Data"
-DATA_IN = rf"{DATA}\Data_in"
-DATA_PROC = rf"{DATA}\Data_proc"
-DATA_OUT = rf"{DATA}\Data_out"
+# Paths come from paths.py / .env
+from paths import OUTPUTS, DATA, DATA_IN, DATA_PROC, DATA_OUT
+
+OUTPUTS = str(OUTPUTS)
+DATA = str(DATA)
+DATA_IN = str(DATA_IN)
+DATA_PROC = str(DATA_PROC)
+DATA_OUT = str(DATA_OUT)
 
 # Make sure output folders exist
 # os.mkdir(parents=True, exist_ok=True)
 
 # ---------- 1.  Country income-group lookup ----------
 print("Loading and merging data...")
-df_iso = pd.read_excel(
-    r"E:\World Bank\Data-Portal-Brief-Generator\Data\Data_Raw\Country codes & metadata\country_classification.xlsx",
-)
+df_iso = pd.read_excel(rf"{DATA_IN}/WB Country Classification/wb_country_classification.xlsx")
 df_iso = df_iso.rename(columns={"wbcode": "code_iso3"})
 
 # ---------- 2.  Read DHS births file & successive merges ----------
+print("Reading DHS births file...", leave=False)
 # 2.1 births + shocks ---------------------------------------------------------
 births = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_07272025.dta")
 births["ID"] = np.arange(len(births))
 print(births.shape[0])
-
+print("Reading climate shocks file...", leave=False)
 parquet_file = pq.ParquetFile(rf"{DATA_PROC}/ClimateShocks_assigned_v11_full.parquet")
 cols = parquet_file.schema.names
 
@@ -43,7 +43,9 @@ for extremes in ["hd35", "hd40", "fd", "id"]:
 columns_to_read = [col for col in cols if col not in cols_to_exclude]# print(cols_to_exclude)
 
 climate = pd.read_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v11_full.parquet", columns=columns_to_read).set_index("ID")
+
 # Cast everything in float64 to float32
+print("Recasting climate shocks to float32...")
 climate_shocks = [
     col for col in climate.columns if col.startswith(("t_", "std_t_", "stdm_t_", "absdif_t_", "absdifm_t_", "spi", "hd35", "hd40", "fd", "id",))
 ]
@@ -61,10 +63,12 @@ print(births.shape[0])
 
 
 # 2.2 add income group --------------------------------------------------------
+print("Merging income group...")
 births = births.merge(df_iso[["code_iso3", "wbincomegroup"]], on="code_iso3", how="inner")
 print(births.shape[0])
 
 # 2.3 add climate bands, south-hemisphere dummy and RWI + Country level indicators ------------------------------
+print("Loading climate bands data...", leave=False)
 bands = pd.read_parquet(
     rf"{DATA_PROC}/DHSBirthsGlobalAnalysis_07272025_climate_bands_assigned.parquet"
 )
@@ -73,7 +77,7 @@ print("Columns in the 'bands' DataFrame:", bands.columns)
 births = births.merge(bands, on="ID_HH", how="inner")
 print(f"Data loaded! Number of observations: {births.shape[0]}")
 print(births.shape[0])
-
+print(" ")
 
 # ---------- 3.  Climate-shock feature engineering ----------
 print("Creating variables...")
@@ -193,7 +197,6 @@ for ind in heterogeneity_indexes:
 births.loc[births["Vulnerability Index"]>=25.02, "high_vulnerability"] = 1
 births.loc[births["Vulnerability Index"]<25.02, "high_vulnerability"] = 0
 
-X|   
 # ---------- 4.  Child age-at-death dummies (per 1 000 births) ----------
 bins_labels = {
     "quarterly": {

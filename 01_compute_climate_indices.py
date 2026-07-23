@@ -8,13 +8,14 @@ if __name__ == "__main__":
     from dask.diagnostics import ProgressBar
     from dask.distributed import Client, LocalCluster
 
-    # Set global variables
-    PROJECT = r"/mnt/c/Working Papers/Paper - Child mortality and Climate Shocks"
-    OUTPUTS = rf"{PROJECT}/Outputs"
-    DATA = rf"{PROJECT}/Data"
-    DATA_IN = rf"{DATA}/Data_in"
-    DATA_PROC = rf"{DATA}/Data_proc"
-    ERA5_DATA = r"/mnt/e/Datasets/ERA5 Reanalysis/monthly-single-levels"
+    # Set global variables (paths come from paths.py / .env)
+    from paths import OUTPUTS, DATA, DATA_IN, DATA_PROC, ERA5_MONTHLY_DIR
+
+    OUTPUTS = str(OUTPUTS)
+    DATA = str(DATA)
+    DATA_IN = str(DATA_IN)
+    DATA_PROC = str(DATA_PROC)
+    ERA5_DATA = str(ERA5_MONTHLY_DIR)
 
     # Filter warnings
     logging.disable(logging.CRITICAL)
@@ -107,7 +108,7 @@ if __name__ == "__main__":
     ########################
     
     # Keeping original logic for SPI as it requires specific calibration periods
-    spi_out = rf"{DATA_PROC}\ERA5_monthly_1991-2021_spi.nc"
+    spi_out = rf"{DATA_PROC}/ERA5_monthly_1991-2021_spi.nc"
     if os.path.exists(spi_out):
         print("SPI already computed!")
         ds_spi_final = xr.open_dataset(spi_out, chunks={"time": 120, "lat": 100, "lon": 100})

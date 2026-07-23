@@ -30,10 +30,13 @@ else:
 
 print(f"--- Running plots with '{timeframe_name}' configuration ---")
 
-DATA_OUT = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_out"
-OUTPUTS = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Outputs"
-OUT_FIGS = rf"{OUTPUTS}\Figures\{spi} {temp} {stat}"
-os.makedirs(rf"{OUT_FIGS}", exist_ok=True)
+from paths import DATA_OUT, DATA_PROC, OUTPUTS
+
+DATA_OUT = str(DATA_OUT)
+DATA_PROC = str(DATA_PROC)
+OUTPUTS = str(OUTPUTS)
+OUT_FIGS = os.path.join(OUTPUTS, "Figures", f"{spi} {temp} {stat}")
+os.makedirs(OUT_FIGS, exist_ok=True)
 
 # ###### Figure 1: Histograms
 # # cols = [
@@ -51,7 +54,7 @@ os.makedirs(rf"{OUT_FIGS}", exist_ok=True)
 # # plot_tools.plot_shocks_histogram(df, cols, outpath=outpath)
 
 ###### Figure 2: Main coefficients dummies true
-file_path = rf"{OUTPUTS}\linear_dummies_true_{spi}_{stat}_{temp} {timeframe_name} standard_fe standard_sym.tex"  # Replace with the actual path to your LaTeX file.
+file_path = rf"{OUTPUTS}/linear_dummies_true_{spi}_{stat}_{temp} {timeframe_name} standard_fe standard_sym.tex"  # Replace with the actual path to your LaTeX file.
 outdata = plot_tools.extract_coefficients_and_CI_latex(file_path)
 plot_tools.plot_regression_coefficients(
     data=outdata, shock="temp", spi=spi, temp=temp, stat=stat,
@@ -644,9 +647,10 @@ stop
 
 ### Mapas
 import xarray as xr
+import utils  # quiet netCDF opening (suppresses libnetcdf 4.9.3 getfattr DAOS-probe noise)
 import matplotlib.pyplot as plt
 
-ds = xr.open_dataset(r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_proc\Climate_shocks_v9d.nc")
+ds = utils.open_dataset(os.path.join(DATA_PROC, "Climate_shocks_v9d.nc"))
 da = ds.stdm_t
 da = da.rolling(dim={"time": 3}, center="left").mean()
 landside = da.isel(time=-5).drop("time").notnull()
@@ -656,13 +660,13 @@ for t in 1.5, 2.5:
     ndays = ndays.where(landside, drop=True) # Mask null values
     ndays.plot(figsize=(10, 5), cmap="Spectral_r")
     plt.title(f"Share of months with Monthly Temperature Anomalies >{t} SD (1991-2021)")
-    plt.savefig(rf"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Outputs\Figures\stdm_t_{t}.png", bbox_inches="tight", dpi=450)
+    plt.savefig(os.path.join(OUTPUTS, "Figures", f"stdm_t_{t}.png"), bbox_inches="tight", dpi=450)
     
     ndays = (da < -t).sum(dim="time") / ((2021-1991)*12)
     ndays = ndays.where(landside, drop=True) # Mask null values
     ndays.plot(figsize=(10, 5), cmap="Spectral_r")
     plt.title(f"Share of months with Monthly Temperature Anomalies <-{t} SD (1991-2021)")
-    plt.savefig(rf"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Outputs\Figures\stdm_t_-{t}.png", bbox_inches="tight", dpi=450)
+    plt.savefig(os.path.join(OUTPUTS, "Figures", f"stdm_t_-{t}.png"), bbox_inches="tight", dpi=450)
     
 ### Distribuciones
 # import seaborn as sns

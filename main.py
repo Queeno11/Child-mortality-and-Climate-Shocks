@@ -22,8 +22,8 @@ PROJECT_DIR = Path(__file__).parent.resolve()
 # Ordered list of scripts to run. Julia scripts are run with `julia --project=.`
 # so they pick up the Project.toml environment in the project root.
 PIPELINE = [
-    "02_assign_shocks_to_DHS.py",
-    "02b_assign_climatic_bands.py",
+    # "02_assign_shocks_to_DHS.py",
+    # "02b_assign_climatic_bands.py",
     "03_merge_climate_and_DHS.py",
     "04_regressions.jl",
     "06_charts.py",

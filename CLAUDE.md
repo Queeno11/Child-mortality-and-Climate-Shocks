@@ -82,15 +82,24 @@ Nicolas explicitly says to skip it:
 Creating or editing a normal file in the project root (e.g. `main.py`) is
 **explicitly allowed**. Just write it directly on the active branch.
 
-- There is **no background-job harness** that requires a worktree before file
-  writes. If a write appears to fail, do **not** conclude you need isolation.
-  Re-read the error; it is about something else.
+- Most writes (foreground sessions) need no isolation — if a normal write fails,
+  re-read the error before assuming you need a worktree. **But** some Claude Code
+  sessions do run as **background sessions** that require a git worktree before
+  any edit ("This background session hasn't isolated its changes yet — call
+  EnterWorktree first"). If you hit that: do **not** call `EnterWorktree`
+  (worktrees land under the protected `.claude/` and are blocked) and do **not**
+  edit `.claude/` yourself. Report it to Nicolas — the fix is his: either run the
+  request in a foreground session, or set `"worktree": { "bgIsolation": "none" }`
+  in `.claude/settings.json`.
 - **Never** use a worktree / `EnterWorktree` / `isolation: "worktree"`. This
   file forbids it (see "Git & GitHub workflow" above).
-- **Never** edit `.claude/settings.json` (or anything under `.claude/`) —
-  including adding `"worktree": {"bgIsolation": "none"}`. That would disable the
-  sandbox and is off-limits. If a `.claude/` change truly seems needed, describe
-  it and stop.
+- **Never** edit `.claude/settings.json` (or anything under `.claude/`) yourself
+  — that is Nicolas's to change. For accuracy: adding
+  `"worktree": {"bgIsolation": "none"}` does **not** disable the sandbox. The
+  OS-level `denyWrite`, `permissions.deny`, and `guard-edits.sh` all stay
+  enforced; it only lets background sessions write to the shared checkout instead
+  of requiring a worktree. It is still off-limits for *you* to add — describe the
+  change and let Nicolas make it.
 - The safe path for "create `main.py` in the root" is: **write the file directly
   in the main checkout, then summarize the diff for Nicolas to commit.** Nothing
   else.

@@ -1,4 +1,4 @@
-include("C:\\Working Papers\\Paper - Child mortality and Climate Shocks\\CustomModels.jl")
+include(joinpath(@__DIR__, "CustomModels.jl"))
 
 using .CustomModels
 using DataFrames, RDatasets, RegressionTables, FixedEffectModels, ProgressMeter, StatFiles, Arrow
@@ -12,7 +12,7 @@ controls3 = [:child_fem, :child_mulbirth, :birth_order, :rural, :mother_ageb, :m
 controls4 = [:child_fem, :child_mulbirth, :birth_order, :rural, :rwi, :mother_ageb, :mother_ageb_squ, :mother_ageb_cub, :mother_eduy, :mother_eduy_squ, :mother_eduy_cub]
 controls = term.(controls2) # controls3, controls1
 
-path = "C:\\Working Papers\\Paper - Child Mortality and Climate Shocks\\Data\\Data_out\\DHSBirthsGlobal&ClimateShocks_v11_full.feather"
+path = joinpath(@__DIR__, "Data", "Data_out", "DHSBirthsGlobal&ClimateShocks_v11_full.feather")
 tbl = Arrow.Table(path)
 df_lazy = DataFrame(tbl)
 

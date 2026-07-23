@@ -38,3 +38,8 @@
 Outputs/*
 *.jpg
 !overleaf_source.zip
+
+# Machine-specific paths (keep .env.example, ignore the real .env)
+.env
+!.env.example
+Data/Data_out/DHSBirthsGlobal&ClimateShocks - v1 to v9c.7z

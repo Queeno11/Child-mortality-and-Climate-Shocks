@@ -52,6 +52,7 @@ dependencies:
   - ipython=9.5.0
   - line_profiler
   - openpyxl=3.1.5           # the .xlsx outputs
+  - python-dotenv=1.0.1      # load paths from .env (paths.py)
 
   # --- Julia binary so the whole project installs from one manager ---
   - julia

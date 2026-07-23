@@ -3,7 +3,9 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-OUTPUTS = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Outputs"
+from paths import OUTPUTS as _OUTPUTS
+
+OUTPUTS = str(_OUTPUTS)
 
 # --- Derived Configurations for Specific Plots ---
 SEMESTER_CONFIG = {
@@ -330,7 +332,7 @@ def extract_coefficients_and_CI_latex_heterogeneity(heterogeneity, shock, spi, t
       dict : A dictionary containing the extracted coefficients and confidence intervals.
     """
     f_name = f"linear_dummies_true_{spi}_{stat}_{temp} {timeframe} -"
-    folder = rf"{OUTPUTS}\heterogeneity\{heterogeneity}"
+    folder = rf"{OUTPUTS}/heterogeneity/{heterogeneity}"
     assert os.path.exists(folder), f"{folder} does not exist!"
     files = os.listdir(folder)
     assert len(files)>0, f"No files in folder! {folder}"
@@ -342,7 +344,7 @@ def extract_coefficients_and_CI_latex_heterogeneity(heterogeneity, shock, spi, t
     plotdata = {}
     for i, band in enumerate(bands):
 
-        file_path = rf"{OUTPUTS}\heterogeneity\\{heterogeneity}\{files[i]}"
+        file_path = rf"{OUTPUTS}/heterogeneity/{heterogeneity}/{files[i]}"
         assert os.path.exists(file_path), f"{file_path} does not exist!"
         n = extract_sample_size(file_path)
         if n < 100_000:
@@ -385,7 +387,7 @@ def extract_coefficients_and_CI_latex_stat_windows(shock, spi, temp, stat):
     plotdata = {}
     for i, window in enumerate(windows):
 
-        file_path = rf"{OUTPUTS}\{files[i]}"
+        file_path = rf"{OUTPUTS}/{files[i]}"
         assert os.path.exists(file_path), f"{file_path} does not exist!"
         outdata = extract_coefficients_and_CI_latex(file_path)
 
@@ -477,7 +479,7 @@ def plot_regression_coefficients(
     fig.tight_layout(rect=[0, 0.08, 1, 1])
     plt.legend(**legend_pos, frameon=False)
     os.makedirs(outpath, exist_ok=True)
-    filename = fr"{outpath}\{start}{shock}_coefficients_{spi}_{stat}_{temp}{extra}.png"
+    filename = fr"{outpath}/{start}{shock}_coefficients_{spi}_{stat}_{temp}{extra}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Se creó la figura ", filename)
     plt.close()
@@ -552,7 +554,7 @@ def plot_horserace_temp(
 
     fig.tight_layout(rect=[0, 0.08, 1, 1])
     plt.legend(**legend_pos, frameon=False)
-    filename = fr"{outpath}\horserace - {start}temp_coefficients_{spi}_{stat}_{temp}{extra}.png"
+    filename = fr"{outpath}/horserace - {start}temp_coefficients_{spi}_{stat}_{temp}{extra}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Se creó la figura ", filename)
     plt.close()
@@ -613,7 +615,7 @@ def plot_spline_coefficients(
 
     fig.tight_layout(rect=[0, 0.1, 1, 1])
     plt.legend(**legend_pos, frameon=False)
-    filename = fr"{outpath}\{shock}_spline_coefficients_{spi}_{stat}_{temp}.png"
+    filename = fr"{outpath}/{shock}_spline_coefficients_{spi}_{stat}_{temp}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Se creó la figura ", filename)
     plt.close()
@@ -682,7 +684,7 @@ def plot_heterogeneity(
 
             fig.tight_layout(rect=[0, 0.1, 1, 1])
             plt.legend(**legend_pos, frameon=False)
-            filename = fr"{outpath}\heterogeneity {heterogeneity} - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
+            filename = fr"{outpath}/heterogeneity {heterogeneity} - {shock}{sign}_coefficients_{spi}_{stat}_{temp}.png"
             plt.savefig(filename, dpi=300, bbox_inches='tight')
             print("Se creó la figura ", filename)
     plt.close()
@@ -746,7 +748,7 @@ def plot_windows(
             if ylim: ax.set_ylim(ylim)
 
     fig.tight_layout()
-    filename = fr"{outpath}\windows - 1m coefficients_{spi}_{stat}_{temp}.png"
+    filename = fr"{outpath}/windows - 1m coefficients_{spi}_{stat}_{temp}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Se creó la figura ", filename)
     plt.close()

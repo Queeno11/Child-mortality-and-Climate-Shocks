@@ -2,6 +2,7 @@ import os
 import gc
 import logging
 import xarray as xr
+import utils  # quiet netCDF opening (suppresses libnetcdf 4.9.3 getfattr DAOS-probe noise)
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -14,19 +15,20 @@ if __name__ == "__main__":
     pd.options.mode.chained_assignment = None  # default='warn'
     logging.getLogger("distributed").setLevel(logging.WARNING)
 
-    # Set global variables
-    PROJECT = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks"
-    OUTPUTS = rf"{PROJECT}\Outputs"
-    DATA = rf"{PROJECT}\Data"
-    DATA_IN = rf"{DATA}\Data_in"
-    DATA_PROC = rf"{DATA}\Data_proc"
-    DATA_OUT = rf"{DATA}\Data_out"
+    # Set global variables (paths come from paths.py / .env)
+    from paths import OUTPUTS, DATA, DATA_IN, DATA_PROC, DATA_OUT
+
+    OUTPUTS = str(OUTPUTS)
+    DATA = str(DATA)
+    DATA_IN = str(DATA_IN)
+    DATA_PROC = str(DATA_PROC)
+    DATA_OUT = str(DATA_OUT)
 
     ### Load data #############
     print("Loading data...")
 
     ### CLIMATE DATA
-    climate_data = xr.open_dataset(rf"{DATA_OUT}/Climate_shocks_v11.nc")
+    climate_data = utils.open_dataset(rf"{DATA_OUT}/Climate_shocks_v11.nc")
         
     ### DHS DATA
     full_dhs = pd.read_stata(rf"{DATA_IN}/DHS/DHSBirthsGlobalAnalysis_07272025.dta")
@@ -415,7 +417,7 @@ if __name__ == "__main__":
     ]
     shock_cols = [col for col in all_shock_cols if col in df.columns]
     # df = df.dropna(subset=shock_cols, how="any")
-    df.to_parquet(rf"{DATA_PROC}\ClimateShocks_assigned_v11_full.parquet")
+    df.to_parquet(rf"{DATA_PROC}/ClimateShocks_assigned_v11_full.parquet")
 
     # float16_cols = df.select_dtypes(include=["float16"]).columns
     # if len(float16_cols) > 0:

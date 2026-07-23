@@ -2,7 +2,9 @@ import os
 import cdsapi
 from tqdm import tqdm
 
-folder = "/mnt/d/Datasets/ERA5 Reanalysis/monthly-single-levels"
+from paths import ERA5_MONTHLY_DIR
+
+folder = str(ERA5_MONTHLY_DIR)
 downloaded = os.listdir(folder)
 try:
     downloaded = [int(x.split("_")[1].split(".")[0]) for x in downloaded]

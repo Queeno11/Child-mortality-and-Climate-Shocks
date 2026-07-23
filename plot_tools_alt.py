@@ -4,7 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
-OUTPUTS = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Outputs"
+from paths import OUTPUTS as _OUTPUTS
+
+OUTPUTS = str(_OUTPUTS)
 
 # =============================================================================
 # --- CONFIGURATIONS FOR "BY MODEL" PLOTTING (Unchanged) ---

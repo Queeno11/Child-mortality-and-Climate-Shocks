@@ -6,9 +6,11 @@ import geopandas as gpd
 from geocube.vector import vectorize
 import matplotlib.pyplot as plt
 
+from paths import DATA_IN, DATA_PROC, DATA_OUT, CLIMATE_BANDS
+
 print("Cargando y procesando bases...")
 ##### CLIMATIC BANDS #####
-da = xr.open_dataset(r"E:\Datasets\Köppen-Geiger Climate Classification\KG_1986-2010.grd", engine="rasterio").band_data.sel(band=1)
+da = xr.open_dataset(str(CLIMATE_BANDS), engine="rasterio").band_data.sel(band=1)
 
 # To geopandas
 gdf = vectorize(da)
@@ -55,14 +57,14 @@ gdf['climate_band_1'] = gdf['climate_band_3'].str[0].map(labels_1)
 # Show
 for band in ["climate_band_1", "climate_band_2", "climate_band_3"]:
     f = gdf.plot(column=band, legend=True)
-    plt.savefig(fr"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_out\{band}.png", dpi=300)
-    print(f"Se creó la figura Data_out\{band}")
+    plt.savefig(os.path.join(str(DATA_OUT), f"{band}.png"), dpi=300)
+    print(f"Se creó la figura Data_out/{band}")
 
 gdf = gdf[['geometry', 'climate_band_3', 'climate_band_2', 'climate_band_1']]
 
 ##### META SPATIAL RELATIVE WEALTH INDEX #####
 
-path = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_in\relative-wealth-index-april-2021"
+path = os.path.join(str(DATA_IN), "relative-wealth-index-april-2021")
 files = os.listdir(path)
 
 dfs = []
@@ -81,12 +83,12 @@ dfs = None
 df = None
 
 ##### ND Gain Index #####
-gain = pd.read_csv(r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_in\ND Gain Index 2025\resources\gain\gain.csv")
+gain = pd.read_csv(os.path.join(str(DATA_IN), "ND Gain Index 2025", "resources", "gain", "gain.csv"))
 gain = gain.rename(columns={"ISO3": "code_iso3", "2023": "ND Gain Index 2023"}) 
 gain = gain[["code_iso3", "ND Gain Index 2023"]]
 
 ##### World Risk Index #####
-wri = pd.read_excel(r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_in\worldriskindex-2024.xlsx")
+wri = pd.read_excel(os.path.join(str(DATA_IN), "worldriskindex-2024.xlsx"))
 wri = wri.rename(columns={
     "ISO3.Code": "code_iso3",
     "W": "World Risk Index",
@@ -100,7 +102,7 @@ wri = wri[["code_iso3", "World Risk Index", "Vulnerability Index", "Exposure Ind
 ##### LOAD DHS DATA #####
     
 print("Procesando base de DHS... Esto puede tardar unos minutos")
-df = pd.read_stata(r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_in\DHS\DHSBirthsGlobalAnalysis_07272025.dta")
+df = pd.read_stata(os.path.join(str(DATA_IN), "DHS", "DHSBirthsGlobalAnalysis_07272025.dta"))
 gdf_dhs = df[["code_iso3", "ID_HH","LATNUM","LONGNUM"]].drop_duplicates(subset="ID_HH")
 gdf_dhs = gpd.GeoDataFrame(gdf_dhs, geometry=gpd.points_from_xy(gdf_dhs["LONGNUM"], gdf_dhs["LATNUM"]))
 
@@ -126,7 +128,7 @@ gdf_dhs["southern"] = (gdf_dhs["LATNUM"]<0)
 
 ##### EXPORT #####
 print("Exportando archivo...")
-outpath = r"C:\Working Papers\Paper - Child Mortality and Climate Shocks\Data\Data_proc\DHSBirthsGlobalAnalysis_07272025_climate_bands_assigned.parquet"
+outpath = os.path.join(str(DATA_PROC), "DHSBirthsGlobalAnalysis_07272025_climate_bands_assigned.parquet")
 gdf_dhs = gdf_dhs.drop_duplicates("ID_HH")
 gdf_dhs.drop(columns=["LATNUM", "LONGNUM", "code_iso3"]).to_parquet(outpath)
 print(f"Se creó el archivo {outpath}")
